@@ -1,0 +1,194 @@
+/* Base Styles */
+body { font-family: 'Noto Sans KR', sans-serif; background-color: #2d2d2d; color: #cccccc; }
+.view { display: none; }
+.view.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.font-title { font-family: 'Black Han Sans', sans-serif; }
+
+/* Main Page Background Container */
+#pokedex-view-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 700px; 
+    background-image: url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/public/main_bg_top.png?quality=80');
+    background-size: cover;
+    background-position: center top;
+    background-repeat: no-repeat;
+    z-index: -1;
+    opacity: 0.5;
+}
+#pokedex-bg-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+#pokedex-view .max-w-7xl {
+    position: relative;
+    z-index: 1;
+}
+/* Mobile background fix */
+@media (max-width: 768px) {
+    #pokedex-view-background {
+        height: 60vh;
+    }
+}
+
+
+/* Card Styles */
+.pokedex-card { background: #393939; border-left-width: 8px; transition: all 0.3s ease-in-out; cursor: pointer; position: relative; overflow: hidden; border-color: #515151; }
+.pokedex-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+.stat-bar-bg { background-color: #515151; border-radius: 999px; }
+.stat-bar { transition: width 0.8s ease-out; border-radius: 999px; }
+.rank-display { position: absolute; bottom: 8px; right: 8px; background-color: rgba(0,0,0,0.7); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; }
+
+/* Type & Universe Badges */
+.type-badge { padding: 4px 12px; border-radius: 12px; font-weight: 700; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.type-Normal { background-color: #A8A77A; } .type-Fire { background-color: #EE8130; }
+.type-Water { background-color: #6390F0; } .type-Electric { background-color: #F7D02C; }
+.type-Grass { background-color: #7AC74C; } .type-Ice { background-color: #96D9D6; }
+.type-Fighting { background-color: #C22E28; } .type-Poison { background-color: #A33EA1; }
+.type-Ground { background-color: #E2BF65; } .type-Flying { background-color: #A98FF3; }
+.type-Psychic { background-color: #F95587; } .type-Bug { background-color: #A6B91A; }
+.type-Rock { background-color: #B6A136; } .type-Ghost { background-color: #735797; }
+.type-Dragon { background-color: #6F35FC; } .type-Darkness { background-color: #705746; }
+.type-Steel { background-color: #B7B7CE; } .type-Fairy { background-color: #D685AD; }
+.type-Light { background: linear-gradient(45deg, #FFFDE4, #F9E79F); color: #B48A00; text-shadow: 0 0 2px white; }
+
+.universe-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 8px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.universe-감성의_숲 { background-color: #4CAF50; color: white; }
+.universe-악몽의_저택 { background-color: #4b0082; color: #e0e0e0; }
+.universe-사이버_펑크 { background: linear-gradient(45deg, #00BCD4, #F06292); color: white; }
+.universe-판타지_왕국 { background: linear-gradient(45deg, #FFD54F, #FF7043); color: white; }
+.universe-수정_동굴 { background: linear-gradient(45deg, #673AB7, #E040FB); color: white; }
+
+
+/* Rarity Styles */
+.rarity-badge { padding: 4px 12px; border-radius: 12px; font-weight: 900; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+.rarity-일반 { background-color: #B0BEC5; } .rarity-희귀 { background-color: #42A5F5; }
+.rarity-에픽 { background-color: #AB47BC; } .rarity-전설 { background: linear-gradient(45deg, #FFEE58, #F57F17); text-shadow: 0 0 2px black; }
+.rarity-고대 { background: linear-gradient(45deg, #4DB6AC, #004D40); text-shadow: 0 0 2px black; }
+.rarity-신화 { background: linear-gradient(45deg, #FF7043, #D84315, #BF360C); text-shadow: 0 0 2px black; }
+
+.card-border-일반 { border-color: #B0BEC5; } .card-border-희귀 { border-color: #42A5F5; }
+.card-border-에픽 { border-color: #AB47BC; } .card-border-전설 { border-color: #F57F17; }
+.card-border-고대 { border-color: #004D40; } .card-border-신화 { border-color: #BF360C; }
+
+/* Special Rarity Card Effects */
+@keyframes glow-legendary { 0% { box-shadow: 0 0 5px #F57F17, 0 0 10px #F57F17, 0 0 15px #FFEE58; } 50% { box-shadow: 0 0 10px #FFEE58, 0 0 20px #FFEE58, 0 0 30px #F57F17; } 100% { box-shadow: 0 0 5px #F57F17, 0 0 10px #F57F17, 0 0 15px #FFEE58; } }
+.card-rarity-전설 { animation: glow-legendary 5s ease-in-out infinite; }
+@keyframes glow-ancient { 0% { box-shadow: 0 0 5px #4DB6AC, 0 0 10px #4DB6AC, 0 0 15px #004D40; } 50% { box-shadow: 0 0 10px #80CBC4, 0 0 20px #80CBC4, 0 0 30px #4DB6AC; } 100% { box-shadow: 0 0 5px #4DB6AC, 0 0 10px #4DB6AC, 0 0 15px #004D40; } }
+.card-rarity-고대 { animation: glow-ancient 4s ease-in-out infinite; }
+@keyframes glow-mythical { 0% { box-shadow: 0 0 5px #FF7043, 0 0 10px #FF7043, 0 0 15px #BF360C; } 50% { box-shadow: 0 0 10px #FFCC80, 0 0 20px #FFCC80, 0 0 30px #FF7043; } 100% { box-shadow: 0 0 5px #FF7043, 0 0 10px #FF7043, 0 0 15px #BF360C; } }
+.card-rarity-신화 { animation: glow-mythical 3s ease-in-out infinite; }
+@keyframes pulse-rare { 0%, 100% { box-shadow: 0 0 4px #42A5F5; } 50% { box-shadow: 0 0 12px #42A5F5; } }
+.card-rarity-희귀 { animation: pulse-rare 3s ease-in-out infinite; }
+
+/* NEW: Shimmer Effect for High-Rarity Cards */
+.shimmer-effect::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(110deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0) 60%);
+    transform: rotate(30deg);
+    animation: shimmer 5s infinite;
+    pointer-events: none;
+}
+@keyframes shimmer {
+    0% { transform: translate(-100%, -100%) rotate(30deg); }
+    100% { transform: translate(100%, 100%) rotate(30deg); }
+}
+
+.rank-1 { box-shadow: 0 0 15px gold, 0 0 5px gold inset; border-color: gold; }
+.rank-2 { box-shadow: 0 0 15px silver, 0 0 5px silver inset; border-color: silver; }
+.rank-3 { box-shadow: 0 0 15px #CD7F32, 0 0 5px #CD7F32 inset; border-color: #CD7F32; }
+
+/* Status & Rarity Icons */
+.icon-container { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 3; }
+.status-icon, .rarity-star-icon { width: 24px; height: 24px; }
+@keyframes pulse { 0% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 0.7; } }
+.status-icon svg { animation: pulse 2s infinite; filter: drop-shadow(0 0 3px rgba(171, 71, 188, 0.8)); }
+.rarity-star-icon svg { filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.8)); }
+
+/* Battle Arena Styles */
+#battle-arena-view { position: relative; overflow: hidden; min-height: 100vh; }
+#battle-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+.battle-ui-overlay { position: relative; z-index: 2; pointer-events: none; }
+.battle-ui-overlay > * { pointer-events: all; }
+
+.hp-bar-inner { transition: width 0.5s ease-in-out; }
+#battle-log { height: 150px; backdrop-filter: blur(5px); }
+.log-damage { color: #ffdddd; } .log-crit { color: #fffa65; font-weight: bold; }
+.log-super-effective { color: #a3ffb4; font-weight: bold; }
+.log-not-effective { color: #d1d1d1; } .log-no-effect { color: #999999; }
+.log-turn { color: #82ccdd; } .log-win { color: #f7b731; font-size: 1.25rem; font-weight: bold; text-shadow: 0 0 5px black; }
+.log-rank { color: #eab308; font-style: italic; }
+.log-status-poison { color: #ce93d8; font-style: italic; }
+.log-status-paralysis { color: #fff176; font-style: italic; }
+.log-status-sleep { color: #90a4ae; font-style: italic; }
+.log-heal { color: #a3ffb4; font-style: italic; }
+.log-buff { color: #81d4fa; font-style: italic; }
+.log-debuff { color: #ffab91; font-style: italic; }
+.log-shield { color: #b3e5fc; font-style: italic; }
+.log-ability { color: #f48fb1; font-weight: bold; text-shadow: 0 0 3px black; }
+.log-desperate { color: #ff8a80; font-weight: bold; text-shadow: 0 0 5px black; }
+
+#battle-effects-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; }
+.impact-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Black Han Sans', sans-serif; text-shadow: 3px 3px 5px rgba(0,0,0,0.5); animation: impact-pop 1s ease-out forwards; }
+.impact-text.crit { color: #fffa65; }
+.impact-text.super-effective { color: #a3ffb4; }
+@keyframes impact-pop { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 80% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+
+.battle-moves-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.battle-move-item { background-color: rgba(0,0,0,0.5); padding: 4px; border-radius: 4px; font-size: 0.7rem; text-align: center; transition: all 0.2s ease; cursor: pointer; }
+.battle-move-item:hover { background-color: rgba(255,255,255,0.1); }
+@keyframes skill-use-glow { 0%, 100% { transform: scale(1); box-shadow: 0 0 0px #fff; } 50% { transform: scale(1.1); box-shadow: 0 0 15px #fff; } }
+.skill-use-animation { animation: skill-use-glow 0.5s ease-in-out; }
+
+/* General UI Components */
+.loader { border: 8px solid #f3f3f3; border-radius: 50%; border-top: 8px solid #3498db; width: 60px; height: 60px; animation: spin 1s linear infinite; }
+.loader-small { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.filter-btn { padding: 8px 16px; border-radius: 8px; font-weight: bold; transition: all 0.2s; }
+.filter-btn.active { background-color: #8abeb7; color: white; }
+.filter-btn:not(.active) { background-color: #515151; color: #cccccc; }
+
+/* Modal Styles */
+.modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.3s; }
+.modal-content { background: #393939; color: #cccccc; padding: 1.5rem; border-radius: 1rem; max-width: 90vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+.type-chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 0.5rem; }
+.type-chart-cell { text-align: center; padding: 0.5rem; border-radius: 0.5rem; }
+
+/* Ranking Podium */
+.podium { display: flex; justify-content: center; align-items: flex-end; gap: 1rem; min-height: 250px; }
+.podium-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.podium-2 { order: 1; }
+.podium-1 { order: 2; }
+.podium-3 { order: 3; }
+.podium-img { border-radius: 50%; object-fit: cover; border: 4px solid; cursor: pointer; }
+.podium-1 .podium-img { width: 120px; height: 120px; border-color: #FFD700; }
+.podium-2 .podium-img { width: 100px; height: 100px; border-color: #C0C0C0; }
+.podium-3 .podium-img { width: 80px; height: 80px; border-color: #CD7F32; }
+.podium-base { color: white; font-weight: bold; padding: 0.5rem 1rem; border-radius: 0.5rem 0.5rem 0 0; }
+.podium-1 .podium-base { background-color: #FFD700; width: 100%; min-height: 100px; }
+.podium-2 .podium-base { background-color: #C0C0C0; width: 100%; min-height: 75px; }
+.podium-3 .podium-base { background-color: #CD7F32; width: 100%; min-height: 50px; }
+
+/* Rank Badge Styles */
+.rank-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: bold; border: 2px solid; }
+.badge-gold { background: linear-gradient(45deg, #FFD700, #FBB034); color: #4A2E00; border-color: #FEE101; box-shadow: 0 0 10px #FBB034; }
+.badge-silver { background: linear-gradient(45deg, #E0E0E0, #BDBDBD); color: #333; border-color: #F5F5F5; box-shadow: 0 0 10px #BDBDBD; }
+.badge-bronze { background: linear-gradient(45deg, #CD7F32, #A0522D); color: white; border-color: #D2691E; box-shadow: 0 0 10px #A0522D; }
+.badge-iron { background-color: #757575; color: white; border-color: #9E9E9E; }
+.badge-stone { background-color: #B0BEC5; color: #263238; border-color: #CFD8DC; }
+.badge-wood { background-color: #8D6E63; color: white; border-color: #A1887F; }
+
+
