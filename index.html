@@ -2,131 +2,675 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>몬배틀 헌터즈 (MonBattle Hunters)</title>
-    
-    <!-- External CSS -->
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Tailwind CSS, Tone.js, Supabase, Three.js -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>시련의 탑</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold-color: #D4AF37;
+            --dark-bg: #1a1a2e;
+            --panel-bg: rgba(12, 12, 22, 0.85);
+            --border-color: #4a4a68;
+            --border-gold-gradient: linear-gradient(to bottom, #E6C66E, #A38A00);
+        }
+        /* --- 기본 설정 및 애니메이션 --- */
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--dark-bg); color: #e0e0e0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .hidden { display: none !important; }
+        .fade-in { animation: fade-in 0.5s ease-out forwards; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slow-pan { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes title-glow { 0%, 100% { text-shadow: 0 0 10px #fff, 0 0 20px var(--gold-color), 0 0 30px var(--gold-color); } 50% { text-shadow: 0 0 20px #fff, 0 0 40px var(--gold-color), 0 0 50px var(--gold-color); } }
+        @keyframes subtitle-fade { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+        @keyframes take-damage-anim { 0%,100%{filter:brightness(1)} 50%{filter:brightness(3) contrast(2)} }
+        .take-damage { animation: take-damage-anim 0.3s; }
+        @keyframes attack-forward { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,-10px) scale(1.1)} }
+        .player.attack { animation: attack-forward 0.4s; }
+        .enemy.attack { animation: attack-forward 0.4s; animation-name: attack-backward; }
+        @keyframes attack-backward { 0%,100%{transform:translate(0,0) scaleX(-1)} 50%{transform:translate(-20px,-10px) scale(1.1) scaleX(-1)} }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* --- 화면 구성 --- */
+        .game-screen, .modal-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .overlay { background-color: rgba(0,0,0,0.7); backdrop-filter: blur(10px); }
+        #title-screen { text-align: center; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png'); background-size: cover; animation: slow-pan 20s linear infinite; }
+        #title-screen h1 { animation: title-glow 3s ease-in-out infinite; }
+        #title-screen h2 { text-shadow: 0 0 5px #fff; animation: subtitle-fade 4s ease-in-out infinite; }
+        #loading-screen .spinner { width: 60px; height: 60px; border: 5px solid var(--border-color); border-top-color: var(--gold-color); border-radius: 50%; animation: spin 1s linear infinite; }
+
+        /* --- 직업 & 스킬 선택 화면 --- */
+        .class-card, .skill-card { background: var(--panel-bg); border: 2px solid var(--border-color); transition: all 0.3s; cursor: pointer; position: relative; overflow: hidden; }
+        .class-card:hover, .skill-card:hover { transform: scale(1.05); border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); }
+        .skill-card.selected { border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); transform: scale(1.05); }
+        .class-card { width: 200px; height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .class-card svg { width: 80px; height: 80px; margin-bottom: 1rem; color: var(--gold-color); }
+        .class-card h3 { font-family: 'Cinzel', serif; font-size: 1.5rem; color: var(--gold-color); }
+        .class-card p { font-size: 0.8rem; color: #ccc; text-align: center; padding: 0 1rem; }
+        #starter-skills-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; width: 100%; max-width: 800px; margin-bottom: 2rem; }
+        .skill-card { padding: 1rem; text-align: center; }
+        .skill-card svg { width: 40px; height: 40px; margin: 0 auto 0.5rem; }
+        .skill-card h4 { font-size: 0.9rem; font-weight: bold; }
+        .skill-card p { font-size: 0.75rem; color: #bbb; }
+
+        /* --- 공용 버튼 --- */
+        .game-button { font-family: 'Cinzel', serif; background: linear-gradient(145deg, #3a3a5e, #2a2a4e); border: 2px solid var(--border-color); padding: 0.75rem 2rem; font-size: 1.25rem; color: var(--gold-color); text-shadow: 0 0 10px var(--gold-color); transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .game-button:hover:not(:disabled) { transform: scale(1.05); border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); }
+        .game-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- 전투 UI (고풍스럽게) --- */
+        .battle-scene { background-size: cover; background-position: center; width: 100vw; height: 100vh; position: relative; transition: background-image 0.5s ease-in-out; }
+        .character { position: absolute; bottom: 20%; width: 28%; max-width: 300px; transition: transform 0.2s; }
+        .player { left: 10%; }
+        .enemy { right: 10%; transform: scaleX(-1); }
+        .character img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8)); }
+        
+        .ui-panel { position: absolute; width: 25%; max-width: 320px; background: var(--panel-bg); border: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.75rem; backdrop-filter: blur(5px); }
+        .player-ui { top: 2%; left: 1%; }
+        .enemy-ui { top: 2%; right: 1%; }
+        .bar-container { background-color: #1f1f3d; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); padding: 1px; }
+        .bar { transition: width 0.5s; border-radius: 2px; }
+        .hp-bar { height: 14px; background: linear-gradient(to right, #4ade80, #16a34a); }
+        .mp-bar { height: 10px; background: linear-gradient(to right, #60a5fa, #2563eb); }
+        .xp-bar { height: 6px; background: linear-gradient(to right, #8b5cf6, #6d28d9); }
+        .hp-text, .mp-text { font-size: 0.8rem; font-family: monospace; }
+        
+        /* 컨트롤 UI 재구성 */
+        .controls { position: absolute; bottom: 1%; left: 50%; transform: translateX(-50%); width: auto; display: flex; align-items: flex-end; gap: 0.5rem; }
+        .menu-buttons { display: flex; gap: 0.5rem; }
+        .menu-btn { background: linear-gradient(145deg, #2a2a4e, #1a1a2e); border: 1px solid var(--border-color); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 50%; }
+        .menu-btn:hover { border-color: var(--gold-color); transform: translateY(-2px); }
+        .menu-btn svg { width: 24px; height: 24px; color: var(--gold-color); }
+        
+        .skills-container { display: flex; align-items: center; gap: 0.5rem; background: var(--panel-bg); border-top: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.5rem; border-radius: 1rem 1rem 0 0; }
+        .skill-btn { background: #1f1f3d; border: 1px solid var(--border-color); transition: all 0.2s; width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+        .skill-btn:hover:not(:disabled) { border-color: var(--gold-color); transform: scale(1.1); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+        .skill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .skill-btn svg { width: 28px; height: 28px; }
+        
+        /* 로그 창 최소화 */
+        .log-panel { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); width: 40%; max-width: 500px; height: 30px; background: rgba(12, 12, 22, 0.7); border: 1px solid var(--border-color); overflow: hidden; font-size: 0.8rem; border-radius: 15px; transition: height 0.3s; }
+        .log-panel:hover { height: 120px; }
+        #log-messages-container { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+        
+        /* --- 모달 --- */
+        .modal-content { background: var(--panel-bg); border: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 1.5rem; width: 90%; max-width: 600px; max-height: 85vh; overflow-y: auto; }
+        .stat-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 1rem; align-items: center; }
+        .plus-btn { background: var(--gold-color); color: black; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; }
+        
+        /* --- 스킬 트리 (수직) --- */
+        #skill-tree-display { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+        .skill-tier { display: flex; justify-content: center; gap: 1rem; width: 100%; position: relative; }
+        .skill-tier::after { content: ''; position: absolute; bottom: -1rem; left: 50%; transform: translateX(-50%); width: 2px; height: 1rem; background-color: var(--border-color); }
+        .skill-tier:last-child::after { display: none; }
+        .skill-node { background: #1f1f3d; border: 1px solid var(--border-color); padding: 0.5rem; text-align: center; cursor: pointer; position: relative; width: 80px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; }
+        .skill-node.learned { border-color: var(--gold-color); }
+        .skill-node.can-learn { border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa; }
+        .skill-node.locked { opacity: 0.5; }
+        .skill-node svg { width: 32px; height: 32px; }
+
+        /* --- 툴팁 --- */
+        .tooltip { position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%); width: 250px; background: black; border: 1px solid var(--gold-color); padding: 0.75rem; border-radius: 0.5rem; z-index: 10; pointer-events: none; opacity: 0; transition: opacity 0.2s, visibility 0.2s; visibility: hidden; }
+        .skill-node:hover .tooltip, .skill-btn:hover .tooltip, .tooltip.show { opacity: 1; visibility: visible; }
+        
+        /* --- VFX --- */
+        #vfx-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+        .vfx { position: absolute; }
+        .vfx-slash { width: 150px; height: 150px; background: radial-gradient(circle, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 40%, rgba(255,255,255,0) 70%); border-radius: 50%; animation: vfx-fade-scale 0.3s forwards; }
+        .vfx-fireball { width: 80px; height: 80px; background: radial-gradient(circle, #ffae42, #ff7900, transparent 70%); border-radius: 50%; animation: vfx-travel 0.5s linear forwards; box-shadow: 0 0 20px #ffae42; }
+        .vfx-ice_shard { width: 20px; height: 60px; background: linear-gradient(to bottom, #a0e9ff, #d0f4ff); border-radius: 50% 50% 0 0; animation: vfx-travel 0.4s linear forwards; filter: drop-shadow(0 0 10px #a0e9ff); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+        .vfx-lightning { width: 10px; height: 100%; background: #f0f8ff; box-shadow: 0 0 20px #add8e6; animation: vfx-fade-fast 0.3s forwards; clip-path: polygon(50% 0, 60% 20%, 45% 40%, 55% 60%, 40% 80%, 50% 100%, 60% 80%, 45% 60%, 55% 40%, 40% 20%); }
+        .vfx-shadow_strike { width: 100px; height: 100px; background: radial-gradient(circle, transparent 50%, #483d8b 70%); border-radius: 50%; animation: vfx-fade-scale 0.4s forwards; }
+        .vfx-holy { width: 200px; height: 200px; background: radial-gradient(circle, rgba(255,215,0,0.8) 0%, transparent 70%); border-radius: 50%; animation: vfx-fade-fast 0.5s forwards; }
+        .vfx-dragon_breath { width: 100%; height: 200px; background: linear-gradient(to left, transparent, rgba(255, 69, 0, 0.8), transparent); animation: vfx-fade-fast 0.6s forwards; }
+        .vfx-heal-particle { position: absolute; width: 8px; height: 8px; background-color: #4ade80; border-radius: 50%; box-shadow: 0 0 10px #4ade80; animation: vfx-heal-anim 1s ease-out forwards; }
+        @keyframes vfx-fade-scale { from{transform:scale(0); opacity:1;} to{transform:scale(1.5); opacity:0;} }
+        @keyframes vfx-fade-fast { from{opacity:1;} to{opacity:0;} }
+        @keyframes vfx-travel { from{transform:translateX(0) scale(0.5)} to{transform:translateX(var(--travel-dist, -300px)) scale(1)} }
+        @keyframes vfx-heal-anim { from{transform:translateY(0) scale(1); opacity:1;} to{transform:translateY(-100px) scale(0); opacity:0;} }
+
+        /* --- 모바일 최적화 --- */
+        @media (max-width: 768px) {
+            #title-screen h1 { font-size: 3rem; }
+            #title-screen h2 { font-size: 1.5rem; }
+            #class-selection-screen .flex { flex-direction: column; gap: 1rem; }
+            #class-selection-screen .class-card { width: 220px; height: 200px; }
+            
+            .character { bottom: 25%; }
+            .ui-panel { width: 45%; font-size: 0.8rem; }
+            .ui-panel h2 { font-size: 1rem; }
+            .hp-bar { height: 10px; } .mp-bar { height: 8px; } .xp-bar { height: 5px; }
+            .hp-text, .mp-text { font-size: 0.7rem; }
+
+            .controls { flex-direction: column; align-items: center; }
+            .skills-container { order: 1; }
+            .menu-buttons { order: 2; margin-top: 0.5rem; }
+            .log-panel { bottom: 150px; top: auto; height: 80px; width: 90%; }
+            .log-panel:hover { height: 80px; }
+        }
+    </style>
 </head>
-<body class="bg-[#2d2d2d] text-gray-300">
-    <!-- Overlays and Loaders -->
-    <div id="skill-effect-overlay"></div>
-    <div id="main-loader" class="fixed inset-0 bg-gray-900/80 flex justify-center items-center z-[2000]"><div class="loader"></div></div>
-    <div id="modal-container"></div>
-    <div id="battle-effects-container"></div>
-
-    <!-- Navigation Bar -->
-    <nav class="bg-gray-900 shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <span class="font-title text-2xl text-[#9c9] cursor-pointer" id="home-btn">몬배틀 헌터즈</span>
+<body>
+    <div id="game-container">
+        <!-- Screens -->
+        <div id="loading-screen" class="game-screen">
+            <div class="spinner"></div>
+            <p class="mt-4 text-lg font-cinzel text-gray-400">Now Loading...</p>
+        </div>
+        <div id="title-screen" class="game-screen hidden">
+            <h1 class="text-8xl font-cinzel text-white mb-4">TOWER OF TRIALS</h1>
+            <h2 class="text-4xl font-cinzel text-gray-300 mb-12">시련의 탑</h2>
+            <button id="start-game-btn" class="game-button">게임 시작</button>
+        </div>
+        <div id="class-selection-screen" class="game-screen overlay hidden">
+            <h2 class="text-5xl font-cinzel text-yellow-300 mb-10">최초의 길을 선택하십시오</h2>
+            <div class="flex gap-8">
+                <div data-class="warrior" class="class-card rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 9l4 12h14l4-12L12 2zm0 4.69L15.53 9h-7.06L12 6.69zM6.47 19L5 13.58l5.5-2.2V19H6.47zm6.5-7.62L18 13.58 16.53 19H13v-7.62z"></path></svg>
+                    <h3>전사</h3>
+                    <p>강인한 체력과 힘으로 적을 압도합니다.</p>
                 </div>
-                <div id="nav-links" class="flex items-center gap-2 sm:gap-4"></div>
+                <div data-class="mage" class="class-card rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.25a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM12 18a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0112 18zM5.25 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM21 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM7.34 7.34a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06L7.34 8.4A.75.75 0 017.34 7.34zM14.47 14.47a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06l-2.12-2.12a.75.75 0 010-1.06zM16.59 7.34a.75.75 0 010 1.06L14.47 10.52a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0zM8.4 14.47a.75.75 0 010 1.06L6.28 17.65a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0z"></path></svg>
+                    <h3>마법사</h3>
+                    <p>원소의 힘을 빌려 강력한 마법을 사용합니다.</p>
+                </div>
+                <div data-class="rogue" class="class-card rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M14.25 2.25a.75.75 0 01.75.75v18a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zm-4.5 0a.75.75 0 01.75.75v18a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zm-3.75 9a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75a.75.75 0 01-.75-.75z"></path></svg>
+                    <h3>도적</h3>
+                    <p>민첩한 몸놀림으로 적의 급소를 노립니다.</p>
+                </div>
             </div>
         </div>
-    </nav>
+        <div id="skill-selection-screen" class="game-screen overlay hidden">
+            <h2 id="skill-select-title" class="text-4xl font-cinzel text-yellow-300 mb-10">초기 스킬을 선택하십시오 (0 / 3)</h2>
+            <div id="starter-skills-container"></div>
+            <button id="confirm-skills-btn" class="game-button" disabled>모험 시작</button>
+        </div>
+        <div id="battle-screen" class="game-screen hidden">
+            <div id="battle-scene" class="battle-scene">
+                <div id="vfx-container"></div>
+                <div id="player" class="character player"><img src="https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000001fe461fab2245c0abba85e0d_copy_768x1152.png"></div>
+                <div id="enemy" class="character enemy"><img id="enemy-img" src=""></div>
+                
+                <div class="ui-panel player-ui"><div class="flex justify-between items-center"><h2 id="player-name" class="text-lg font-cinzel">성기사</h2><span id="player-level" class="font-cinzel text-md text-yellow-300"></span></div><div class="bar-container my-1"><div id="player-hp-bar" class="bar hp-bar"></div></div><p id="player-hp-text" class="text-right hp-text"></p><div class="bar-container my-1"><div id="player-mp-bar" class="bar mp-bar"></div></div><p id="player-mp-text" class="text-right mp-text"></p><div class="bar-container mt-1"><div id="player-xp-bar" class="bar xp-bar"></div></div></div>
+                <div class="ui-panel enemy-ui"><div class="flex justify-between items-center"><h2 id="enemy-name" class="text-lg font-cinzel"></h2><span id="stage-indicator" class="font-cinzel text-md text-red-400"></span></div><div class="bar-container my-1"><div id="enemy-hp-bar" class="bar hp-bar"></div></div><p id="enemy-hp-text" class="text-right hp-text"></p></div>
 
-    <!-- Auth View -->
-    <div id="auth-view" class="view">
-        <div class="max-w-md mx-auto mt-10 p-8 bg-gray-800 rounded-lg shadow-lg">
-            <div id="auth-tabs" class="flex border-b border-gray-700 mb-6">
-                <button data-tab="login" class="tab-btn flex-1 py-2 font-bold text-gray-500 border-b-2 border-transparent">로그인</button>
-                <button data-tab="signup" class="tab-btn flex-1 py-2 font-bold text-gray-500 border-b-2 border-transparent">회원가입</button>
+                <div id="log-panel" class="log-panel"><div id="log-messages-container"></div></div>
+                
+                <div class="controls">
+                    <div id="skills-grid" class="skills-container"></div>
+                    <div class="menu-buttons">
+                        <button id="char-menu-btn" class="menu-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a5.5 5.5 0 0 1 5.5 5.5c0 1.58-.64 3.01-1.68 4.06a6.5 6.5 0 0 1-8.64 0A5.5 5.5 0 0 1 6.5 8 5.5 5.5 0 0 1 12 2.5zM12 14.5a9.5 9.5 0 0 1 9.5 9.5H2.5A9.5 9.5 0 0 1 12 14.5z"></path></svg></button>
+                        <button id="skill-menu-btn" class="menu-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18.6l-3.44 1.81 0.66-3.83-2.78-2.71 3.84-0.56L12 10l1.72 3.48 3.84 0.56-2.78 2.71 0.66 3.83L12 18.6zM12 2l-2.4 4.8-5.3 0.78 3.8 3.7-0.9 5.22L12 14.1l4.7 2.4-0.9-5.22 3.8-3.7-5.3-0.78L12 2z"></path></svg></button>
+                    </div>
+                </div>
             </div>
-            <!-- Login Form -->
-            <form id="login-form" class="auth-form space-y-4">
-                <input type="email" id="login-email" placeholder="이메일" class="w-full p-3 border rounded-lg bg-gray-700 text-white border-gray-600" required>
-                <input type="password" id="login-password" placeholder="비밀번호" class="w-full p-3 border rounded-lg bg-gray-700 text-white border-gray-600" required>
-                <button type="submit" class="w-full bg-[#8abeb7] text-white font-bold py-3 rounded-lg hover:bg-[#6cc]">로그인</button>
-            </form>
-            <!-- Signup Form -->
-            <form id="signup-form" class="auth-form space-y-4 hidden">
-                <input type="email" id="signup-email" placeholder="이메일" class="w-full p-3 border rounded-lg bg-gray-700 text-white border-gray-600" required>
-                <input type="password" id="signup-password" placeholder="비밀번호" class="w-full p-3 border rounded-lg bg-gray-700 text-white border-gray-600" required>
-                <button type="submit" class="w-full bg-[#9c9] text-white font-bold py-3 rounded-lg hover:bg-[#7a7]">회원가입 (5 크레딧 지급)</button>
-            </form>
-            <p id="auth-error" class="text-red-400 text-center mt-4"></p>
         </div>
+        <div id="stage-clear-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-blue-400 mb-6">VICTORY</h2><p id="xp-gain-text" class="text-xl text-purple-400 mb-10"></p><button id="next-stage-btn" class="game-button">다음 층으로</button></div>
+        <div id="game-over-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-red-500 mb-10">DEFEAT</h2><button id="restart-game-btn" class="game-button">다시 시작</button></div>
+        <div id="game-clear-screen" class="game-screen overlay hidden"><h2 class="text-8xl font-cinzel text-yellow-300 mb-10">CONGRATULATIONS</h2><p class="text-2xl mb-12">당신은 시련의 탑을 정복했습니다!</p><button id="play-again-btn" class="game-button">다시 플레이</button></div>
+
+        <!-- Modals -->
+        <div id="character-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">캐릭터 정보</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-bold mb-4">능력치 (남은 스탯: <span id="stat-points"></span>)</h3><div class="space-y-3"><div class="stat-row"><span>힘 (STR)</span><span id="stat-str"></span><button data-stat="str" class="plus-btn">+</button></div><div class="stat-row"><span>지능 (INT)</span><span id="stat-int"></span><button data-stat="int" class="plus-btn">+</button></div><div class="stat-row"><span>민첩 (AGI)</span><span id="stat-agi"></span><button data-stat="agi" class="plus-btn">+</button></div></div></div><div><h3 class="text-xl font-bold mb-4">상세 정보</h3><p>공격력: <span id="detail-atk"></span></p><p>방어력: <span id="detail-def"></span></p><p>최대 HP: <span id="detail-hp"></span></p><p>최대 MP: <span id="detail-mp"></span></p></div></div><button id="close-char-modal" class="game-button mt-8">닫기</button></div></div>
+        <div id="skill-tree-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">스킬 트리 (남은 스킬 포인트: <span id="skill-points"></span>)</h2><div id="skill-tree-tabs" class="flex border-b border-gray-600 mb-4"></div><div id="skill-tree-display"></div><button id="close-skill-modal" class="game-button mt-8">닫기</button></div></div>
     </div>
 
-    <!-- Main Pokedex View -->
-    <div id="pokedex-view" class="view">
-        <div id="pokedex-view-background">
-             <canvas id="pokedex-bg-canvas"></canvas>
-        </div>
-        <div class="max-w-7xl mx-auto p-4 sm:p-6 md:p-8">
-            <header class="text-center mb-8">
-                <h1 class="font-title text-5xl md:text-6xl text-gray-100">몬배틀 헌터즈</h1>
-                <p class="text-gray-400 mt-2">키우고, 합치고, 싸워라! 이것이 진짜 몬배틀.</p>
-                 <div class="mt-4 flex justify-center flex-wrap gap-2 sm:gap-4">
-                      <button id="go-to-battle-btn" class="bg-[#c99] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#a77] transition-transform transform hover:scale-105 disabled:bg-gray-600 disabled:cursor-not-allowed">배틀 아레나</button>
-                      <button id="go-to-ranking-btn" class="bg-[#f99157] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#d76e2d] transition-transform transform hover:scale-105">랭킹 보기</button>
-                      <button id="show-type-chart-btn" class="bg-[#8abeb7] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#6cc] transition-transform transform hover:scale-105">상성표</button>
-                      <button id="show-rarity-table-btn" class="bg-[#c9c] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#a7a] transition-transform transform hover:scale-105">등급표</button>
-                 </div>
-            </header>
+    <script type="module">
+        // --- 데이터 정의 ---
+        const ICONS = { /* 아이콘 SVG 데이터 */
+            attack: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-red-400"><path d="M7.586 3.222l1.414-1.414L22.78 15.586l-1.414 1.414L7.586 3.222zM2.44 18.044l3.535-3.536 1.414 1.414-3.535 3.536-1.414-1.414zM18.293 1.22l5.485 5.485-1.414 1.414-5.485-5.485 1.414-1.414zM2.12 14.49a1 1 0 010-1.414l7.07-7.071a1 1 0 011.415 0l3.535 3.536a1 1 0 010 1.414l-7.07 7.071a1 1 0 01-1.415 0l-3.535-3.536z"></path></svg>`,
+            magic: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-blue-400"><path d="M12 2.25a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM12 18a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0112 18zM5.25 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM21 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM7.34 7.34a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06L7.34 8.4A.75.75 0 017.34 7.34zM14.47 14.47a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06l-2.12-2.12a.75.75 0 010-1.06zM16.59 7.34a.75.75 0 010 1.06L14.47 10.52a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0zM8.4 14.47a.75.75 0 010 1.06L6.28 17.65a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0z"></path></svg>`,
+            holy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-yellow-300"><path d="M12 18.6l-3.44 1.81 0.66-3.83-2.78-2.71 3.84-0.56L12 10l1.72 3.48 3.84 0.56-2.78 2.71 0.66 3.83L12 18.6zM12 2l-2.4 4.8-5.3 0.78 3.8 3.7-0.9 5.22L12 14.1l4.7 2.4-0.9-5.22 3.8-3.7-5.3-0.78L12 2z"></path></svg>`,
+            dark: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-purple-400"><path fill-rule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25.75.75 0 01-1.5 0 6.75 6.75 0 1113.5 0 .75.75 0 01-1.5 0A5.25 5.25 0 0012 1.5zM12 22.5a5.25 5.25 0 005.25-5.25.75.75 0 011.5 0 6.75 6.75 0 11-13.5 0 .75.75 0 011.5 0A5.25 5.25 0 0012 22.5z" clip-rule="evenodd"></path></svg>`,
+            dragon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-red-500"><path d="M12.378 1.602a.75.75 0 00-.756 0L3.322 6.423a.75.75 0 00-.322.646v6.862c0 .26.14.493.372.628l8.25 4.853a.75.75 0 00.756 0l8.25-4.853a.75.75 0 00.372-.628V7.069a.75.75 0 00-.322-.646L12.378 1.602zM12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"></path></svg>`,
+            heal: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="text-green-400"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM17 13h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"></path></svg>`,
+        };
+        const SKILLS = { /* 스킬 데이터 */
+            // Knight
+            knight_bash: { name: "강타", type: "attack", cost: 10, scale: { str: 1.2 }, vfx: "slash", icon: ICONS.attack, desc: "기본적인 공격입니다.", tier: 1 },
+            knight_shield_slam: { name: "방패 강타", type: "attack", cost: 20, scale: { str: 1.5, def: 0.5 }, vfx: "slash", icon: ICONS.attack, desc: "방어력에 비례한 추가 피해를 줍니다.", tier: 2, requires: 'knight_bash' },
+            knight_whirlwind: { name: "휠윈드", type: "attack", cost: 35, scale: { str: 2.5 }, vfx: "slash", icon: ICONS.attack, desc: "강력한 회전 공격입니다.", tier: 3, requires: 'knight_shield_slam' },
+            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 50, duration: 3, effects: { def: 1.5 }, vfx: "holy", icon: ICONS.holy, desc: "3턴간 방어력이 50% 증가합니다.", tier: 4, requires: 'knight_whirlwind' },
+            // Mage
+            mage_fireball: { name: "파이어볼", type: "attack", cost: 15, scale: { int: 1.5 }, vfx: "fireball", icon: ICONS.magic, desc: "작은 화염구를 날립니다.", tier: 1 },
+            mage_ice_spear: { name: "아이스 스피어", type: "attack", cost: 25, scale: { int: 2.0 }, vfx: "ice_shard", icon: ICONS.magic, desc: "얼음 창으로 적을 꿰뚫습니다.", tier: 2, requires: 'mage_fireball' },
+            mage_chain_lightning: { name: "체인 라이트닝", type: "attack", cost: 40, scale: { int: 3.0 }, vfx: "lightning", icon: ICONS.magic, desc: "전격으로 큰 피해를 줍니다.", tier: 3, requires: 'mage_ice_spear' },
+            mage_ultimate: { name: "메테오", type: "attack", cost: 80, scale: { int: 5.0 }, vfx: "fireball", icon: ICONS.magic, desc: "거대한 운석을 떨어뜨립니다.", tier: 4, requires: 'mage_chain_lightning' },
+            // Paladin
+            paladin_smite: { name: "성스러운 일격", type: "attack", cost: 15, scale: { str: 1.0, int: 0.5 }, vfx: "holy", icon: ICONS.holy, desc: "신성한 힘으로 공격합니다.", tier: 1 },
+            paladin_heal: { name: "치유의 빛", type: "heal", cost: 25, scale: { int: 2.5 }, vfx: "heal", icon: ICONS.heal, desc: "체력을 회복합니다.", tier: 2, requires: 'paladin_smite' },
+            paladin_judgment: { name: "심판", type: "attack", cost: 40, scale: { int: 2.0, str: 1.0 }, vfx: "holy", icon: ICONS.holy, desc: "강력한 신성 마법 공격입니다.", tier: 3, requires: 'paladin_heal' },
+            paladin_ultimate: { name: "천상의 보호막", type: "buff", cost: 60, duration: 1, effects: { immune: true }, vfx: "holy", icon: ICONS.holy, desc: "1턴간 모든 피해를 무효화합니다.", tier: 4, requires: 'paladin_judgment' },
+            // Assassin
+            assassin_quick_stab: { name: "급소 찌르기", type: "attack", cost: 12, scale: { agi: 1.3 }, vfx: "slash", icon: ICONS.dark, desc: "민첩한 공격을 가합니다.", tier: 1 },
+            assassin_poison_blade: { name: "독 칼날", type: "attack", cost: 22, scale: { agi: 1.8 }, vfx: "slash", icon: ICONS.dark, desc: "독을 바른 칼로 공격합니다.", tier: 2, requires: 'assassin_quick_stab' },
+            assassin_shadow_strike: { name: "그림자 습격", type: "attack", cost: 38, scale: { agi: 2.8 }, vfx: "shadow_strike", icon: ICONS.dark, desc: "그림자 속에서 나타나 공격합니다.", tier: 3, requires: 'assassin_poison_blade' },
+            assassin_ultimate: { name: "필살", type: "attack", cost: 55, scale: { agi: 4.5 }, vfx: "shadow_strike", icon: ICONS.dark, desc: "적의 약점을 노려 치명타를 가합니다.", tier: 4, requires: 'assassin_shadow_strike' },
+            // Dragon
+            dragon_claw: { name: "드래곤 클로", type: "attack", cost: 20, scale: { str: 2.0 }, vfx: "slash", icon: ICONS.dragon, desc: "용의 발톱으로 할큅니다.", tier: 1 },
+            dragon_breath: { name: "드래곤 브레스", type: "attack", cost: 35, scale: { str: 1.5, int: 1.5 }, vfx: "dragon_breath", icon: ICONS.dragon, desc: "강력한 화염 숨결을 내뿜습니다.", tier: 2, requires: 'dragon_claw' },
+            dragon_tail_swipe: { name: "꼬리 휘두르기", type: "attack", cost: 45, scale: { str: 3.0 }, vfx: "slash", icon: ICONS.dragon, desc: "거대한 꼬리로 적을 후려칩니다.", tier: 3, requires: 'dragon_breath' },
+            dragon_ultimate: { name: "용의 분노", type: "buff", cost: 70, duration: 3, effects: { atk: 1.5 }, vfx: "dragon_breath", icon: ICONS.dragon, desc: "3턴간 공격력이 50% 증가합니다.", tier: 4, requires: 'dragon_tail_swipe' },
+            // Enemy Skills
+            enemy_bash: { name: "몸통박치기", type: "attack", scale: 1.0, vfx: "slash" },
+            enemy_quick_stab: { name: "단검 찌르기", type: "attack", scale: 1.2, vfx: "slash" },
+            enemy_rage_smash: { name: "분노의 강타", type: "attack", scale: 1.5, vfx: "slash" },
+            enemy_ambush: { name: "기습", type: "attack", scale: 1.8, vfx: "shadow_strike" },
+            enemy_rock_throw: { name: "암석 투척", type: "attack", scale: 1.3, vfx: "slash" },
+            enemy_earthquake: { name: "지진", type: "attack", scale: 2.0, vfx: "slash" },
+            enemy_wing_slash: { name: "날개 베기", type: "attack", scale: 1.6, vfx: "slash" },
+            enemy_scream: { name: "비명", type: "attack", scale: 2.5, vfx: "shadow_strike" },
+            enemy_soul_drain: { name: "영혼 흡수", type: "attack", scale: 2.0, vfx: "shadow_strike" },
+            enemy_death_grip: { name: "죽음의 손아귀", type: "attack", scale: 3.0, vfx: "shadow_strike" },
+            enemy_flame_breath: { name: "화염 숨결", type: "attack", scale: 2.5, vfx: "fireball" },
+            enemy_poison_fang: { name: "독 송곳니", type: "attack", scale: 2.2, vfx: "slash" },
+            enemy_tentacle: { name: "촉수 공격", type: "attack", scale: 2.2, vfx: "slash" },
+            enemy_void_blast: { name: "공허 폭발", type: "attack", scale: 3.5, vfx: "shadow_strike" },
+            enemy_doom_blade: { name: "파멸의 검", type: "attack", scale: 3.0, vfx: "slash" },
+            enemy_judgment: { name: "천벌", type: "attack", scale: 5.0, vfx: "holy" },
+        };
+        const SKILL_TREES = {
+            knight: { name: "기사", skills: [["knight_bash"], ["knight_shield_slam"], ["knight_whirlwind"], ["knight_ultimate"]] },
+            mage: { name: "마법사", skills: [["mage_fireball"], ["mage_ice_spear"], ["mage_chain_lightning"], ["mage_ultimate"]] },
+            paladin: { name: "성기사", skills: [["paladin_smite"], ["paladin_heal"], ["paladin_judgment"], ["paladin_ultimate"]] },
+            assassin: { name: "암살자", skills: [["assassin_quick_stab"], ["assassin_poison_blade"], ["assassin_shadow_strike"], ["assassin_ultimate"]] },
+            dragon: { name: "드래곤", skills: [["dragon_claw"], ["dragon_breath"], ["dragon_tail_swipe"], ["dragon_ultimate"]] }
+        };
+        const defaultBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png';
+        const bossBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000ee64622f8f560adf6ed8ad9e.png';
+        const STAGES = [ // 몬스터 이름, 이미지, 배경 변경
+            { name: "동굴 슬라임", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000063c46246bee6c5711f863e5f.png", bg: defaultBg, maxHp: 300, attack: 20, defense: 10, xp: 50, skills: [{ id: "enemy_bash" }] },
+            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.png", bg: defaultBg, maxHp: 500, attack: 30, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }] },
+            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.png", bg: defaultBg, maxHp: 900, attack: 50, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }] },
+            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.png", bg: defaultBg, maxHp: 700, attack: 65, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }] },
+            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.png", bg: defaultBg, maxHp: 1800, attack: 45, defense: 80, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }] },
+            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.png", bg: defaultBg, maxHp: 1300, attack: 80, defense: 40, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }] },
+            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.png", bg: defaultBg, maxHp: 1500, attack: 100, defense: 45, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }] },
+            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.png", bg: defaultBg, maxHp: 2200, attack: 90, defense: 55, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }] },
+            { name: "변이 괴물", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000001a861fa835a0405826b25d7_copy_768x1152.png", bg: defaultBg, maxHp: 3000, attack: 110, defense: 70, xp: 500, skills: [{ id: "enemy_tentacle" }, { id: "enemy_void_blast" }] },
+            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.png", bg: bossBg, maxHp: 6000, attack: 150, defense: 100, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }] }
+        ];
+        const STARTER_SKILL_POOLS = {
+            warrior: {
+                name: "전사",
+                skills: ['knight_bash', 'paladin_smite', 'knight_shield_slam', 'dragon_claw', 'paladin_heal']
+            },
+            mage: {
+                name: "마법사",
+                skills: ['mage_fireball', 'paladin_heal', 'mage_ice_spear', 'assassin_quick_stab', 'paladin_smite']
+            },
+            rogue: {
+                name: "도적",
+                skills: ['assassin_quick_stab', 'knight_bash', 'assassin_poison_blade', 'paladin_smite', 'assassin_shadow_strike']
+            }
+        };
 
-            <!-- Ranking Podium -->
-            <div id="ranking-podium-container" class="mb-12">
-                <h2 class="font-title text-3xl text-center mb-4 text-gray-200">명예의 전당</h2>
-                <div id="ranking-podium-view" class="podium"></div>
-            </div>
+        // --- 게임 상태 및 로직 ---
+        let gameState = {};
+        let enemy = {};
+        let isPlayerTurn = true;
+        let isBattleOver = false;
+        let selectedClassName = '';
+        let selectedSkills = [];
+        const MAX_SKILLS = 3;
 
-            <div id="character-creation-section" class="bg-gray-800/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg mb-8">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select id="universe-select" class="p-3 border-2 rounded-lg focus:outline-none focus:ring-2 bg-gray-700 text-white border-gray-600 focus:ring-[#9c9]">
-                        <option value="감성의_숲">감성의 숲</option>
-                        <option value="악몽의_저택">악몽의 저택</option>
-                        <option value="사이버_펑크">사이버 펑크</option>
-                        <option value="판타지_왕국">판타지 왕국</option>
-                        <option value="수정_동굴">수정 동굴</option>
-                    </select>
-                    <input type="text" id="character-prompt" class="md:col-span-2 p-3 border-2 rounded-lg focus:outline-none focus:ring-2 bg-gray-700 text-white border-gray-600 focus:ring-[#8abeb7]" placeholder="예: 거미 다리를 가진 피카츄, 얼굴은 슈퍼마리오">
-                </div>
-                <div class="mt-4 flex justify-center items-center gap-4">
-                    <button id="generate-btn" class="bg-[#8abeb7] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#6cc] transition-transform transform hover:scale-105">
-                        <span id="btn-text">크리처 소환! (1 크레딧)</span>
-                        <span id="btn-loader" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    </button>
-                </div>
-                <div id="error-message" class="text-yellow-400 mt-4 text-center text-sm font-semibold"></div>
-            </div>
-             <div id="filter-container" class="flex justify-center gap-2 mb-6">
-                 <button class="filter-btn active" data-filter="all">전체</button>
-                 <button class="filter-btn" data-filter="감성의_숲">감성의 숲</button>
-                 <button class="filter-btn" data-filter="악몽의_저택">악몽의 저택</button>
-                 <button class="filter-btn" data-filter="사이버_펑크">사이버 펑크</button>
-                 <button class="filter-btn" data-filter="판타지_왕국">판타지 왕국</button>
-                 <button class="filter-btn" data-filter="수정_동굴">수정 동굴</button>
-             </div>
-            <div id="pokedex-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"></div>
-            <div id="empty-state" class="text-center py-16 px-6 bg-gray-800 rounded-2xl shadow-lg hidden"><h3 class="mt-4 text-xl font-semibold text-gray-100">도감이 비어있습니다. 첫 크리처를 소환해보세요!</h3></div>
-            <div id="pagination-controls" class="text-center mt-8"></div>
-        </div>
-    </div>
-    
-    <!-- Other Views (Containers) -->
-    <div id="detail-view" class="view"></div>
-    <div id="battle-selection-view" class="view"></div>
-    <div id="battle-arena-view" class="view"></div>
-    <div id="ranking-view" class="view"></div>
-    <div id="profile-view" class="view"></div>
-    <div id="admin-view" class="view"></div>
+        function createInitialPlayerState() { // 플레이어 능력치 상향
+            const initialState = {
+                level: 1, xp: 0, xpToNextLevel: 100,
+                stats: { str: 5, int: 5, agi: 5 },
+                statPoints: 0, skillPoints: 1,
+                learnedSkills: [],
+            };
+            return {
+                ...initialState,
+                get maxHp() { return 250 + (this.level * 25) + (this.stats.str * 15); },
+                get maxMp() { return 100 + (this.level * 10) + (this.stats.int * 10); },
+                get attack() { return 20 + (this.stats.str * 2) + Math.floor(this.stats.agi * 1.5); },
+                get defense() { return 10 + (this.stats.str * 1) + Math.floor(this.stats.agi * 0.5); },
+                currentHp: 250 + (1 * 25) + (5 * 15),
+                currentMp: 100 + (1 * 10) + (5 * 10),
+            };
+        }
 
-    <!-- Main JavaScript File -->
-    <script type="module" src="main.js"></script>
+        const dom = { /* DOM 요소 캐싱 */
+            screens: { loading: document.getElementById('loading-screen'), title: document.getElementById('title-screen'), classSelection: document.getElementById('class-selection-screen'), skillSelection: document.getElementById('skill-selection-screen'), battle: document.getElementById('battle-screen'), stageClear: document.getElementById('stage-clear-screen'), gameOver: document.getElementById('game-over-screen'), gameClear: document.getElementById('game-clear-screen') },
+            modals: { character: document.getElementById('character-modal'), skillTree: document.getElementById('skill-tree-modal') },
+            skillSelection: { title: document.getElementById('skill-select-title'), container: document.getElementById('starter-skills-container'), confirmBtn: document.getElementById('confirm-skills-btn') },
+            logContainer: document.getElementById('log-messages-container'),
+            vfxContainer: document.getElementById('vfx-container'),
+            player: { el: document.getElementById('player'), name: document.getElementById('player-name'), level: document.getElementById('player-level'), hpBar: document.getElementById('player-hp-bar'), hpText: document.getElementById('player-hp-text'), mpBar: document.getElementById('player-mp-bar'), mpText: document.getElementById('player-mp-text'), xpBar: document.getElementById('player-xp-bar') },
+            enemy: { el: document.getElementById('enemy'), img: document.getElementById('enemy-img'), name: document.getElementById('enemy-name'), hpBar: document.getElementById('enemy-hp-bar'), hpText: document.getElementById('enemy-hp-text'), stage: document.getElementById('stage-indicator') },
+            controls: { skills: document.getElementById('skills-grid') },
+            charModal: { points: document.getElementById('stat-points'), str: document.getElementById('stat-str'), int: document.getElementById('stat-int'), agi: document.getElementById('stat-agi'), atk: document.getElementById('detail-atk'), def: document.getElementById('detail-def'), hp: document.getElementById('detail-hp'), mp: document.getElementById('detail-mp') },
+            skillModal: { points: document.getElementById('skill-points'), tabs: document.getElementById('skill-tree-tabs'), display: document.getElementById('skill-tree-display') },
+        };
+
+        function switchScreen(screenName) {
+            Object.values(dom.screens).forEach(s => s.classList.add('hidden'));
+            if (dom.screens[screenName]) {
+                dom.screens[screenName].classList.remove('hidden');
+                dom.screens[screenName].classList.add('fade-in');
+            }
+        }
+        
+        function showSkillSelection(className) {
+            selectedClassName = className;
+            selectedSkills = [];
+            switchScreen('skillSelection');
+            
+            const skillPool = STARTER_SKILL_POOLS[className].skills;
+            dom.skillSelection.container.innerHTML = '';
+            
+            skillPool.forEach(skillId => {
+                const skill = SKILLS[skillId];
+                const card = document.createElement('div');
+                card.className = 'skill-card rounded-lg';
+                card.dataset.skillId = skillId;
+                card.innerHTML = `
+                    ${skill.icon}
+                    <h4 class="text-white">${skill.name}</h4>
+                    <p>${skill.desc}</p>
+                `;
+                card.addEventListener('click', () => toggleSkillSelection(card, skillId));
+                dom.skillSelection.container.appendChild(card);
+            });
+            updateSkillSelectionUI();
+        }
+
+        function toggleSkillSelection(card, skillId) {
+            if (selectedSkills.includes(skillId)) {
+                selectedSkills = selectedSkills.filter(id => id !== skillId);
+                card.classList.remove('selected');
+            } else {
+                if (selectedSkills.length < MAX_SKILLS) {
+                    selectedSkills.push(skillId);
+                    card.classList.add('selected');
+                }
+            }
+            updateSkillSelectionUI();
+        }
+
+        function updateSkillSelectionUI() {
+            dom.skillSelection.title.textContent = `초기 스킬을 선택하십시오 (${selectedSkills.length} / ${MAX_SKILLS})`;
+            dom.skillSelection.confirmBtn.disabled = selectedSkills.length !== MAX_SKILLS;
+        }
+
+        function startGame() {
+            gameState = { player: createInitialPlayerState(), currentStage: 0 };
+            gameState.player.learnedSkills = selectedSkills;
+            switchScreen('battle');
+            loadStage(gameState.currentStage);
+        }
+
+        function loadStage(stageIndex) {
+            isBattleOver = false; isPlayerTurn = true;
+            const stageData = STAGES[stageIndex];
+            enemy = { ...stageData, currentHp: stageData.maxHp };
+            dom.enemy.img.src = enemy.img;
+            dom.screens.battle.querySelector('.battle-scene').style.backgroundImage = `url('${stageData.bg}')`;
+            
+            updateAllUI();
+            clearLogs();
+            addLog(`제 ${stageIndex + 1}층: <span class="font-bold text-red-300">${enemy.name}</span>(이)가 나타났다!`);
+        }
+
+        function handleVictory() {
+            isBattleOver = true;
+            const xpGained = STAGES[gameState.currentStage].xp;
+            document.getElementById('xp-gain-text').textContent = `경험치 ${xpGained} XP 획득!`;
+            
+            setTimeout(() => {
+                switchScreen('stageClear');
+                gainXP(xpGained);
+            }, 1500);
+        }
+
+        function handleDefeat() { isBattleOver = true; setTimeout(() => switchScreen('gameOver'), 1500); }
+        
+        function gainXP(amount) {
+            gameState.player.xp += amount;
+            while (gameState.player.xp >= gameState.player.xpToNextLevel) {
+                levelUp();
+            }
+            updatePlayerUI();
+        }
+
+        function levelUp() {
+            const p = gameState.player;
+            p.xp -= p.xpToNextLevel;
+            p.level++;
+            p.xpToNextLevel = Math.floor(p.xpToNextLevel * 1.5);
+            p.statPoints += 3;
+            p.skillPoints += 1;
+            p.currentHp = p.maxHp;
+            p.currentMp = p.maxMp;
+            addLog(`<strong class="text-xl font-cinzel text-yellow-300">LEVEL UP!</strong>`, 'text-yellow-300');
+        }
+
+        function updateAllUI() { updatePlayerUI(); updateEnemyUI(); setupSkillButtons(); }
+        function updatePlayerUI() {
+            const p = gameState.player;
+            dom.player.level.textContent = `Lv. ${p.level}`;
+            dom.player.hpText.textContent = `${p.currentHp}/${p.maxHp}`;
+            dom.player.hpBar.style.width = `${(p.currentHp / p.maxHp) * 100}%`;
+            dom.player.mpText.textContent = `${p.currentMp}/${p.maxMp}`;
+            dom.player.mpBar.style.width = `${(p.currentMp / p.maxMp) * 100}%`;
+            dom.player.xpBar.style.width = `${(p.xp / p.xpToNextLevel) * 100}%`;
+        }
+        function updateEnemyUI() {
+            dom.enemy.name.textContent = enemy.name;
+            dom.enemy.stage.textContent = `${gameState.currentStage + 1}F`;
+            dom.enemy.hpText.textContent = `${enemy.currentHp}/${enemy.maxHp}`;
+            dom.enemy.hpBar.style.width = `${(enemy.currentHp / enemy.maxHp) * 100}%`;
+        }
+        
+        // 길게 누르기(Long Press) 툴팁 로직 추가
+        function addLongPressTooltip(element, tooltip, action) {
+            let pressTimer;
+            
+            const startPress = (e) => {
+                e.preventDefault();
+                pressTimer = setTimeout(() => {
+                    tooltip.classList.add('show');
+                }, 500); // 500ms 누르면 툴팁 표시
+            };
+
+            const endPress = (e) => {
+                e.preventDefault();
+                clearTimeout(pressTimer);
+                if (!tooltip.classList.contains('show')) {
+                    action(); // 짧게 눌렀을 때 액션 실행
+                }
+                tooltip.classList.remove('show');
+            };
+
+            element.addEventListener('mousedown', startPress);
+            element.addEventListener('mouseup', endPress);
+            element.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+            
+            element.addEventListener('touchstart', startPress);
+            element.addEventListener('touchend', endPress);
+        }
+
+        function setupSkillButtons() {
+            dom.controls.skills.innerHTML = '';
+            const activeSkills = gameState.player.learnedSkills.slice(0, 6);
+            for(let i = 0; i < 6; i++) {
+                const skillId = activeSkills[i];
+                const button = document.createElement('button');
+                button.className = 'skill-btn relative';
+                if(skillId) {
+                    const skill = SKILLS[skillId];
+                    button.innerHTML = `${skill.icon || ''}<div class="tooltip"><p class="font-bold">${skill.name}</p><p class="text-xs text-gray-300">${skill.desc}</p><p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p></div>`;
+                    const tooltip = button.querySelector('.tooltip');
+                    addLongPressTooltip(button, tooltip, () => playerTurn(skillId));
+                } else {
+                    button.innerHTML = `<span></span>`;
+                    button.disabled = true;
+                }
+                dom.controls.skills.appendChild(button);
+            }
+            toggleSkillButtons(false);
+        }
+
+        function clearLogs() { dom.logContainer.innerHTML = ''; }
+        function addLog(message, color = 'text-gray-300') { 
+            const logEl = document.createElement('div'); 
+            logEl.className = `px-2 py-1 text-center ${color}`; 
+            logEl.innerHTML = message; 
+            dom.logContainer.prepend(logEl);
+            if(dom.logContainer.children.length > 10) {
+                dom.logContainer.lastChild.remove();
+            }
+        }
+        
+        function playVFX(target, vfxType, source) { /* VFX 로직 (기존과 동일) */ 
+            const targetRect = target.getBoundingClientRect();
+            const vfxEl = document.createElement('div');
+            vfxEl.className = `vfx vfx-${vfxType}`;
+            if (vfxType === 'heal') { for (let i = 0; i < 15; i++) { const p = document.createElement('div'); p.className = 'vfx-heal-particle'; p.style.left = `${targetRect.left + targetRect.width / 2 + (Math.random() - 0.5) * targetRect.width}px`; p.style.top = `${targetRect.top + targetRect.height * 0.8}px`; p.style.animationDelay = `${Math.random() * 0.5}s`; dom.vfxContainer.appendChild(p); p.addEventListener('animationend', () => p.remove()); } return; } else if (vfxType === 'fireball' || vfxType === 'ice_shard') { vfxEl.style.top = `${targetRect.top + targetRect.height * 0.3}px`; if(source === dom.player.el) { vfxEl.style.left = `${source.getBoundingClientRect().right}px`; vfxEl.style.setProperty('--travel-dist', `${targetRect.left - source.getBoundingClientRect().right}px`); } else { vfxEl.style.left = `${source.getBoundingClientRect().left}px`; vfxEl.style.setProperty('--travel-dist', `${targetRect.right - source.getBoundingClientRect().left}px`); } } else if (vfxType === 'lightning' || vfxType === 'holy') { vfxEl.style.left = `${targetRect.left + targetRect.width / 2 - (vfxType === 'holy' ? 100 : 5)}px`; vfxEl.style.top = `${targetRect.top - 50}px`; if(vfxType === 'lightning') vfxEl.style.height = `${targetRect.height + 50}px`; } else if (vfxType === 'dragon_breath') { vfxEl.style.left = `${source.getBoundingClientRect().right - 50}px`; vfxEl.style.top = `${source.getBoundingClientRect().top}px`; } else { vfxEl.style.left = `${targetRect.left + (targetRect.width / 2) - 75}px`; vfxEl.style.top = `${targetRect.top + (targetRect.height / 2) - 75}px`; }
+            dom.vfxContainer.appendChild(vfxEl);
+            vfxEl.addEventListener('animationend', () => vfxEl.remove());
+        }
+
+        function performAction(attacker, defender, skillId) {
+            const skill = SKILLS[skillId];
+            const p = gameState.player;
+            if (attacker === p && p.currentMp < skill.cost) { addLog('MP가 부족합니다!'); isPlayerTurn = true; toggleSkillButtons(false); return; }
+            if (attacker === p) p.currentMp -= skill.cost;
+            addLog(`${attacker.name || '플레이어'}의 <span class="font-bold text-yellow-300">${skill.name}</span>!`);
+            const attackerEl = attacker === p ? dom.player.el : dom.enemy.el;
+            const defenderEl = defender === p ? dom.player.el : dom.enemy.el;
+            attackerEl.classList.add('attack');
+            setTimeout(() => attackerEl.classList.remove('attack'), 400);
+            setTimeout(() => {
+                if (skill.type === 'attack') {
+                    playVFX(defenderEl, skill.vfx, attackerEl);
+                    let power = 0;
+                    if (attacker === p) { power = (p.attack * (skill.scale.str || 0)) + (p.stats.int * 2 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0)); } else { power = attacker.attack * skill.scale; }
+                    const damage = Math.floor(Math.max(10, power * (100 / (100 + (defender.defense || 0))) * (Math.random() * 0.15 + 0.85)));
+                    defender.currentHp = Math.max(0, defender.currentHp - damage);
+                    addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
+                    defenderEl.classList.add('take-damage');
+                    setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
+                } else if (skill.type === 'heal') {
+                    playVFX(dom.player.el, skill.vfx);
+                    const heal = Math.floor(p.stats.int * 5 * (skill.scale.int || 1));
+                    p.currentHp = Math.min(p.maxHp, p.currentHp + heal);
+                    addLog(`<span class="font-bold text-green-400">플레이어</span>의 체력이 ${heal} 회복되었다!`, 'text-white');
+                }
+                updateAllUI();
+                checkBattleOver();
+                if (!isBattleOver) { if (attacker === p) setTimeout(enemyTurn, 1000); else { isPlayerTurn = true; toggleSkillButtons(false); } }
+            }, 400);
+        }
+        function checkBattleOver() { if (gameState.player.currentHp <= 0) handleDefeat(); else if (enemy.currentHp <= 0) handleVictory(); }
+        function playerTurn(skillId) { if (!isPlayerTurn || isBattleOver) return; isPlayerTurn = false; toggleSkillButtons(true); performAction(gameState.player, enemy, skillId); }
+        function enemyTurn() { if (isBattleOver) return; const randomSkill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)]; performAction(enemy, gameState.player, randomSkill.id); }
+        function toggleSkillButtons(disabled) { dom.controls.skills.querySelectorAll('button').forEach(btn => btn.disabled = disabled); }
+        function openModal(modalName) { if(dom.modals[modalName]) dom.modals[modalName].classList.remove('hidden'); }
+        function closeModal(modalName) { if(dom.modals[modalName]) dom.modals[modalName].classList.add('hidden'); }
+        function updateCharModal() {
+            const p = gameState.player;
+            dom.charModal.points.textContent = p.statPoints;
+            dom.charModal.str.textContent = p.stats.str;
+            dom.charModal.int.textContent = p.stats.int;
+            dom.charModal.agi.textContent = p.stats.agi;
+            dom.charModal.atk.textContent = p.attack;
+            dom.charModal.def.textContent = p.defense;
+            dom.charModal.hp.textContent = p.maxHp;
+            dom.charModal.mp.textContent = p.maxMp;
+            document.querySelectorAll('.plus-btn').forEach(btn => btn.disabled = p.statPoints <= 0);
+        }
+        dom.modals.character.addEventListener('click', e => { if (e.target.classList.contains('plus-btn')) { const stat = e.target.dataset.stat; if (gameState.player.statPoints > 0) { gameState.player.stats[stat]++; gameState.player.statPoints--; updateCharModal(); } } });
+        function openSkillModal() { updateSkillModal(); openModal('skillTree'); }
+        function updateSkillModal() {
+            dom.skillModal.points.textContent = gameState.player.skillPoints;
+            if (dom.skillModal.tabs.innerHTML === '') {
+                Object.keys(SKILL_TREES).forEach((key, index) => {
+                    const tab = document.createElement('button');
+                    tab.className = 'p-2 text-gray-400 hover:text-white';
+                    tab.textContent = SKILL_TREES[key].name;
+                    tab.onclick = (e) => {
+                        document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
+                        e.target.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
+                        renderSkillTree(key);
+                    };
+                    dom.skillModal.tabs.appendChild(tab);
+                    if(index === 0) tab.click();
+                });
+            } else {
+                 const activeTabKey = Object.keys(SKILL_TREES).find(key => SKILL_TREES[key].name === document.querySelector('#skill-tree-tabs .text-yellow-300')?.textContent);
+                 if (activeTabKey) renderSkillTree(activeTabKey);
+            }
+        }
+        function renderSkillTree(treeKey) {
+            dom.skillModal.display.innerHTML = '';
+            const tree = SKILL_TREES[treeKey];
+            tree.skills.forEach(tier => {
+                const tierDiv = document.createElement('div');
+                tierDiv.className = 'skill-tier';
+                tier.forEach(skillId => {
+                    const skill = SKILLS[skillId];
+                    const node = document.createElement('div');
+                    const learned = gameState.player.learnedSkills.includes(skillId);
+                    const prereqLearned = !skill.requires || gameState.player.learnedSkills.includes(skill.requires);
+                    const canLearn = gameState.player.skillPoints > 0 && !learned && prereqLearned;
+                    node.className = `skill-node ${learned ? 'learned' : canLearn ? 'can-learn' : 'locked'}`;
+                    node.innerHTML = `${skill.icon}<span class="text-xs mt-1">${skill.name}</span><div class="tooltip"><p class="font-bold">${skill.name}</p><p class="text-xs text-gray-300">${skill.desc}</p><p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p></div>`;
+                    if (canLearn) { node.onclick = () => { gameState.player.learnedSkills.push(skillId); gameState.player.skillPoints--; updateSkillModal(); setupSkillButtons(); }; }
+                    tierDiv.appendChild(node);
+                });
+                dom.skillModal.display.appendChild(tierDiv);
+            });
+        }
+
+        // --- 이미지 사전 로딩 ---
+        function preloadImages(urls) {
+            const promises = urls.map(url => {
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = url;
+                });
+            });
+            return Promise.all(promises);
+        }
+
+        // --- 이벤트 리스너 ---
+        dom.screens.title.querySelector('#start-game-btn').addEventListener('click', () => switchScreen('classSelection'));
+        dom.screens.classSelection.addEventListener('click', (e) => { const card = e.target.closest('.class-card'); if (card) { showSkillSelection(card.dataset.class); } });
+        dom.skillSelection.confirmBtn.addEventListener('click', startGame);
+        dom.screens.gameOver.querySelector('#restart-game-btn').addEventListener('click', () => location.reload());
+        dom.screens.gameClear.querySelector('#play-again-btn').addEventListener('click', () => location.reload());
+        dom.screens.stageClear.querySelector('#next-stage-btn').addEventListener('click', () => { gameState.currentStage++; if (gameState.currentStage >= STAGES.length) { switchScreen('gameClear'); } else { switchScreen('battle'); loadStage(gameState.currentStage); } });
+        document.getElementById('char-menu-btn').addEventListener('click', () => { dom.modals.character.classList.contains('hidden') ? (updateCharModal(), openModal('character')) : closeModal('character'); });
+        document.getElementById('skill-menu-btn').addEventListener('click', () => { dom.modals.skillTree.classList.contains('hidden') ? openSkillModal() : closeModal('skillTree'); });
+        dom.modals.character.querySelector('#close-char-modal').addEventListener('click', () => closeModal('character'));
+        dom.modals.skillTree.querySelector('#close-skill-modal').addEventListener('click', () => closeModal('skillTree'));
+        
+        // --- 초기화 ---
+        async function initializeGame() {
+            const imageUrls = [
+                'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png',
+                'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000001fe461fab2245c0abba85e0d_copy_768x1152.png',
+                ...STAGES.map(stage => stage.img),
+                bossBg // 최종 보스 배경 추가
+            ];
+            try {
+                await preloadImages(imageUrls);
+                switchScreen('title');
+            } catch (error) {
+                console.error("이미지 로딩 실패:", error);
+                document.getElementById('loading-screen').innerHTML = '<p>이미지를 불러오는 데 실패했습니다. 페이지를 새로고침 해주세요.</p>';
+            }
+        }
+
+        initializeGame();
+    </script>
 </body>
 </html>
-
