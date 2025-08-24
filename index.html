@@ -45,7 +45,7 @@
         /* --- 화면 구성 --- */
         .game-screen, .modal-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
         .overlay { background-color: rgba(0,0,0,0.7); backdrop-filter: blur(10px); }
-        #title-screen { text-align: center; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png'); background-size: cover; background-repeat: no-repeat; animation: slow-pan 30s ease-in-out infinite; }
+        #title-screen { text-align: center; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp'); background-size: cover; background-repeat: no-repeat; animation: slow-pan 30s ease-in-out infinite; }
         #title-screen h1 { animation: title-glow 3s ease-in-out infinite; }
         #title-screen h2 { text-shadow: 0 0 5px #fff; animation: subtitle-fade 4s ease-in-out infinite; }
         #loading-screen .spinner { width: 60px; height: 60px; border: 5px solid var(--border-color); border-top-color: var(--gold-color); border-radius: 50%; animation: spin 1s linear infinite; }
@@ -132,7 +132,7 @@
         
         .skill-sprite-icon {
             width: 100%; height: 100%;
-            background-image: url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc%20(1).png');
+            background-image: url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc.webp');
             background-repeat: no-repeat;
             image-rendering: pixelated;
         }
@@ -245,16 +245,16 @@
                 </div>
             </div>
         </div>
-        <div id="stage-clear-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-blue-400 mb-6">VICTORY</h2><p id="xp-gain-text" class="text-xl text-purple-400 mb-10"></p><button id="next-stage-btn" class="game-button">다음 층으로</button></div>
-        <div id="game-over-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-red-500 mb-10">DEFEAT</h2><button id="restart-game-btn" class="game-button">다시 시작</button></div>
-        <div id="game-clear-screen" class="game-screen overlay hidden"><h2 class="text-8xl font-cinzel text-yellow-300 mb-10">CONGRATULATIONS</h2><p class="text-2xl mb-12">당신은 시련의 탑을 정복했습니다!</p><button id="play-again-btn" class="game-button">다시 플레이</button></div>
+        <div id="stage-clear-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-blue-400 mb-6">VICTORY</h2><p id="xp-gain-text" class="text-xl text-purple-400 mb-10"></p><button id="next-stage-btn" class="game-button">잘하누?다음 층으로</button></div>
+        <div id="game-over-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-red-500 mb-10">DEFEAT</h2><button id="restart-game-btn" class="game-button">못하누?다시 시작</button></div>
+        <div id="game-clear-screen" class="game-screen overlay hidden"><h2 class="text-8xl font-cinzel text-yellow-300 mb-10">CONGRATULATIONS</h2><p class="text-2xl mb-12">조또 잘하누?당신은 시련의 탑을 정복했습니다!</p><button id="play-again-btn" class="game-button">다시 플레이</button></div>
 
-        <div id="character-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">캐릭터 정보</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-bold mb-4">능력치 (남은 스탯: <span id="stat-points-display"></span>)</h3><div class="space-y-3"><div class="stat-row"><span>힘 (STR)</span><div class="flex items-center gap-2"><button data-stat="str" class="stat-btn minus-btn">-</button><span id="stat-str" class="stat-value w-8"></span><button data-stat="str" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>지능 (INT)</span><div class="flex items-center gap-2"><button data-stat="int" class="stat-btn minus-btn">-</button><span id="stat-int" class="stat-value w-8"></span><button data-stat="int" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>민첩 (AGI)</span><div class="flex items-center gap-2"><button data-stat="agi" class="stat-btn minus-btn">-</button><span id="stat-agi" class="stat-value w-8"></span><button data-stat="agi" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>체력 (VIT)</span><div class="flex items-center gap-2"><button data-stat="vit" class="stat-btn minus-btn">-</button><span id="stat-vit" class="stat-value w-8"></span><button data-stat="vit" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>행운 (LUK)</span><div class="flex items-center gap-2"><button data-stat="luk" class="stat-btn minus-btn">-</button><span id="stat-luk" class="stat-value w-8"></span><button data-stat="luk" class="stat-btn plus-btn">+</button></div></div></div></div><div><h3 class="text-xl font-bold mb-4">상세 정보</h3><p>공격력: <span id="detail-atk"></span></p><p>방어력: <span id="detail-def"></span></p><p>최대 HP: <span id="detail-hp"></span></p><p>최대 MP: <span id="detail-mp"></span></p><p>치명타 확률: <span id="detail-crit-chance"></span>%</p><p>치명타 데미지: <span id="detail-crit-damage"></span>%</p></div></div><div class="flex justify-center gap-4 mt-8"><button id="confirm-stats-btn" class="game-button">변경사항 저장</button><button id="close-char-modal" class="game-button">닫기</button></div></div></div>
+        <div id="character-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">캐릭터 정보</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-bold mb-4">능력치 (남은 스탯: <span id="stat-points-display"></span>)</h3><div class="space-y-3"><div class="stat-row"><span>빠워 (STR)</span><div class="flex items-center gap-2"><button data-stat="str" class="stat-btn minus-btn">-</button><span id="stat-str" class="stat-value w-8"></span><button data-stat="str" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>능지 (INT)</span><div class="flex items-center gap-2"><button data-stat="int" class="stat-btn minus-btn">-</button><span id="stat-int" class="stat-value w-8"></span><button data-stat="int" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재빠른데? (AGI)</span><div class="flex items-center gap-2"><button data-stat="agi" class="stat-btn minus-btn">-</button><span id="stat-agi" class="stat-value w-8"></span><button data-stat="agi" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>정력 (VIT)</span><div class="flex items-center gap-2"><button data-stat="vit" class="stat-btn minus-btn">-</button><span id="stat-vit" class="stat-value w-8"></span><button data-stat="vit" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재수 (LUK)</span><div class="flex items-center gap-2"><button data-stat="luk" class="stat-btn minus-btn">-</button><span id="stat-luk" class="stat-value w-8"></span><button data-stat="luk" class="stat-btn plus-btn">+</button></div></div></div></div><div><h3 class="text-xl font-bold mb-4">상세 정보</h3><p>공격력: <span id="detail-atk"></span></p><p>방어력: <span id="detail-def"></span></p><p>최대 HP: <span id="detail-hp"></span></p><p>최대 MP: <span id="detail-mp"></span></p><p>치명타 확률: <span id="detail-crit-chance"></span>%</p><p>치명타 데미지: <span id="detail-crit-damage"></span>%</p></div></div><div class="flex justify-center gap-4 mt-8"><button id="confirm-stats-btn" class="game-button">변경사항 저장</button><button id="close-char-modal" class="game-button">닫기</button></div></div></div>
         <div id="skill-tree-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">스킬 (남은 스킬 포인트: <span id="skill-points"></span>)</h2><div id="skill-tree-tabs" class="flex border-b border-gray-600 mb-4"></div><div id="skill-tree-container"><div id="skill-tree-display"></div><div id="skill-upgrade-panel" class="hidden"></div></div><div id="combo-list-container" class="hidden"></div><div id="equipped-skills-container" class="mt-4"></div><button id="close-skill-modal" class="game-button mt-8">닫기</button></div></div>
     </div>
 
     <script type="module">
-        const SPRITE_IMAGE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc%20(1).png';
+        const SPRITE_IMAGE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc.webp';
         const MAGE_SPRITE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c82061f5880850490b718d78.png';
         const MAGE_SPRITE_DATA = { "meta": { "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 53, "y": 118, "w": 269, "h": 378 }, { "name": "sprite_2", "x": 384, "y": 127, "w": 312, "h": 367 }, { "name": "sprite_3", "x": 713, "y": 140, "w": 727, "h": 353 } ], "animations": { "attack": { "frames": [ 0, 1, 2 ], "fps": 8 } } };
         const spriteData = {
@@ -313,19 +313,19 @@
             { id: 'holy_fire', name: '신성 화염', skills: ['paladin_smite', 'mage_fireball'], type: 'attack', scale: { int: 5.0 }, vfx: 'holy', desc: "'성스러운 일격' 후 '파이어볼' 사용 시 발동. 강력한 신성 화염 피해를 줍니다." },
             { id: 'shadow_burn', name: '그림자 불꽃', skills: ['assassin_quick_stab', 'mage_fireball'], type: 'attack', scale: { agi: 3.0, int: 2.0 }, vfx: 'shadow_strike', desc: "'급소 찌르기' 후 '파이어볼' 사용 시 발동. 추가 화염 피해를 입힙니다." }
         ];
-        const defaultBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png';
-        const bossBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000ee64622f8f560adf6ed8ad9e.png';
+        const defaultBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp';
+        const bossBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000ee64622f8f560adf6ed8ad9e.webp';
         const STAGES = [
-            { name: "동굴 슬라임", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000063c46246bee6c5711f863e5f.png", bg: defaultBg, maxHp: 300, attack: 20, defense: 10, xp: 50, skills: [{ id: "enemy_bash" }] },
-            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.png", bg: defaultBg, maxHp: 500, attack: 30, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }] },
-            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.png", bg: defaultBg, maxHp: 900, attack: 50, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }] },
-            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.png", bg: defaultBg, maxHp: 700, attack: 65, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }] },
-            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.png", bg: defaultBg, maxHp: 1800, attack: 45, defense: 80, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }] },
-            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.png", bg: defaultBg, maxHp: 1300, attack: 80, defense: 40, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }] },
-            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.png", bg: defaultBg, maxHp: 1500, attack: 100, defense: 45, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }] },
-            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.png", bg: defaultBg, maxHp: 2200, attack: 90, defense: 55, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }] },
+            { name: "동굴 슬라임", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000063c46246bee6c5711f863e5f.webp", bg: defaultBg, maxHp: 300, attack: 20, defense: 10, xp: 50, skills: [{ id: "enemy_bash" }] },
+            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.webp", bg: defaultBg, maxHp: 500, attack: 30, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }] },
+            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.webp", bg: defaultBg, maxHp: 900, attack: 50, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }] },
+            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.webp", bg: defaultBg, maxHp: 700, attack: 65, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }] },
+            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.webp", bg: defaultBg, maxHp: 1800, attack: 45, defense: 80, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }] },
+            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.webp", bg: defaultBg, maxHp: 1300, attack: 80, defense: 40, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }] },
+            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.webp", bg: defaultBg, maxHp: 1500, attack: 100, defense: 45, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }] },
+            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.webp", bg: defaultBg, maxHp: 2200, attack: 90, defense: 55, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }] },
             { name: "변이 괴물", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000001a861fa835a0405826b25d7_copy_768x1152.png", bg: defaultBg, maxHp: 3000, attack: 110, defense: 70, xp: 500, skills: [{ id: "enemy_tentacle" }, { id: "enemy_void_blast" }] },
-            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.png", bg: bossBg, maxHp: 6000, attack: 150, defense: 100, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }] }
+            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.webp", bg: bossBg, maxHp: 6000, attack: 150, defense: 100, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }] }
         ];
         const STARTER_SKILL_POOLS = {
             warrior: { name: "전사", skills: ['knight_bash', 'paladin_smite', 'knight_shield_slam', 'dragon_claw', 'paladin_heal'] },
@@ -478,7 +478,7 @@
                 dom.player.sprite.style.height = `${sprite.h * scale}px`;
                 setSpriteFrame(dom.player.sprite, MAGE_SPRITE_DATA, 0, scale);
             } else {
-                dom.player.sprite.style.backgroundImage = `url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000001fe461fab2245c0abba85e0d_copy_768x1152.png')`;
+                dom.player.sprite.style.backgroundImage = `url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000001fe461fab2245c0abba85e0d_copy_768x1152.webp')`;
                 dom.player.sprite.style.backgroundSize = 'contain';
                 dom.player.sprite.style.width = '100%';
                 dom.player.sprite.style.height = '100%';
@@ -1076,7 +1076,7 @@
             const imageUrls = [
                 SPRITE_IMAGE_URL,
                 MAGE_SPRITE_URL,
-                'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.png',
+                'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp',
                 ...STAGES.map(stage => stage.img),
                 bossBg
             ];
