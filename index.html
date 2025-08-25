@@ -70,12 +70,13 @@
         .character { position: absolute; bottom: 15%; width: 28%; max-width: 300px; transition: transform 0.2s; display: flex; justify-content: center; align-items: flex-end; }
         .player { left: 5%; }
         .enemy { right: 10%; }
-        .character img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8)); }
+        .character img, #player-sprite { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8)); }
         #player-sprite {
             background-repeat: no-repeat;
             image-rendering: pixelated;
-            filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8));
             transform-origin: bottom center;
+            background-size: contain;
+            background-position: center bottom;
         }
 
         .ui-panel { position: absolute; width: 25%; max-width: 320px; background: var(--panel-bg); border: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.75rem; backdrop-filter: blur(5px); }
@@ -139,7 +140,7 @@
         .skill-line.learned { background-color: var(--gold-color); }
 
         .tooltip { position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%); width: 250px; background: black; border: 1px solid var(--gold-color); padding: 0.75rem; border-radius: 0.5rem; z-index: 10; pointer-events: none; opacity: 0; transition: opacity 0.2s, visibility 0.2s; visibility: hidden; }
-        .skill-node:hover .tooltip { opacity: 1; visibility: visible; }
+        .skill-node:hover .tooltip, .skill-btn .tooltip.show { opacity: 1; visibility: visible; }
         
         .skill-sprite-icon {
             width: 100%; height: 100%;
@@ -171,19 +172,20 @@
             .hp-bar { height: 10px; } .mp-bar { height: 8px; } .xp-bar { height: 5px; }
             .hp-text, .mp-text { font-size: 0.7rem; }
 
-            .controls { flex-direction: column; align-items: center; }
-            .skills-container { order: 1; padding: 0.25rem; gap: 0.25rem; }
+            .controls { flex-direction: column; align-items: center; bottom: 0; }
+            .skills-container { order: 1; padding: 0.25rem; gap: 0.25rem; border-radius: 0.5rem 0.5rem 0 0; }
             .skill-btn { width: 48px; height: 48px; }
             .skill-btn .icon-wrapper { width: 28px; height: 28px; }
             .skill-btn .skill-label { font-size: 0.5rem; line-height: 0.6rem; }
 
-            .log-panel { bottom: 150px; top: auto; height: 80px; width: 90%; }
-            .log-panel:hover { height: 80px; }
+            .log-panel { bottom: 65px; top: auto; height: 60px; width: 90%; }
+            .log-panel:hover { height: 60px; }
 
             /* Skill Modal Mobile Optimizations */
-            #skill-tree-modal .modal-content { width: 95%; padding: 1rem; }
+            #skill-tree-modal .modal-content { width: 95%; padding: 0.5rem; }
+            #skill-tree-modal h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
             #skill-modal-layout { grid-template-columns: 1fr; }
-            #skill-list-panel, #skill-tree-panel { max-height: 40vh; }
+            #skill-list-panel, #skill-tree-panel { max-height: 45vh; }
             #skill-details-panel .flex { flex-direction: column; }
         }
     </style>
@@ -768,24 +770,37 @@
 
             for(let i = 0; i < 11; i++) {
                 const skillId = activeSkills[i];
+                if(!skillId) continue;
+
                 const button = document.createElement('button');
                 button.className = 'skill-btn relative';
-                if(skillId) {
-                    const skill = getEffectiveSkill(skillId);
-                    const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                    const level = gameState.player.skillLevels[skillId] || 1;
-                    const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                    const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                    const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                    const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip">${getSkillDetailsHTML(skillId)}</div>`;
-                    
-                    button.addEventListener('click', () => playerTurn(skillId));
+                
+                const skill = getEffectiveSkill(skillId);
+                const sprite = spriteData.sprites.find(s => s.name === skill.icon);
+                const level = gameState.player.skillLevels[skillId] || 1;
+                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
+                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
+                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
+                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
+                button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip">${getSkillDetailsHTML(skillId)}</div>`;
+                
+                button.addEventListener('click', () => playerTurn(skillId));
 
-                } else {
-                    button.innerHTML = `<span></span>`;
-                    button.disabled = true;
-                }
+                let pressTimer;
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    pressTimer = setTimeout(() => {
+                        const tooltip = e.currentTarget.querySelector('.tooltip');
+                        tooltip.classList.add('show');
+                    }, 500);
+                });
+                button.addEventListener('touchend', () => {
+                    clearTimeout(pressTimer);
+                    const tooltip = document.querySelector('.tooltip.show');
+                    if(tooltip) tooltip.classList.remove('show');
+                });
+
+
                 dom.controls.skills.appendChild(button);
             }
             toggleSkillButtons(isPlayerTurn ? false : true);
@@ -920,10 +935,7 @@
         function setSpriteFrame(element, spriteData, frameIndex, scale = 1) {
             const frame = spriteData.sprites[frameIndex];
             if (frame) {
-                if (spriteData === ROGUE_SPRITE_DATA || spriteData === WARRIOR_SPRITE_DATA) {
-                     element.style.width = `${frame.w * scale}px`;
-                     element.style.height = `${frame.h * scale}px`;
-                }
+                element.style.aspectRatio = frame.w / frame.h;
                 element.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`;
             }
         }
