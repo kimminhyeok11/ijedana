@@ -57,7 +57,7 @@
         .class-card svg { width: 80px; height: 80px; margin-bottom: 1rem; color: var(--gold-color); }
         .class-card h3 { font-family: 'Cinzel', serif; font-size: 1.5rem; color: var(--gold-color); }
         .class-card p { font-size: 0.8rem; color: #ccc; text-align: center; padding: 0 1rem; }
-        #starter-skills-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; width: 100%; max-width: 800px; margin-bottom: 2rem; }
+        #starter-skills-container, #passive-skills-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; width: 100%; max-width: 800px; margin-bottom: 2rem; }
         .skill-card { padding: 1rem; text-align: center; }
         .skill-card h4 { font-size: 0.9rem; font-weight: bold; }
         .skill-card p { font-size: 0.75rem; color: #bbb; }
@@ -68,12 +68,10 @@
 
         .battle-scene { background-size: cover; background-position: center; width: 100vw; height: 100vh; position: relative; transition: background-image 0.5s ease-in-out; }
         .character { position: absolute; bottom: 15%; width: 28%; max-width: 300px; transition: transform 0.2s; display: flex; justify-content: center; align-items: flex-end; }
-        .player { left: 10%; }
+        .player { left: 5%; }
         .enemy { right: 10%; }
         .character img { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8)); }
         #player-sprite {
-            width: 269px; /* Default sprite width */
-            height: 378px; /* Default sprite height */
             background-repeat: no-repeat;
             image-rendering: pixelated;
             filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8));
@@ -90,7 +88,11 @@
         .xp-bar { height: 6px; background: linear-gradient(to right, #8b5cf6, #6d28d9); }
         .hp-text, .mp-text { font-size: 0.8rem; font-family: monospace; }
         
-        .controls { position: absolute; bottom: 1%; left: 50%; transform: translateX(-50%); width: auto; display: flex; align-items: flex-end; gap: 0.5rem; }
+        .buff-container { display: flex; gap: 4px; margin-top: 6px; min-height: 28px; flex-wrap: wrap; }
+        .buff-icon { position: relative; width: 24px; height: 24px; border-radius: 4px; overflow: hidden; border: 1px solid var(--gold-color); }
+        .buff-icon .duration { position: absolute; bottom: 0; right: 0; font-size: 10px; font-weight: bold; background-color: rgba(0,0,0,0.7); color: white; padding: 0 2px; border-radius: 2px 0 0 0; }
+
+        .controls { position: absolute; bottom: 1%; left: 50%; transform: translateX(-50%); width: 95%; max-width: 820px; display: flex; align-items: flex-end; justify-content: center; gap: 0.5rem; }
         .menu-btn { position: relative; background: linear-gradient(145deg, #2a2a4e, #1a1a2e); border: 1px solid var(--border-color); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 0.75rem; }
         .menu-btn:hover { border-color: var(--gold-color); transform: translateY(-2px); }
         .menu-btn svg { width: 24px; height: 24px; color: var(--gold-color); }
@@ -99,7 +101,7 @@
         .player-ui .menu-btn { width: 36px; height: 36px; border-radius: 0.5rem; }
         .player-ui .menu-btn svg { width: 20px; height: 20px; }
 
-        .skills-container { display: flex; align-items: center; gap: 0.5rem; background: var(--panel-bg); border-top: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.5rem; border-radius: 1rem 1rem 0 0; }
+        .skills-container { display: flex; align-items: center; gap: 0.5rem; background: var(--panel-bg); border-top: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.5rem; border-radius: 1rem 1rem 0 0; flex-wrap: wrap; justify-content: center; }
         .skill-btn { background: #1f1f3d; border: 1px solid var(--border-color); transition: all 0.2s; width: 64px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; overflow: hidden; padding: 2px; }
         .skill-btn:hover:not(:disabled) { border-color: var(--gold-color); transform: scale(1.1); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
         .skill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -115,24 +117,20 @@
         .stat-value { text-align: center; }
         .stat-btn { background: var(--gold-color); color: black; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; }
         
-        #skill-tree-container { display: grid; grid-template-columns: 1fr 250px; gap: 1rem; }
-        #skill-tree-display { flex-grow: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
-        #skill-upgrade-panel { flex-shrink: 0; background: #1f1f3d; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); }
-        .skill-tier { display: flex; justify-content: center; gap: 1rem; width: 100%; position: relative; }
-        .skill-tier::after { content: ''; position: absolute; bottom: -1rem; left: 50%; transform: translateX(-50%); width: 2px; height: 1rem; background-color: var(--border-color); }
-        .skill-tier:last-child::after { display: none; }
-        .skill-node { background: #1f1f3d; border: 1px solid var(--border-color); padding: 0.5rem; text-align: center; cursor: pointer; position: relative; width: 80px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; }
-        .skill-node.learned { border-color: var(--gold-color); }
-        .skill-node.can-learn { border-color: #60a5fa; box-shadow: 0 0 10px #60a5fa; }
-        .skill-node.locked { opacity: 0.5; }
-        .skill-node .icon-container { width: 48px; height: 48px; overflow: hidden; border-radius: 0.5rem; margin-bottom: 4px; }
+        #skill-modal-layout { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        @media (min-width: 768px) { #skill-modal-layout { grid-template-columns: 300px 1fr; } }
+        #skill-list-panel { background: #1f1f3d; border-radius: 0.5rem; border: 1px solid var(--border-color); overflow-y: auto; max-height: 60vh; }
+        .skill-list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color 0.2s; }
+        .skill-list-item:hover { background-color: rgba(255,255,255,0.1); }
+        .skill-list-item.selected { background-color: var(--gold-color); color: black; }
+        .skill-list-item .icon-container { width: 40px; height: 40px; flex-shrink: 0; }
+        #skill-details-panel { background: #1f1f3d; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); }
 
         .tooltip { position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%); width: 250px; background: black; border: 1px solid var(--gold-color); padding: 0.75rem; border-radius: 0.5rem; z-index: 10; pointer-events: none; opacity: 0; transition: opacity 0.2s, visibility 0.2s; visibility: hidden; }
         .skill-node:hover .tooltip, .skill-btn:hover .tooltip, .tooltip.show { opacity: 1; visibility: visible; }
         
         .skill-sprite-icon {
             width: 100%; height: 100%;
-            background-image: url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc.webp');
             background-repeat: no-repeat;
             image-rendering: pixelated;
         }
@@ -175,9 +173,6 @@
 
             .log-panel { bottom: 150px; top: auto; height: 80px; width: 90%; }
             .log-panel:hover { height: 80px; }
-            
-            #skill-tree-container { grid-template-columns: 1fr; }
-            #skill-upgrade-panel { width: 100%; margin-top: 1rem; }
         }
     </style>
 </head>
@@ -216,7 +211,12 @@
         <div id="skill-selection-screen" class="game-screen overlay hidden">
             <h2 id="skill-select-title" class="text-4xl font-cinzel text-yellow-300 mb-10">초기 스킬을 선택하십시오 (0 / 3)</h2>
             <div id="starter-skills-container"></div>
-            <button id="confirm-skills-btn" class="game-button" disabled>모험 시작</button>
+            <button id="confirm-skills-btn" class="game-button" disabled>다음</button>
+        </div>
+        <div id="passive-skill-selection-screen" class="game-screen overlay hidden">
+            <h2 id="passive-skill-select-title" class="text-4xl font-cinzel text-yellow-300 mb-10">패시브 스킬을 선택하십시오 (0 / 2)</h2>
+            <div id="passive-skills-container"></div>
+            <button id="confirm-passive-skills-btn" class="game-button" disabled>모험 시작</button>
         </div>
         <div id="battle-screen" class="game-screen hidden">
             <div id="battle-scene" class="battle-scene">
@@ -235,8 +235,14 @@
                             <button id="skill-menu-btn" class="menu-btn"><div class="notification-dot"></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18.6l-3.44 1.81 0.66-3.83-2.78-2.71 3.84-0.56L12 10l1.72 3.48 3.84 0.56-2.78 2.71 0.66 3.83L12 18.6zM12 2l-2.4 4.8-5.3 0.78 3.8 3.7-0.9 5.22L12 14.1l4.7 2.4-0.9-5.22 3.8-3.7-5.3-0.78L12 2z"></path></svg></button>
                         </div>
                     </div>
-                    <div class="bar-container my-1"><div id="player-hp-bar" class="bar hp-bar"></div></div><p id="player-hp-text" class="text-right hp-text"></p><div class="bar-container my-1"><div id="player-mp-bar" class="bar mp-bar"></div></div><p id="player-mp-text" class="text-right mp-text"></p><div class="bar-container mt-1"><div id="player-xp-bar" class="bar xp-bar"></div></div></div>
-                <div class="ui-panel enemy-ui"><div class="flex justify-between items-center"><h2 id="enemy-name" class="text-lg font-cinzel"></h2><span id="stage-indicator" class="font-cinzel text-md text-red-400"></span></div><div class="bar-container my-1"><div id="enemy-hp-bar" class="bar hp-bar"></div></div><p id="enemy-hp-text" class="text-right hp-text"></p></div>
+                    <div class="bar-container my-1"><div id="player-hp-bar" class="bar hp-bar"></div></div><p id="player-hp-text" class="text-right hp-text"></p><div class="bar-container my-1"><div id="player-mp-bar" class="bar mp-bar"></div></div><p id="player-mp-text" class="text-right mp-text"></p><div class="bar-container mt-1"><div id="player-xp-bar" class="bar xp-bar"></div></div>
+                    <div id="player-buffs" class="buff-container"></div>
+                </div>
+                <div class="ui-panel enemy-ui">
+                    <div class="flex justify-between items-center"><h2 id="enemy-name" class="text-lg font-cinzel"></h2><span id="stage-indicator" class="font-cinzel text-md text-red-400"></span></div>
+                    <div class="bar-container my-1"><div id="enemy-hp-bar" class="bar hp-bar"></div></div><p id="enemy-hp-text" class="text-right hp-text"></p>
+                    <div id="enemy-buffs" class="buff-container"></div>
+                </div>
 
                 <div id="log-panel" class="log-panel"><div id="log-messages-container"></div></div>
                 
@@ -250,13 +256,30 @@
         <div id="game-clear-screen" class="game-screen overlay hidden"><h2 class="text-8xl font-cinzel text-yellow-300 mb-10">CONGRATULATIONS</h2><p class="text-2xl mb-12">조또 당신은 시련의 탑을 정복했습니다!</p><button id="play-again-btn" class="game-button">다시 플레이</button></div>
 
         <div id="character-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">캐릭터 정보</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-bold mb-4">능력치 (남은 스탯: <span id="stat-points-display"></span>)</h3><div class="space-y-3"><div class="stat-row"><span>빠워 (STR)</span><div class="flex items-center gap-2"><button data-stat="str" class="stat-btn minus-btn">-</button><span id="stat-str" class="stat-value w-8"></span><button data-stat="str" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>능지 (INT)</span><div class="flex items-center gap-2"><button data-stat="int" class="stat-btn minus-btn">-</button><span id="stat-int" class="stat-value w-8"></span><button data-stat="int" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재빠름(AGI)</span><div class="flex items-center gap-2"><button data-stat="agi" class="stat-btn minus-btn">-</button><span id="stat-agi" class="stat-value w-8"></span><button data-stat="agi" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>체력 (VIT)</span><div class="flex items-center gap-2"><button data-stat="vit" class="stat-btn minus-btn">-</button><span id="stat-vit" class="stat-value w-8"></span><button data-stat="vit" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재수 (LUK)</span><div class="flex items-center gap-2"><button data-stat="luk" class="stat-btn minus-btn">-</button><span id="stat-luk" class="stat-value w-8"></span><button data-stat="luk" class="stat-btn plus-btn">+</button></div></div></div></div><div><h3 class="text-xl font-bold mb-4">상세 정보</h3><p>공격력: <span id="detail-atk"></span></p><p>방어력: <span id="detail-def"></span></p><p>최대 HP: <span id="detail-hp"></span></p><p>최대 MP: <span id="detail-mp"></span></p><p>치명타 확률: <span id="detail-crit-chance"></span>%</p><p>치명타 데미지: <span id="detail-crit-damage"></span>%</p></div></div><div class="flex justify-center gap-4 mt-8"><button id="confirm-stats-btn" class="game-button">변경사항 저장</button><button id="close-char-modal" class="game-button">닫기</button></div></div></div>
-        <div id="skill-tree-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">스킬 (남은 스킬 포인트: <span id="skill-points"></span>)</h2><div id="skill-tree-tabs" class="flex border-b border-gray-600 mb-4"></div><div id="skill-tree-container"><div id="skill-tree-display"></div><div id="skill-upgrade-panel" class="hidden"></div></div><div id="combo-list-container" class="hidden"></div><div id="equipped-skills-container" class="mt-4"></div><button id="close-skill-modal" class="game-button mt-8">닫기</button></div></div>
+        <div id="skill-tree-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">스킬 (남은 포인트: <span id="skill-points"></span> | 패시브 포인트: <span id="passive-skill-points"></span>)</h2><div id="skill-tree-tabs" class="flex border-b border-gray-600 mb-4"></div><div id="skill-modal-layout"><div id="skill-list-panel"></div><div id="skill-details-panel"></div></div><div id="equipped-skills-container" class="mt-4"></div><button id="close-skill-modal" class="game-button mt-8">닫기</button></div></div>
     </div>
 
     <script type="module">
         const SPRITE_IMAGE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc.webp';
         const MAGE_SPRITE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c82061f5880850490b718d78.webp';
+        const ROGUE_SPRITE_URL = 'https://mbjwjkvaksucinhowody.supabase.co/storage/v1/object/public/xxx/dodook.webp';
+        const SUNDER_VFX_URL = 'https://mbjwjkvaksucinhowody.supabase.co/storage/v1/object/public/xxx/sunderskil.webp';
+        const WARRIOR_SPRITE_URL = 'https://mbjwjkvaksucinhowody.supabase.co/storage/v1/object/public/xxx/gisa.webp';
+        
         const MAGE_SPRITE_DATA = { "meta": { "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 53, "y": 118, "w": 269, "h": 378 }, { "name": "sprite_2", "x": 384, "y": 127, "w": 312, "h": 367 }, { "name": "sprite_3", "x": 713, "y": 140, "w": 727, "h": 353 } ], "animations": { "attack": { "frames": [ 0, 1, 2 ], "fps": 8 } } };
+        const ROGUE_SPRITE_DATA = { "meta": { "image": "dodook.webp", "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 31, "y": 120, "w": 266, "h": 386 }, { "name": "sprite_2", "x": 346, "y": 128, "w": 305, "h": 372 }, { "name": "sprite_3", "x": 693, "y": 128, "w": 307, "h": 370 }, { "name": "sprite_4", "x": 1015, "y": 128, "w": 490, "h": 371 }, { "name": "sprite_5", "x": 32, "y": 544, "w": 272, "h": 384 }, { "name": "sprite_6", "x": 352, "y": 544, "w": 296, "h": 382 }, { "name": "sprite_7", "x": 1070, "y": 544, "w": 427, "h": 382 }, { "name": "sprite_8", "x": 696, "y": 547, "w": 296, "h": 378 } ], "animations": { "attack": { "frames": [0, 1, 2, 3, 4, 5, 6, 7], "fps": 12 } } };
+        const SUNDER_VFX_DATA = { "meta": { "image": "sunderskil.webp", "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 595, "y": 10, "w": 189, "h": 496 }, { "name": "sprite_2", "x": 890, "y": 13, "w": 219, "h": 975 }, { "name": "sprite_3", "x": 1280, "y": 64, "w": 120, "h": 441 }, { "name": "sprite_4", "x": 618, "y": 113, "w": 15, "h": 15 }, { "name": "sprite_5", "x": 1036, "y": 114, "w": 22, "h": 30 }, { "name": "sprite_6", "x": 372, "y": 166, "w": 9, "h": 18 }, { "name": "sprite_7", "x": 709, "y": 176, "w": 45, "h": 66 }, { "name": "sprite_8", "x": 369, "y": 184, "w": 57, "h": 320 }, { "name": "sprite_9", "x": 580, "y": 205, "w": 12, "h": 14 }, { "name": "sprite_10", "x": 757, "y": 239, "w": 24, "h": 16 }, { "name": "sprite_11", "x": 1081, "y": 246, "w": 8, "h": 10 }, { "name": "sprite_12", "x": 1395, "y": 258, "w": 10, "h": 14 }, { "name": "sprite_13", "x": 1269, "y": 259, "w": 12, "h": 8 }, { "name": "sprite_14", "x": 736, "y": 319, "w": 8, "h": 9 }, { "name": "sprite_15", "x": 1276, "y": 376, "w": 16, "h": 16 }, { "name": "sprite_16", "x": 1084, "y": 377, "w": 31, "h": 38 }, { "name": "sprite_17", "x": 1357, "y": 384, "w": 8, "h": 15 }, { "name": "sprite_18", "x": 80, "y": 392, "w": 15, "h": 40 }, { "name": "sprite_19", "x": 912, "y": 403, "w": 10, "h": 9 }, { "name": "sprite_20", "x": 1040, "y": 415, "w": 14, "h": 21 }, { "name": "sprite_21", "x": 74, "y": 424, "w": 46, "h": 80 }, { "name": "sprite_22", "x": 421, "y": 432, "w": 11, "h": 22 }, { "name": "sprite_23", "x": 54, "y": 472, "w": 10, "h": 8 }, { "name": "sprite_24", "x": 607, "y": 536, "w": 172, "h": 452 }, { "name": "sprite_25", "x": 928, "y": 538, "w": 9, "h": 14 }, { "name": "sprite_26", "x": 608, "y": 560, "w": 8, "h": 8 }, { "name": "sprite_27", "x": 615, "y": 565, "w": 34, "h": 51 }, { "name": "sprite_28", "x": 1039, "y": 569, "w": 25, "h": 31 }, { "name": "sprite_29", "x": 361, "y": 579, "w": 95, "h": 402 }, { "name": "sprite_30", "x": 1012, "y": 591, "w": 13, "h": 27 }, { "name": "sprite_31", "x": 640, "y": 596, "w": 24, "h": 20 }, { "name": "sprite_32", "x": 947, "y": 606, "w": 31, "h": 28 }, { "name": "sprite_33", "x": 1064, "y": 615, "w": 38, "h": 20 }, { "name": "sprite_34", "x": 76, "y": 632, "w": 52, "h": 342 }, { "name": "sprite_35", "x": 752, "y": 636, "w": 13, "h": 10 }, { "name": "sprite_36", "x": 334, "y": 638, "w": 23, "h": 30 }, { "name": "sprite_37", "x": 418, "y": 650, "w": 14, "h": 30 }, { "name": "sprite_38", "x": 354, "y": 707, "w": 13, "h": 19 }, { "name": "sprite_39", "x": 590, "y": 717, "w": 19, "h": 19 }, { "name": "sprite_40", "x": 581, "y": 736, "w": 8, "h": 13 }, { "name": "sprite_41", "x": 326, "y": 744, "w": 10, "h": 9 }, { "name": "sprite_42", "x": 1037, "y": 746, "w": 13, "h": 12 }, { "name": "sprite_43", "x": 336, "y": 752, "w": 16, "h": 23 }, { "name": "sprite_44", "x": 705, "y": 760, "w": 8, "h": 15 }, { "name": "sprite_45", "x": 707, "y": 773, "w": 8, "h": 36 }, { "name": "sprite_46", "x": 164, "y": 780, "w": 10, "h": 9 }, { "name": "sprite_47", "x": 150, "y": 791, "w": 12, "h": 21 }, { "name": "sprite_48", "x": 142, "y": 808, "w": 9, "h": 23 }, { "name": "sprite_49", "x": 327, "y": 811, "w": 16, "h": 21 }, { "name": "sprite_50", "x": 342, "y": 838, "w": 43, "h": 73 }, { "name": "sprite_51", "x": 651, "y": 844, "w": 11, "h": 36 }, { "name": "sprite_52", "x": 324, "y": 882, "w": 36, "h": 48 }, { "name": "sprite_53", "x": 128, "y": 896, "w": 22, "h": 42 }, { "name": "sprite_54", "x": 454, "y": 897, "w": 26, "h": 23 }, { "name": "sprite_55", "x": 748, "y": 899, "w": 21, "h": 24 }, { "name": "sprite_56", "x": 110, "y": 902, "w": 13, "h": 34 }, { "name": "sprite_57", "x": 413, "y": 903, "w": 18, "h": 17 }, { "name": "sprite_58", "x": 447, "y": 920, "w": 12, "h": 17 }, { "name": "sprite_59", "x": 969, "y": 920, "w": 12, "h": 21 }, { "name": "sprite_60", "x": 1039, "y": 921, "w": 8, "h": 15 }, { "name": "sprite_61", "x": 648, "y": 951, "w": 16, "h": 16 }, { "name": "sprite_62", "x": 1025, "y": 953, "w": 22, "h": 18 } ], "animations": { "sunder": { "frames": [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61], "fps": 24 } } };
+        const WARRIOR_SPRITE_DATA = {
+            "meta": { "image": "gisa.webp", "size": { "w": 1024, "h": 1024 } },
+            "sprites": [
+                { "name": "frame_1", "x": 336, "y": 36, "w": 291, "h": 316 },
+                { "name": "frame_2", "x": 655, "y": 44, "w": 345, "h": 308 },
+                { "name": "frame_3", "x": 27, "y": 47, "w": 286, "h": 305 },
+                { "name": "frame_4", "x": 24, "y": 383, "w": 235, "h": 291 }
+            ],
+            "animations": { "attack": { "frames": [0, 1, 2, 3], "fps": 8 } }
+        };
+
         const spriteData = {
             "meta": { "size": { "w": 1536, "h": 1024 } },
             "sprites": [{"name":"sprite_1","x":111,"y":64,"w":250,"h":242},{"name":"sprite_2","x":894,"y":64,"w":237,"h":242},{"name":"sprite_3","x":377,"y":65,"w":240,"h":241},{"name":"sprite_4","x":1152,"y":65,"w":240,"h":239},{"name":"sprite_5","x":635,"y":66,"w":237,"h":238},{"name":"sprite_6","x":112,"y":320,"w":249,"h":237},{"name":"sprite_7","x":894,"y":320,"w":238,"h":237},{"name":"sprite_8","x":636,"y":321,"w":236,"h":236},{"name":"sprite_9","x":1152,"y":321,"w":240,"h":237},{"name":"sprite_10","x":378,"y":322,"w":239,"h":235},{"name":"sprite_12","x":894,"y":573,"w":238,"h":232},{"name":"sprite_13","x":111,"y":576,"w":250,"h":230},{"name":"sprite_14","x":378,"y":576,"w":238,"h":231},{"name":"sprite_16","x":636,"y":576,"w":237,"h":228},{"name":"sprite_17","x":1152,"y":576,"w":240,"h":228},{"name":"sprite_20","x":1152,"y":822,"w":240,"h":202},{"name":"sprite_21","x":110,"y":823,"w":251,"h":201},{"name":"sprite_22","x":378,"y":823,"w":239,"h":201},{"name":"sprite_23","x":635,"y":823,"w":237,"h":201},{"name":"sprite_24","x":894,"y":823,"w":238,"h":201}]
@@ -264,26 +287,18 @@
 
         const SKILLS = {
             basic_attack: { name: "기본 공격", type: "attack", cost: 0, scale: { str: 1.6 }, vfx: "slash", icon: "sprite_21", desc: "MP를 소모하지 않는 기본 공격입니다." },
-            knight_bash: { name: "강타", type: "attack", cost: 10, scale: { str: 2.4 }, vfx: "slash", icon: "sprite_6", desc: "기본적인 공격입니다.", tier: 1, upgradeEffects: { 3: { cost: 5, desc: "MP 소모량 5 감소" }, 5: { addEffect: { type: 'stun', chance: 0.15 }, desc: "15% 확률로 기절 효과 추가" } } },
-            knight_shield_slam: { name: "방패 강타", type: "attack", cost: 20, scale: { str: 3.6, def: 1.0 }, vfx: "slash", icon: "sprite_10", desc: "방어력에 비례한 추가 피해를 줍니다.", tier: 2, requires: 'knight_bash' },
-            knight_whirlwind: { name: "휠윈드", type: "attack", cost: 35, scale: { str: 6.0 }, vfx: "slash", icon: "sprite_14", desc: "강력한 회전 공격입니다.", tier: 3, requires: 'knight_shield_slam' },
-            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 50, duration: 3, effects: { def: 2.0 }, vfx: "holy", icon: "sprite_17", desc: "3턴간 방어력이 100% 증가합니다.", tier: 4, requires: 'knight_whirlwind' },
-            mage_fireball: { name: "파이어볼", type: "attack", cost: 15, scale: { int: 3.0 }, vfx: "fireball", icon: "sprite_8", desc: "작은 화염구를 날립니다.", tier: 1, upgradeEffects: { 3: { scale: { int: 4.0 }, desc: "지능 계수 4.0으로 증가" } } },
-            mage_ice_spear: { name: "아이스 스피어", type: "attack", cost: 25, scale: { int: 5.0 }, vfx: "ice_shard", icon: "sprite_12", desc: "얼음 창으로 적을 꿰뚫습니다.", tier: 2, requires: 'mage_fireball' },
-            mage_chain_lightning: { name: "체인 라이트닝", type: "attack", cost: 40, scale: { int: 8.0 }, vfx: "lightning", icon: "sprite_5", desc: "전격으로 큰 피해를 줍니다.", tier: 3, requires: 'mage_ice_spear' },
-            mage_ultimate: { name: "메테오", type: "attack", cost: 80, scale: { int: 16.0 }, vfx: "fireball", icon: "sprite_9", desc: "거대한 운석을 떨어뜨립니다.", tier: 4, requires: 'mage_chain_lightning' },
-            paladin_smite: { name: "성스러운 일격", type: "attack", cost: 15, scale: { str: 2.0, int: 1.0 }, vfx: "holy", icon: "sprite_13", desc: "신성한 힘으로 공격합니다.", tier: 1 },
-            paladin_heal: { name: "치유의 빛", type: "heal", cost: 25, scale: { int: 6.0 }, vfx: "heal", icon: "sprite_7", desc: "체력을 회복합니다.", tier: 2, requires: 'paladin_smite', upgradeEffects: { 4: { cost: 15, desc: "MP 소모량 15로 감소" } } },
-            paladin_judgment: { name: "심판", type: "attack", cost: 40, scale: { int: 6.0, str: 3.0 }, vfx: "holy", icon: "sprite_22", desc: "강력한 신성 마법 공격입니다.", tier: 3, requires: 'paladin_heal' },
-            paladin_ultimate: { name: "천상의 보호막", type: "buff", cost: 60, duration: 1, effects: { immune: true }, vfx: "holy", icon: "sprite_10", desc: "1턴간 모든 피해를 무효화합니다.", tier: 4, requires: 'paladin_judgment' },
-            assassin_quick_stab: { name: "급소 찌르기", type: "attack", cost: 12, scale: { agi: 2.6 }, vfx: "slash", icon: "sprite_16", desc: "민첩한 공격을 가합니다.", tier: 1 },
-            assassin_poison_blade: { name: "독 칼날", type: "attack", cost: 22, scale: { agi: 4.0 }, vfx: "slash", icon: "sprite_2", desc: "독을 바른 칼로 공격합니다.", tier: 2, requires: 'assassin_quick_stab' },
-            assassin_shadow_strike: { name: "그림자 습격", type: "attack", cost: 38, scale: { agi: 7.0 }, vfx: "shadow_strike", icon: "sprite_23", desc: "그림자 속에서 나타나 공격합니다.", tier: 3, requires: 'assassin_poison_blade' },
-            assassin_ultimate: { name: "필살", type: "attack", cost: 55, scale: { agi: 12.0 }, vfx: "shadow_strike", icon: "sprite_20", desc: "적의 약점을 노려 치명타를 가합니다.", tier: 4, requires: 'assassin_shadow_strike' },
-            dragon_claw: { name: "드래곤 클로", type: "attack", cost: 20, scale: { str: 4.0 }, vfx: "slash", icon: "sprite_21", desc: "용의 발톱으로 할큅니다.", tier: 1 },
-            dragon_breath: { name: "드래곤 브레스", type: "attack", cost: 35, scale: { str: 3.6, int: 3.6 }, vfx: "dragon_breath", icon: "sprite_1", desc: "강력한 화염 숨결을 내뿜습니다.", tier: 2, requires: 'dragon_claw' },
-            dragon_tail_swipe: { name: "꼬리 휘두르기", type: "attack", cost: 45, scale: { str: 7.0 }, vfx: "slash", icon: "sprite_6", desc: "거대한 꼬리로 적을 후려칩니다.", tier: 3, requires: 'dragon_breath' },
-            dragon_ultimate: { name: "용의 분노", type: "buff", cost: 70, duration: 3, effects: { atk: 1.5 }, vfx: "dragon_breath", icon: "sprite_24", desc: "3턴간 공격력이 50% 증가합니다.", tier: 4, requires: 'dragon_tail_swipe' },
+            knight_bash: { name: "강타", type: "attack", cost: 8, scale: { str: 2.4 }, vfx: "slash", icon: "sprite_6", desc: "기본적인 공격입니다.", tier: 1, permanentBoost: { str_percent: 0.01 } },
+            knight_shield_slam: { name: "방패 강타", type: "attack", cost: 15, scale: { str: 3.6, def: 1.0 }, vfx: "slash", icon: "sprite_10", desc: "방어력에 비례한 추가 피해를 줍니다.", tier: 2, requires: 'knight_bash', permanentBoost: { def_percent: 0.02 } },
+            knight_whirlwind: { name: "휠윈드", type: "attack", cost: 28, scale: { str: 6.0 }, vfx: "slash", icon: "sprite_14", desc: "강력한 회전 공격입니다.", tier: 3, requires: 'knight_shield_slam', permanentBoost: { str_percent: 0.03 } },
+            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 40, duration: 5, effects: { def: 2.0 }, vfx: "holy", icon: "sprite_17", desc: "5턴간 방어력이 100% 증가합니다.", tier: 4, requires: 'knight_whirlwind', permanentBoost: { maxHp_percent: 0.05 } },
+            mage_fireball: { name: "파이어볼", type: "attack", cost: 12, scale: { int: 3.0 }, vfx: "fireball", icon: "sprite_8", desc: "작은 화염구를 날립니다.", tier: 1, permanentBoost: { int_percent: 0.01 } },
+            mage_ice_spear: { name: "아이스 스피어", type: "attack", cost: 20, scale: { int: 5.0 }, vfx: "ice_shard", icon: "sprite_12", desc: "얼음 창으로 적을 꿰뚫습니다.", tier: 2, requires: 'mage_fireball', permanentBoost: { int_percent: 0.02 } },
+            mage_chain_lightning: { name: "체인 라이트닝", type: "attack", cost: 32, scale: { int: 8.0 }, vfx: "lightning", icon: "sprite_5", desc: "전격으로 큰 피해를 줍니다.", tier: 3, requires: 'mage_ice_spear', permanentBoost: { int_percent: 0.03 } },
+            mage_ultimate: { name: "메테오", type: "attack", cost: 65, scale: { int: 16.0 }, vfx: "fireball", icon: "sprite_9", desc: "거대한 운석을 떨어뜨립니다.", tier: 4, requires: 'mage_chain_lightning', permanentBoost: { maxMp_percent: 0.05 } },
+            assassin_quick_stab: { name: "급소 찌르기", type: "attack", cost: 10, scale: { agi: 2.6 }, vfx: "slash", icon: "sprite_16", desc: "민첩한 공격을 가합니다.", tier: 1, permanentBoost: { agi_percent: 0.01 } },
+            assassin_poison_blade: { name: "독 칼날", type: "attack", cost: 18, scale: { agi: 4.0 }, addEffect: { type: 'poison', chance: 0.5, duration: 3, power: 0.5 }, vfx: "slash", icon: "sprite_2", desc: "50% 확률로 3턴간 중독시킵니다.", tier: 2, requires: 'assassin_quick_stab', permanentBoost: { agi_percent: 0.02 } },
+            assassin_shadow_strike: { name: "그림자 습격", type: "attack", cost: 30, scale: { agi: 7.0 }, addEffect: { type: 'bleed', chance: 0.3, duration: 2, power: 1.0 }, vfx: "shadow_strike", icon: "sprite_23", desc: "30% 확률로 2턴간 출혈을 일으킵니다.", tier: 3, requires: 'assassin_poison_blade', permanentBoost: { critChance: 1 } },
+            assassin_ultimate: { name: "필살", type: "attack", cost: 45, scale: { agi: 12.0 }, vfx: "shadow_strike", icon: "sprite_20", desc: "적의 약점을 노려 치명타를 가합니다.", tier: 4, requires: 'assassin_shadow_strike', permanentBoost: { critDamage: 5 } },
             enemy_bash: { name: "몸통박치기", type: "attack", scale: 1.0, vfx: "slash" },
             enemy_quick_stab: { name: "단검 찌르기", type: "attack", scale: 1.2, vfx: "slash" },
             enemy_rage_smash: { name: "분노의 강타", type: "attack", scale: 1.5, vfx: "slash" },
@@ -302,35 +317,54 @@
             enemy_judgment: { name: "천벌", type: "attack", scale: 5.0, vfx: "holy" },
         };
         const SKILL_TREES = {
-            knight: { name: "기사", skills: [["knight_bash"], ["knight_shield_slam"], ["knight_whirlwind"], ["knight_ultimate"]] },
+            warrior: { name: "전사", skills: [["knight_bash"], ["knight_shield_slam"], ["knight_whirlwind"], ["knight_ultimate"]] },
             mage: { name: "마법사", skills: [["mage_fireball"], ["mage_ice_spear"], ["mage_chain_lightning"], ["mage_ultimate"]] },
-            paladin: { name: "성기사", skills: [["paladin_smite"], ["paladin_heal"], ["paladin_judgment"], ["paladin_ultimate"]] },
-            assassin: { name: "암살자", skills: [["assassin_quick_stab"], ["assassin_poison_blade"], ["assassin_shadow_strike"], ["assassin_ultimate"]] },
-            dragon: { name: "드래곤", skills: [["dragon_claw"], ["dragon_breath"], ["dragon_tail_swipe"], ["dragon_ultimate"]] }
+            rogue: { name: "도적", skills: [["assassin_quick_stab"], ["assassin_poison_blade"], ["assassin_shadow_strike"], ["assassin_ultimate"]] }
+        };
+        const PASSIVE_SKILLS = {
+            warrior: {
+                overpower: { name: "압도", icon: "sprite_6", maxLevel: 5, desc: level => `힘(STR)이 ${level * 5}% 증가합니다.`, effects: { str_percent: 0.05 } },
+                weapon_mastery: { name: "무기 숙련", icon: "sprite_21", maxLevel: 5, desc: level => `기본 공격력이 ${level * 4}% 증가합니다.`, effects: { attack_percent: 0.04 } },
+                adrenaline: { name: "아드레날린", icon: "sprite_1", maxLevel: 3, desc: level => `HP가 30% 이하일 때 공격력이 ${level * 10}% 증가합니다.`, effects: {} },
+                toughness: { name: "강인함", icon: "sprite_10", maxLevel: 5, desc: level => `최대 HP가 ${level * 5}% 증가합니다.`, effects: { maxHp_percent: 0.05 } },
+                counter_attack: { name: "반격", icon: "sprite_14", maxLevel: 3, desc: level => `피격 시 ${level * 5}% 확률로 반격합니다.`, effects: {} },
+            },
+            mage: {
+                mana_font: { name: "마나 샘", icon: "sprite_7", maxLevel: 5, desc: level => `턴 시작 시 MP 회복량이 ${level * 3}% 증가합니다.`, effects: { regen_percent: 0.03 } },
+                arcane_intellect: { name: "비전 지능", icon: "sprite_5", maxLevel: 5, desc: level => `지능(INT)이 ${level * 5}% 증가합니다.`, effects: { int_percent: 0.05 } },
+                elementalist: { name: "원소 전문가", icon: "sprite_8", maxLevel: 3, desc: level => `모든 스킬의 공격력이 ${level * 5}% 증가합니다.`, effects: { all_damage_percent: 0.05 } },
+                mana_shield: { name: "마나 보호막", icon: "sprite_12", maxLevel: 5, desc: level => `받는 피해의 ${level * 4}%를 MP로 대신 받습니다.`, effects: {} },
+                concentration: { name: "집중", icon: "sprite_9", maxLevel: 3, desc: level => `스킬의 MP 소모량이 ${level * 5}% 감소합니다.`, effects: { cost_reduction_percent: 0.05 } },
+            },
+            rogue: {
+                fleet_footed: { name: "질풍", icon: "sprite_16", maxLevel: 5, desc: level => `민첩(AGI) 20당 ${level * 0.5}% 확률로 추가 턴을 얻습니다.`, effects: {} },
+                lethality: { name: "치명성", icon: "sprite_20", maxLevel: 5, desc: level => `치명타 피해량이 ${level * 10}% 증가합니다.`, effects: { critDamage: 10 } },
+                venom: { name: "맹독", icon: "sprite_2", maxLevel: 3, desc: level => `공격 시 ${level * 5}% 확률로 적을 중독시킵니다.`, effects: {} },
+                evasion: { name: "회피", icon: "sprite_23", maxLevel: 5, desc: level => `${level * 2}% 확률로 적의 공격을 회피합니다.`, effects: {} },
+                opportunist: { name: "약점 포착", icon: "sprite_4", maxLevel: 3, desc: level => `상태 이상에 걸린 적에게 ${level * 10}% 추가 피해를 줍니다.`, effects: {} },
+            }
         };
         const COMBOS = [
             { id: 'explosive_smash', name: '폭발 강타', skills: ['knight_bash', 'mage_fireball'], type: 'attack', scale: { str: 2.0, int: 2.0 }, vfx: 'fireball', desc: "'강타' 후 '파이어볼' 사용 시 발동. 물리/마법 피해를 동시에 줍니다." },
-            { id: 'holy_fire', name: '신성 화염', skills: ['paladin_smite', 'mage_fireball'], type: 'attack', scale: { int: 5.0 }, vfx: 'holy', desc: "'성스러운 일격' 후 '파이어볼' 사용 시 발동. 강력한 신성 화염 피해를 줍니다." },
-            { id: 'shadow_burn', name: '그림자 불꽃', skills: ['assassin_quick_stab', 'mage_fireball'], type: 'attack', scale: { agi: 3.0, int: 2.0 }, vfx: 'shadow_strike', desc: "'급소 찌르기' 후 '파이어볼' 사용 시 발동. 추가 화염 피해를 입힙니다." }
         ];
         const defaultBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp';
         const bossBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000ee64622f8f560adf6ed8ad9e.webp';
         const STAGES = [
             { name: "동굴 슬라임", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000063c46246bee6c5711f863e5f.webp", bg: defaultBg, maxHp: 300, attack: 20, defense: 10, xp: 50, skills: [{ id: "enemy_bash" }] },
-            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.webp", bg: defaultBg, maxHp: 500, attack: 30, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }] },
-            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.webp", bg: defaultBg, maxHp: 900, attack: 50, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }] },
-            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.webp", bg: defaultBg, maxHp: 700, attack: 65, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }] },
-            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.webp", bg: defaultBg, maxHp: 1800, attack: 45, defense: 80, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }] },
-            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.webp", bg: defaultBg, maxHp: 1300, attack: 80, defense: 40, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }] },
-            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.webp", bg: defaultBg, maxHp: 1500, attack: 100, defense: 45, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }] },
-            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.webp", bg: defaultBg, maxHp: 2200, attack: 90, defense: 55, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }] },
-            { name: "변이 괴물", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000001a861fa835a0405826b25d7_copy_768x1152.png", bg: defaultBg, maxHp: 3000, attack: 110, defense: 70, xp: 500, skills: [{ id: "enemy_tentacle" }, { id: "enemy_void_blast" }] },
-            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.webp", bg: bossBg, maxHp: 6000, attack: 150, defense: 100, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }] }
+            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.webp", bg: defaultBg, maxHp: 550, attack: 35, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }] },
+            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.webp", bg: defaultBg, maxHp: 1000, attack: 55, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }] },
+            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.webp", bg: defaultBg, maxHp: 900, attack: 80, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }] },
+            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.webp", bg: defaultBg, maxHp: 2500, attack: 65, defense: 80, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }] },
+            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.webp", bg: defaultBg, maxHp: 1800, attack: 100, defense: 40, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }] },
+            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.webp", bg: defaultBg, maxHp: 2200, attack: 125, defense: 45, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }] },
+            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.webp", bg: defaultBg, maxHp: 3000, attack: 115, defense: 55, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }] },
+            { name: "변이 괴물", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000001a861fa835a0405826b25d7_copy_768x1152.png", bg: defaultBg, maxHp: 4000, attack: 140, defense: 70, xp: 500, skills: [{ id: "enemy_tentacle" }, { id: "enemy_void_blast" }] },
+            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.webp", bg: bossBg, maxHp: 8000, attack: 180, defense: 100, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }] }
         ];
         const STARTER_SKILL_POOLS = {
-            warrior: { name: "전사", skills: ['knight_bash', 'paladin_smite', 'knight_shield_slam', 'dragon_claw', 'paladin_heal'] },
-            mage: { name: "마법사", skills: ['mage_fireball', 'paladin_heal', 'mage_ice_spear', 'assassin_quick_stab', 'paladin_smite'] },
-            rogue: { name: "도적", skills: ['assassin_quick_stab', 'knight_bash', 'assassin_poison_blade', 'paladin_smite', 'assassin_shadow_strike'] }
+            warrior: { name: "전사", skills: ['knight_bash', 'knight_shield_slam', 'knight_whirlwind', 'knight_ultimate'] },
+            mage: { name: "마법사", skills: ['mage_fireball', 'mage_ice_spear', 'mage_chain_lightning', 'mage_ultimate'] },
+            rogue: { name: "도적", skills: ['assassin_quick_stab', 'assassin_poison_blade', 'assassin_shadow_strike', 'assassin_ultimate'] }
         };
 
         let gameState = {};
@@ -339,48 +373,112 @@
         let isBattleOver = false;
         let selectedClassName = '';
         let selectedSkills = [];
+        let selectedPassiveSkills = [];
         const MAX_SKILLS = 3;
+        const MAX_PASSIVE_SKILLS = 2;
         let tempStats = {};
         let initialStats = {};
         const sounds = {};
         let animationInterval = null;
 
+        function applyPassiveEffects(player) {
+            if (!player.stats) { 
+                return { attack: player.attack, defense: player.defense };
+            }
+
+            let modifiedStats = {
+                stats: { ...player.stats },
+                maxHp: 250 + (player.level * 25) + (player.stats.vit * 20),
+                maxMp: 100 + (player.level * 10) + (player.stats.int * 10),
+                attack: 20 + (player.stats.str * 2) + Math.floor(player.stats.agi * 1.5),
+                defense: 10 + (player.stats.str * 1) + Math.floor(player.stats.agi * 0.5) + (player.stats.vit * 2),
+                critChance: 10 + (player.stats.luk * 0.8),
+                critDamage: 180 + (player.stats.luk * 2.5),
+                regen_percent: 0.05
+            };
+
+            player.learnedSkills.forEach(skillId => {
+                const boost = SKILLS[skillId].permanentBoost;
+                if (boost) {
+                    if (boost.str_percent) modifiedStats.stats.str *= (1 + boost.str_percent);
+                    if (boost.int_percent) modifiedStats.stats.int *= (1 + boost.int_percent);
+                    if (boost.agi_percent) modifiedStats.stats.agi *= (1 + boost.agi_percent);
+                    if (boost.maxHp_percent) modifiedStats.maxHp *= (1 + boost.maxHp_percent);
+                    if (boost.maxMp_percent) modifiedStats.maxMp *= (1 + boost.maxMp_percent);
+                    if (boost.critChance) modifiedStats.critChance += boost.critChance;
+                    if (boost.critDamage) modifiedStats.critDamage += boost.critDamage;
+                }
+            });
+
+            for (const skillId in player.passiveSkills) {
+                const level = player.passiveSkills[skillId];
+                const passive = PASSIVE_SKILLS[selectedClassName][skillId];
+                if (passive.effects.maxHp_percent) modifiedStats.maxHp *= (1 + passive.effects.maxHp_percent * level);
+                if (passive.effects.maxMp_percent) modifiedStats.maxMp *= (1 + passive.effects.maxMp_percent * level);
+                if (passive.effects.str) modifiedStats.stats.str += passive.effects.str * level;
+                if (passive.effects.critChance) modifiedStats.critChance += passive.effects.critChance * level;
+                if (passive.effects.critDamage) modifiedStats.critDamage += passive.effects.critDamage * level;
+                if (passive.effects.regen_percent) modifiedStats.regen_percent += passive.effects.regen_percent * level;
+                if (passive.effects.str_percent) modifiedStats.stats.str *= (1 + passive.effects.str_percent * level);
+                if (passive.effects.int_percent) modifiedStats.stats.int *= (1 + passive.effects.int_percent * level);
+            }
+            
+            modifiedStats.attack = 20 + (modifiedStats.stats.str * 2) + Math.floor(modifiedStats.stats.agi * 1.5);
+            modifiedStats.defense = 10 + (modifiedStats.stats.str * 1) + Math.floor(modifiedStats.stats.agi * 0.5) + (modifiedStats.stats.vit * 2);
+
+            return modifiedStats;
+        }
+
         function createInitialPlayerState() {
-            const initialState = {
+            const player = {
                 level: 1, xp: 0, xpToNextLevel: 100,
                 stats: { str: 5, int: 5, agi: 5, vit: 5, luk: 5 },
-                statPoints: 0, skillPoints: 1,
+                statPoints: 0, skillPoints: 1, passiveSkillPoints: 0,
                 learnedSkills: [],
-                equippedSkills: Array(5).fill(null), // 5 slots + 1 for basic attack
+                equippedSkills: Array(10).fill(null),
                 skillLevels: {},
+                passiveSkills: {},
                 comboHistory: [],
+                activeBuffs: [],
+                statusEffects: [],
             };
-            initialState.learnedSkills.forEach(id => initialState.skillLevels[id] = 1);
-            const stateProxy = {
-                ...initialState,
-                get maxHp() { return 250 + (this.level * 25) + (this.stats.str * 10) + (this.stats.vit * 20); },
-                get maxMp() { return 100 + (this.level * 10) + (this.stats.int * 10); },
-                get attack() { return 20 + (this.stats.str * 2) + Math.floor(this.stats.agi * 1.5); },
-                get defense() { return 10 + (this.stats.str * 1) + Math.floor(this.stats.agi * 0.5) + (this.stats.vit * 2); },
-                get critChance() { return Math.min(5 + (this.stats.luk * 0.5), 100); },
-                get critDamage() { return 150 + (this.stats.luk * 2); },
-            };
+            
+            const stateProxy = new Proxy(player, {
+                get(target, prop) {
+                    if (['maxHp', 'maxMp', 'attack', 'defense', 'critChance', 'critDamage', 'regen_percent'].includes(prop)) {
+                        const calculatedStats = applyPassiveEffects(target);
+                        return calculatedStats[prop];
+                    }
+                    return target[prop];
+                }
+            });
+
+            stateProxy.learnedSkills.forEach(id => stateProxy.skillLevels[id] = 1);
             stateProxy.currentHp = stateProxy.maxHp;
             stateProxy.currentMp = stateProxy.maxMp;
             return stateProxy;
         }
 
         const dom = {
-            screens: { loading: document.getElementById('loading-screen'), title: document.getElementById('title-screen'), classSelection: document.getElementById('class-selection-screen'), skillSelection: document.getElementById('skill-selection-screen'), battle: document.getElementById('battle-screen'), stageClear: document.getElementById('stage-clear-screen'), gameOver: document.getElementById('game-over-screen'), gameClear: document.getElementById('game-clear-screen') },
+            screens: { loading: document.getElementById('loading-screen'), title: document.getElementById('title-screen'), classSelection: document.getElementById('class-selection-screen'), skillSelection: document.getElementById('skill-selection-screen'), passiveSkillSelection: document.getElementById('passive-skill-selection-screen'), battle: document.getElementById('battle-screen'), stageClear: document.getElementById('stage-clear-screen'), gameOver: document.getElementById('game-over-screen'), gameClear: document.getElementById('game-clear-screen') },
             modals: { character: document.getElementById('character-modal'), skillTree: document.getElementById('skill-tree-modal') },
             skillSelection: { title: document.getElementById('skill-select-title'), container: document.getElementById('starter-skills-container'), confirmBtn: document.getElementById('confirm-skills-btn') },
+            passiveSkillSelection: { title: document.getElementById('passive-skill-select-title'), container: document.getElementById('passive-skills-container'), confirmBtn: document.getElementById('confirm-passive-skills-btn') },
             logContainer: document.getElementById('log-messages-container'),
             vfxContainer: document.getElementById('vfx-container'),
-            player: { el: document.getElementById('player'), sprite: document.getElementById('player-sprite'), name: document.getElementById('player-name'), level: document.getElementById('player-level'), hpBar: document.getElementById('player-hp-bar'), hpText: document.getElementById('player-hp-text'), mpBar: document.getElementById('player-mp-bar'), mpText: document.getElementById('player-mp-text'), xpBar: document.getElementById('player-xp-bar') },
-            enemy: { el: document.getElementById('enemy'), img: document.getElementById('enemy-img'), name: document.getElementById('enemy-name'), hpBar: document.getElementById('enemy-hp-bar'), hpText: document.getElementById('enemy-hp-text'), stage: document.getElementById('stage-indicator') },
+            player: { el: document.getElementById('player'), sprite: document.getElementById('player-sprite'), name: document.getElementById('player-name'), level: document.getElementById('player-level'), hpBar: document.getElementById('player-hp-bar'), hpText: document.getElementById('player-hp-text'), mpBar: document.getElementById('player-mp-bar'), mpText: document.getElementById('player-mp-text'), xpBar: document.getElementById('player-xp-bar'), buffs: document.getElementById('player-buffs') },
+            enemy: { el: document.getElementById('enemy'), img: document.getElementById('enemy-img'), name: document.getElementById('enemy-name'), hpBar: document.getElementById('enemy-hp-bar'), hpText: document.getElementById('enemy-hp-text'), stage: document.getElementById('stage-indicator'), buffs: document.getElementById('enemy-buffs') },
             controls: { skills: document.getElementById('skills-grid') },
             charModal: { points: document.getElementById('stat-points-display'), str: document.getElementById('stat-str'), int: document.getElementById('stat-int'), agi: document.getElementById('stat-agi'), vit: document.getElementById('stat-vit'), luk: document.getElementById('stat-luk'), atk: document.getElementById('detail-atk'), def: document.getElementById('detail-def'), hp: document.getElementById('detail-hp'), mp: document.getElementById('detail-mp'), critChance: document.getElementById('detail-crit-chance'), critDamage: document.getElementById('detail-crit-damage'), confirmBtn: document.getElementById('confirm-stats-btn') },
-            skillModal: { points: document.getElementById('skill-points'), tabs: document.getElementById('skill-tree-tabs'), treeContainer: document.getElementById('skill-tree-container'), comboContainer: document.getElementById('combo-list-container'), display: document.getElementById('skill-tree-display'), upgradePanel: document.getElementById('skill-upgrade-panel'), equippedSkills: document.getElementById('equipped-skills-container') },
+            skillModal: { 
+                points: document.getElementById('skill-points'), 
+                passivePoints: document.getElementById('passive-skill-points'), 
+                tabs: document.getElementById('skill-tree-tabs'), 
+                layout: document.getElementById('skill-modal-layout'),
+                listPanel: document.getElementById('skill-list-panel'),
+                detailsPanel: document.getElementById('skill-details-panel'),
+                equippedSkills: document.getElementById('equipped-skills-container') 
+            },
         };
 
         function setupSounds() {
@@ -427,6 +525,7 @@
             switchScreen('skillSelection');
             const skillPool = STARTER_SKILL_POOLS[className].skills;
             dom.skillSelection.container.innerHTML = '';
+            const tempPlayer = { stats: { str: 5, int: 5, agi: 5 }, attack: 20 + (5 * 2) + Math.floor(5 * 1.5) };
             skillPool.forEach(skillId => {
                 const skill = SKILLS[skillId];
                 const sprite = spriteData.sprites.find(s => s.name === skill.icon);
@@ -438,7 +537,16 @@
                 const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
                 const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
                 const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                card.innerHTML = `<div class="w-16 h-16 mb-2 mx-auto overflow-hidden rounded-lg border-2 border-gray-600"><div class="skill-sprite-icon" style="background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><h4 class="text-white">${skill.name}</h4><p>${skill.desc}</p>`;
+                
+                let detailsHTML = `<p class="text-xs text-gray-400 mt-1">${skill.desc}</p><p class="text-xs text-blue-400 mt-2">MP 소모: ${skill.cost}</p>`;
+                if (skill.type === 'attack' && skill.scale) {
+                    const power = ((tempPlayer.attack * (skill.scale.str || 0)) + (tempPlayer.stats.int * 2.5 * (skill.scale.int || 0)) + (tempPlayer.stats.agi * 1.5 * (skill.scale.agi || 0)));
+                    const minDamage = Math.floor(Math.max(10, power * 0.85));
+                    const maxDamage = Math.floor(Math.max(10, power * 1.0));
+                    detailsHTML += `<p class="text-xs text-red-400">예상 피해: ${minDamage}~${maxDamage}</p>`;
+                }
+
+                card.innerHTML = `<div class="w-16 h-16 mb-2 mx-auto overflow-hidden rounded-lg border-2 border-gray-600"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><h4 class="text-white">${skill.name}</h4>${detailsHTML}`;
                 card.addEventListener('click', () => toggleSkillSelection(card, skillId));
                 dom.skillSelection.container.appendChild(card);
             });
@@ -463,25 +571,78 @@
             dom.skillSelection.confirmBtn.disabled = selectedSkills.length !== MAX_SKILLS;
         }
 
+        function showPassiveSkillSelection() {
+            switchScreen('passiveSkillSelection');
+            selectedPassiveSkills = [];
+            const container = dom.passiveSkillSelection.container;
+            container.innerHTML = '';
+            Object.keys(PASSIVE_SKILLS[selectedClassName]).forEach(skillId => {
+                const skill = PASSIVE_SKILLS[selectedClassName][skillId];
+                const card = document.createElement('div');
+                card.className = 'skill-card rounded-lg';
+                card.dataset.skillId = skillId;
+                card.innerHTML = `<h4 class="text-white">${skill.name}</h4><p>${skill.desc(1)}</p>`;
+                card.addEventListener('click', () => togglePassiveSkillSelection(card, skillId));
+                container.appendChild(card);
+            });
+            updatePassiveSkillSelectionUI();
+        }
+
+        function togglePassiveSkillSelection(card, skillId) {
+            if (selectedPassiveSkills.includes(skillId)) {
+                selectedPassiveSkills = selectedPassiveSkills.filter(id => id !== skillId);
+                card.classList.remove('selected');
+            } else {
+                if (selectedPassiveSkills.length < MAX_PASSIVE_SKILLS) {
+                    selectedPassiveSkills.push(skillId);
+                    card.classList.add('selected');
+                }
+            }
+            updatePassiveSkillSelectionUI();
+        }
+
+        function updatePassiveSkillSelectionUI() {
+            dom.passiveSkillSelection.title.textContent = `패시브 스킬을 선택하십시오 (${selectedPassiveSkills.length} / ${MAX_PASSIVE_SKILLS})`;
+            dom.passiveSkillSelection.confirmBtn.disabled = selectedPassiveSkills.length !== MAX_PASSIVE_SKILLS;
+        }
+
         function startGame() {
             gameState = { player: createInitialPlayerState(), currentStage: 0 };
             gameState.player.learnedSkills = [...selectedSkills];
-            gameState.player.equippedSkills = [...selectedSkills, ...Array(5 - selectedSkills.length).fill(null)];
+            gameState.player.equippedSkills = [...selectedSkills, ...Array(10 - selectedSkills.length).fill(null)];
             gameState.player.learnedSkills.forEach(id => gameState.player.skillLevels[id] = 1);
+            selectedPassiveSkills.forEach(id => gameState.player.passiveSkills[id] = 1);
             
+            gameState.player.currentHp = gameState.player.maxHp;
+            gameState.player.currentMp = gameState.player.maxMp;
+
+            const spriteEl = dom.player.sprite;
             if (selectedClassName === 'mage') {
                 const sprite = MAGE_SPRITE_DATA.sprites[0];
                 const scale = 0.8;
-                dom.player.sprite.style.backgroundImage = `url('${MAGE_SPRITE_URL}')`;
-                dom.player.sprite.style.backgroundSize = `${MAGE_SPRITE_DATA.meta.size.w * scale}px ${MAGE_SPRITE_DATA.meta.size.h * scale}px`;
-                dom.player.sprite.style.width = `${sprite.w * scale}px`;
-                dom.player.sprite.style.height = `${sprite.h * scale}px`;
-                setSpriteFrame(dom.player.sprite, MAGE_SPRITE_DATA, 0, scale);
-            } else {
-                dom.player.sprite.style.backgroundImage = `url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000001fe461fab2245c0abba85e0d_copy_768x1152.webp')`;
-                dom.player.sprite.style.backgroundSize = 'contain';
-                dom.player.sprite.style.width = '100%';
-                dom.player.sprite.style.height = '100%';
+                spriteEl.style.backgroundImage = `url('${MAGE_SPRITE_URL}')`;
+                spriteEl.style.backgroundSize = `${MAGE_SPRITE_DATA.meta.size.w * scale}px ${MAGE_SPRITE_DATA.meta.size.h * scale}px`;
+                spriteEl.style.width = `${sprite.w * scale}px`;
+                spriteEl.style.height = `${sprite.h * scale}px`;
+                setSpriteFrame(spriteEl, MAGE_SPRITE_DATA, 0, scale);
+            } else if (selectedClassName === 'rogue') {
+                const maxWidth = Math.max(...ROGUE_SPRITE_DATA.sprites.map(s => s.w));
+                const maxHeight = Math.max(...ROGUE_SPRITE_DATA.sprites.map(s => s.h));
+                const scale = 0.6;
+                spriteEl.style.backgroundImage = `url('${ROGUE_SPRITE_URL}')`;
+                spriteEl.style.backgroundSize = `${ROGUE_SPRITE_DATA.meta.size.w * scale}px ${ROGUE_SPRITE_DATA.meta.size.h * scale}px`;
+                spriteEl.style.width = `${maxWidth * scale}px`;
+                spriteEl.style.height = `${maxHeight * scale}px`;
+                setSpriteFrame(spriteEl, ROGUE_SPRITE_DATA, 0, scale);
+            } else if (selectedClassName === 'warrior') {
+                const maxWidth = Math.max(...WARRIOR_SPRITE_DATA.sprites.map(s => s.w));
+                const maxHeight = Math.max(...WARRIOR_SPRITE_DATA.sprites.map(s => s.h));
+                const scale = 0.8; 
+                spriteEl.style.backgroundImage = `url('${WARRIOR_SPRITE_URL}')`;
+                spriteEl.style.backgroundSize = `${WARRIOR_SPRITE_DATA.meta.size.w * scale}px ${WARRIOR_SPRITE_DATA.meta.size.h * scale}px`;
+                spriteEl.style.width = `${maxWidth * scale}px`;
+                spriteEl.style.height = `${maxHeight * scale}px`;
+                setSpriteFrame(spriteEl, WARRIOR_SPRITE_DATA, 0, scale);
             }
 
             switchScreen('battle');
@@ -491,7 +652,7 @@
         function loadStage(stageIndex) {
             isBattleOver = false; isPlayerTurn = true;
             const stageData = STAGES[stageIndex];
-            enemy = { ...stageData, currentHp: stageData.maxHp };
+            enemy = { ...stageData, currentHp: stageData.maxHp, activeBuffs: [], statusEffects: [] };
             dom.enemy.img.src = enemy.img;
             dom.screens.battle.querySelector('.battle-scene').style.backgroundImage = `url('${stageData.bg}')`;
             updateAllUI();
@@ -525,8 +686,9 @@
             p.xp -= p.xpToNextLevel;
             p.level++;
             p.xpToNextLevel = Math.floor(p.xpToNextLevel * 1.5);
-            p.statPoints += 3;
+            p.statPoints += 10;
             p.skillPoints += 1;
+            p.passiveSkillPoints += 2;
             p.currentHp = p.maxHp;
             p.currentMp = p.maxMp;
             addLog(`<strong class="text-xl font-cinzel text-yellow-300">LEVEL UP!</strong>`, 'text-yellow-300');
@@ -539,11 +701,12 @@
         function updatePlayerUI() {
             const p = gameState.player;
             dom.player.level.textContent = `Lv. ${p.level}`;
-            dom.player.hpText.textContent = `${Math.round(p.currentHp)}/${p.maxHp}`;
+            dom.player.hpText.textContent = `${Math.round(p.currentHp)}/${Math.round(p.maxHp)}`;
             dom.player.hpBar.style.width = `${(p.currentHp / p.maxHp) * 100}%`;
-            dom.player.mpText.textContent = `${Math.round(p.currentMp)}/${p.maxMp}`;
+            dom.player.mpText.textContent = `${Math.round(p.currentMp)}/${Math.round(p.maxMp)}`;
             dom.player.mpBar.style.width = `${(p.currentMp / p.maxMp) * 100}%`;
             dom.player.xpBar.style.width = `${(p.xp / p.xpToNextLevel) * 100}%`;
+            updateBuffUI(p, dom.player.buffs);
         }
 
         function updateEnemyUI() {
@@ -552,6 +715,25 @@
             dom.enemy.stage.textContent = `${gameState.currentStage + 1}F`;
             dom.enemy.hpText.textContent = `${Math.round(enemy.currentHp)}/${enemy.maxHp}`;
             dom.enemy.hpBar.style.width = `${(enemy.currentHp / enemy.maxHp) * 100}%`;
+            updateBuffUI(enemy, dom.enemy.buffs);
+        }
+
+        function updateBuffUI(character, container) {
+            container.innerHTML = '';
+            const allEffects = [...character.activeBuffs, ...character.statusEffects];
+            allEffects.forEach(effect => {
+                const skill = SKILLS[effect.id] || { name: effect.type, icon: 'sprite_24' }; // Fallback for status effects
+                const sprite = spriteData.sprites.find(s => s.name === skill.icon);
+                const buffEl = document.createElement('div');
+                buffEl.className = 'buff-icon';
+                const SPRITE_SCALE_FACTOR = 10;
+                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
+                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
+                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
+                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
+                buffEl.innerHTML = `<div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div><span class="duration">${effect.duration}</span>`;
+                container.appendChild(buffEl);
+            });
         }
         
         function setupSkillButtons() {
@@ -559,7 +741,7 @@
             const activeSkills = ['basic_attack', ...gameState.player.equippedSkills];
             const SPRITE_SCALE_FACTOR = 6.5;
 
-            for(let i = 0; i < 6; i++) {
+            for(let i = 0; i < 11; i++) {
                 const skillId = activeSkills[i];
                 const button = document.createElement('button');
                 button.className = 'skill-btn relative';
@@ -571,8 +753,22 @@
                     const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
                     const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
                     const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip"><p class="font-bold">${skill.name} ${level > 1 ? `(Lv.${level})` : ''}</p><p class="text-xs text-gray-300">${skill.desc}</p><p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p></div>`;
+                    button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip"><p class="font-bold">${skill.name} ${level > 1 ? `(Lv.${level})` : ''}</p><p class="text-xs text-gray-300">${skill.desc}</p><p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p></div>`;
+                    
+                    let pressTimer;
                     button.addEventListener('click', () => playerTurn(skillId));
+                    if (i > 0) { // Basic attack cannot be unequipped
+                        button.addEventListener('mousedown', () => {
+                            pressTimer = setTimeout(() => {
+                                unequipSkillFromSlot(i - 1);
+                            }, 600);
+                        });
+                         button.addEventListener('mouseup', () => clearTimeout(pressTimer));
+                         button.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+                         button.addEventListener('touchstart', (e) => { e.preventDefault(); pressTimer = setTimeout(() => unequipSkillFromSlot(i - 1), 600); });
+                         button.addEventListener('touchend', () => clearTimeout(pressTimer));
+                    }
+
                 } else {
                     button.innerHTML = `<span></span>`;
                     button.disabled = true;
@@ -580,6 +776,15 @@
                 dom.controls.skills.appendChild(button);
             }
             toggleSkillButtons(isPlayerTurn ? false : true);
+        }
+
+        function unequipSkillFromSlot(slotIndex) {
+            const skillId = gameState.player.equippedSkills[slotIndex];
+            if (skillId) {
+                gameState.player.equippedSkills[slotIndex] = null;
+                addLog(`<span class="font-bold text-yellow-300">${SKILLS[skillId].name}</span> 스킬을 해제했습니다.`);
+                setupSkillButtons();
+            }
         }
 
         function clearLogs() { dom.logContainer.innerHTML = ''; }
@@ -615,6 +820,39 @@
             vfxEl.addEventListener('animationend', () => vfxEl.remove());
         }
 
+        function playSpriteVFX(target, vfxData, vfxUrl) {
+            const vfxEl = document.createElement('div');
+            vfxEl.className = 'vfx';
+            const scale = 1.5; 
+            const maxWidth = Math.max(...vfxData.sprites.map(s => s.w));
+            const maxHeight = Math.max(...vfxData.sprites.map(s => s.h));
+            
+            vfxEl.style.width = `${maxWidth * scale}px`;
+            vfxEl.style.height = `${maxHeight * scale}px`;
+            vfxEl.style.backgroundImage = `url('${vfxUrl}')`;
+            vfxEl.style.backgroundSize = `${vfxData.meta.size.w * scale}px ${vfxData.meta.size.h * scale}px`;
+            
+            const targetRect = target.getBoundingClientRect();
+            vfxEl.style.left = `${targetRect.left + (targetRect.width / 2) - (maxWidth * scale / 2)}px`;
+            vfxEl.style.top = `${targetRect.top + (targetRect.height / 2) - (maxHeight * scale / 2)}px`;
+            
+            dom.vfxContainer.appendChild(vfxEl);
+
+            let currentFrame = 0;
+            const animation = vfxData.animations.sunder;
+            const interval = setInterval(() => {
+                if (currentFrame >= animation.frames.length) {
+                    clearInterval(interval);
+                    vfxEl.remove();
+                    return;
+                }
+                const frameIndex = animation.frames[currentFrame];
+                const frame = vfxData.sprites[frameIndex];
+                vfxEl.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`;
+                currentFrame++;
+            }, 1000 / animation.fps);
+        }
+
         function getEffectiveSkill(skillId) {
             const baseSkill = { ...SKILLS[skillId] };
             const level = gameState.player.skillLevels[skillId] || 1;
@@ -628,9 +866,36 @@
             return baseSkill;
         }
 
+        function getEffectiveStats(character) {
+            if (!character.stats) { // Enemy
+                const stats = { attack: character.attack, defense: character.defense, immune: false };
+                 character.activeBuffs.forEach(buff => {
+                     const skill = SKILLS[buff.id];
+                     if (skill.effects.atk) stats.attack *= skill.effects.atk;
+                     if (skill.effects.def) stats.defense *= skill.effects.def;
+                     if (skill.effects.immune) stats.immune = true;
+                 });
+                 return stats;
+            }
+            
+            const effectiveStats = applyPassiveEffects(character); // Player
+            character.activeBuffs.forEach(buff => {
+                const skill = SKILLS[buff.id];
+                if (skill.effects.atk) effectiveStats.attack *= skill.effects.atk;
+                if (skill.effects.def) effectiveStats.defense *= skill.effects.def;
+                if (skill.effects.immune) effectiveStats.immune = true;
+            });
+            return effectiveStats;
+        }
+
         function setSpriteFrame(element, spriteData, frameIndex, scale = 1) {
             const frame = spriteData.sprites[frameIndex];
             if (frame) {
+                // Rogue and Warrior sprites have different dimensions per frame
+                if (spriteData === ROGUE_SPRITE_DATA || spriteData === WARRIOR_SPRITE_DATA) {
+                     element.style.width = `${frame.w * scale}px`;
+                     element.style.height = `${frame.h * scale}px`;
+                }
                 element.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`;
             }
         }
@@ -666,7 +931,6 @@
             }
             if (attacker === p && !isCombo) {
                 p.currentMp -= skill.cost;
-                updatePlayerUI(); 
             }
             
             const skillLevel = (attacker === p) ? (p.skillLevels[skillId] || 1) : 1;
@@ -676,36 +940,57 @@
             const attackerEl = attacker === p ? dom.player.el : dom.enemy.el;
             const defenderEl = defender === p ? dom.player.el : dom.enemy.el;
             
-            if (attacker === p && selectedClassName === 'mage') {
-                playSpriteAnimation(dom.player.sprite, MAGE_SPRITE_DATA, 'attack', 0.8);
+            if (attacker === p) {
+                if (selectedClassName === 'mage') {
+                    playSpriteAnimation(dom.player.sprite, MAGE_SPRITE_DATA, 'attack', 0.8);
+                } else if (selectedClassName === 'rogue') {
+                    playSpriteAnimation(dom.player.sprite, ROGUE_SPRITE_DATA, 'attack', 0.6);
+                } else if (selectedClassName === 'warrior') {
+                    playSpriteAnimation(dom.player.sprite, WARRIOR_SPRITE_DATA, 'attack', 0.8);
+                }
             } else {
-                attackerEl.classList.add('attack');
-                setTimeout(() => attackerEl.classList.remove('attack'), 400);
+                 attackerEl.classList.add('attack');
+                 setTimeout(() => attackerEl.classList.remove('attack'), 400);
             }
             
             setTimeout(() => {
+                const attackerStats = getEffectiveStats(attacker);
+                const defenderStats = getEffectiveStats(defender);
+
                 if (skill.type === 'attack') {
-                    playSound(skill.vfx);
-                    playVFX(defenderEl, skill.vfx, attackerEl);
-                    let power = 0;
-                    const levelMultiplier = 1 + (skillLevel - 1) * 0.2;
-                    if (attacker === p) { 
-                        power = ((p.attack * (skill.scale.str || 0)) + (p.stats.int * 2 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0))) * levelMultiplier;
-                    } else { 
-                        power = attacker.attack * (skill.scale || 1.0); 
+                    if (defenderStats.immune) {
+                        addLog(`<span class="font-bold text-blue-300">면역!</span> 피해를 받지 않았습니다.`);
+                    } else {
+                        playSound(skill.vfx);
+                        playVFX(defenderEl, skill.vfx, attackerEl);
+                        if (attacker === p && skillLevel >= 5) {
+                            playSpriteVFX(defenderEl, SUNDER_VFX_DATA, SUNDER_VFX_URL);
+                        }
+                        let power = 0;
+                        const levelMultiplier = 1 + (skillLevel - 1) * 0.2;
+                        if (attacker === p) { 
+                            power = ((attackerStats.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0))) * levelMultiplier;
+                        } else { 
+                            power = attackerStats.attack * (skill.scale || 1.0); 
+                        }
+                        let damage = Math.floor(Math.max(10, power * (100 / (100 + defenderStats.defense)) * (Math.random() * 0.15 + 0.85)));
+                        const isCrit = (attacker === p) && (Math.random() * 100 < attackerStats.critChance);
+                        if (isCrit) {
+                            damage = Math.floor(damage * (attackerStats.critDamage / 100));
+                            addLog(`<span class="font-bold text-yellow-300">치명타!</span>`);
+                        }
+                        playSound('damage');
+                        defender.currentHp = Math.max(0, defender.currentHp - damage);
+                        showDamageVFX(defenderEl, `-${damage}`, isCrit);
+                        addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
+                        defenderEl.classList.add('take-damage');
+                        setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
+
+                        if (attacker === p) {
+                            addLog(`경험치 <span class="text-purple-300">10</span> 획득!`, 'text-gray-200');
+                            gainXP(10);
+                        }
                     }
-                    let damage = Math.floor(Math.max(10, power * (100 / (100 + (defender.defense || 0))) * (Math.random() * 0.15 + 0.85)));
-                    const isCrit = (attacker === p) && (Math.random() * 100 < p.critChance);
-                    if (isCrit) {
-                        damage = Math.floor(damage * (p.critDamage / 100));
-                        addLog(`<span class="font-bold text-yellow-300">치명타!</span>`);
-                    }
-                    playSound('damage');
-                    defender.currentHp = Math.max(0, defender.currentHp - damage);
-                    showDamageVFX(defenderEl, `-${damage}`, isCrit);
-                    addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
-                    defenderEl.classList.add('take-damage');
-                    setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
                 } else if (skill.type === 'heal') {
                     playSound(skill.vfx);
                     playVFX(dom.player.el, skill.vfx);
@@ -714,9 +999,15 @@
                     p.currentHp = Math.min(p.maxHp, p.currentHp + heal);
                     showDamageVFX(dom.player.el, `+${heal}`, false);
                     addLog(`<span class="font-bold text-green-400">플레이어</span>의 체력이 ${heal} 회복되었다!`, 'text-white');
+                } else if (skill.type === 'buff') {
+                    playSound(skill.vfx);
+                    playVFX(attackerEl, skill.vfx);
+                    attacker.activeBuffs.push({ id: skillId, duration: skill.duration });
                 }
+                
                 updateAllUI();
                 checkBattleOver();
+
                 if (!isBattleOver && !isCombo) { 
                     if (attacker === p) {
                         checkCombos(skillId);
@@ -745,15 +1036,43 @@
 
         function checkBattleOver() { if (gameState.player.currentHp <= 0) handleDefeat(); else if (enemy.currentHp <= 0) handleVictory(); }
         
+        function tickBuffs(character) {
+            character.activeBuffs.forEach(buff => {
+                buff.duration--;
+                if (buff.duration <= 0) {
+                    addLog(`<span class="font-bold">${character.name || '플레이어'}</span>의 ${SKILLS[buff.id].name} 효과가 사라졌다.`);
+                }
+            });
+            character.activeBuffs = character.activeBuffs.filter(buff => buff.duration > 0);
+            updateAllUI();
+        }
+
         function playerTurn(skillId) { 
             if (!isPlayerTurn || isBattleOver) return; 
+            
+            tickBuffs(gameState.player);
+            
+            const regenPercent = gameState.player.regen_percent;
+            const hpRegen = Math.floor(gameState.player.maxHp * regenPercent);
+            const mpRegen = Math.floor(gameState.player.maxMp * regenPercent);
+            if ((hpRegen > 0 || mpRegen > 0) && gameState.player.currentHp > 0) {
+                gameState.player.currentHp = Math.min(gameState.player.maxHp, gameState.player.currentHp + hpRegen);
+                gameState.player.currentMp = Math.min(gameState.player.maxMp, gameState.player.currentMp + mpRegen);
+                addLog(`자연 치유로 HP <span class="text-green-400">${hpRegen}</span>, MP <span class="text-blue-400">${mpRegen}</span> 회복!`, 'text-gray-200');
+            }
+
             isPlayerTurn = false; 
             toggleSkillButtons(true);
-            gainXP(5);
             performAction(gameState.player, enemy, skillId);
         }
 
-        function enemyTurn() { if (isBattleOver) return; const randomSkill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)]; performAction(enemy, gameState.player, randomSkill.id); }
+        function enemyTurn() { 
+            if (isBattleOver) return; 
+            tickBuffs(enemy);
+            const randomSkill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)]; 
+            performAction(enemy, gameState.player, randomSkill.id); 
+        }
+
         function toggleSkillButtons(disabled) { dom.controls.skills.querySelectorAll('button').forEach(btn => btn.disabled = disabled); }
         
         function openModal(modalName) { if(dom.modals[modalName]) dom.modals[modalName].classList.remove('hidden'); }
@@ -770,29 +1089,22 @@
         }
 
         function updateCharModalUI() {
-            const p = tempStats;
-            const derived = {
-                maxHp: 250 + (gameState.player.level * 25) + (p.stats.str * 10) + (p.stats.vit * 20),
-                maxMp: 100 + (gameState.player.level * 10) + (p.stats.int * 10),
-                attack: 20 + (p.stats.str * 2) + Math.floor(p.stats.agi * 1.5),
-                defense: 10 + (p.stats.str * 1) + Math.floor(p.stats.agi * 0.5) + (p.stats.vit * 2),
-                critChance: Math.min(5 + (p.stats.luk * 0.5), 100),
-                critDamage: 150 + (p.stats.luk * 2),
-            };
+            const p = { ...gameState.player, ...tempStats };
+            const derived = applyPassiveEffects(p);
 
             dom.charModal.points.textContent = p.statPoints;
-            dom.charModal.str.textContent = p.stats.str;
-            dom.charModal.int.textContent = p.stats.int;
-            dom.charModal.agi.textContent = p.stats.agi;
-            dom.charModal.vit.textContent = p.stats.vit;
-            dom.charModal.luk.textContent = p.stats.luk;
+            dom.charModal.str.textContent = Math.round(p.stats.str);
+            dom.charModal.int.textContent = Math.round(p.stats.int);
+            dom.charModal.agi.textContent = Math.round(p.stats.agi);
+            dom.charModal.vit.textContent = Math.round(p.stats.vit);
+            dom.charModal.luk.textContent = Math.round(p.stats.luk);
 
-            dom.charModal.atk.textContent = derived.attack;
-            dom.charModal.def.textContent = derived.defense;
-            dom.charModal.hp.textContent = derived.maxHp;
-            dom.charModal.mp.textContent = derived.maxMp;
+            dom.charModal.atk.textContent = Math.round(derived.attack);
+            dom.charModal.def.textContent = Math.round(derived.defense);
+            dom.charModal.hp.textContent = Math.round(derived.maxHp);
+            dom.charModal.mp.textContent = Math.round(derived.maxMp);
             dom.charModal.critChance.textContent = derived.critChance.toFixed(1);
-            dom.charModal.critDamage.textContent = derived.critDamage;
+            dom.charModal.critDamage.textContent = derived.critDamage.toFixed(1);
         }
 
         dom.modals.character.addEventListener('click', e => {
@@ -814,16 +1126,16 @@
         });
 
         dom.charModal.confirmBtn.addEventListener('click', () => {
-            const oldMaxHp = gameState.player.maxHp;
-            const oldMaxMp = gameState.player.maxMp;
-            const hpRatio = gameState.player.currentHp / oldMaxHp;
-            const mpRatio = gameState.player.currentMp / oldMaxMp;
+            const oldStats = applyPassiveEffects(gameState.player);
+            const hpRatio = gameState.player.currentHp / oldStats.maxHp;
+            const mpRatio = gameState.player.currentMp / oldStats.maxMp;
             
             gameState.player.stats = tempStats.stats;
             gameState.player.statPoints = tempStats.statPoints;
             
-            gameState.player.currentHp = gameState.player.maxHp * hpRatio;
-            gameState.player.currentMp = gameState.player.maxMp * mpRatio;
+            const newStats = applyPassiveEffects(gameState.player);
+            gameState.player.currentHp = newStats.maxHp * hpRatio;
+            gameState.player.currentMp = newStats.maxMp * mpRatio;
             
             updateAllUI();
             closeModal('character');
@@ -832,14 +1144,15 @@
         function openSkillModal() { 
             updateSkillModal(); 
             openModal('skillTree'); 
-            // Default to first tab
-            dom.skillModal.tabs.querySelector('button:not(#combo-tab-btn)')?.click();
+            dom.skillModal.tabs.querySelector('button:not(#combo-tab-btn):not(#passive-tab-btn)')?.click();
         }
 
         function updateSkillModal() {
             dom.skillModal.points.textContent = gameState.player.skillPoints;
-            dom.skillModal.upgradePanel.classList.add('hidden');
+            dom.skillModal.passivePoints.textContent = gameState.player.passiveSkillPoints;
+            dom.skillModal.detailsPanel.innerHTML = '';
             if (dom.skillModal.tabs.innerHTML === '') {
+                // Active Skill Trees
                 Object.keys(SKILL_TREES).forEach((key) => {
                     const tab = document.createElement('button');
                     tab.className = 'p-2 text-gray-400 hover:text-white';
@@ -847,138 +1160,199 @@
                     tab.onclick = () => {
                         document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
                         tab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
-                        dom.skillModal.treeContainer.classList.remove('hidden');
-                        dom.skillModal.comboContainer.classList.add('hidden');
-                        renderSkillTree(key);
+                        renderSkillList(key, 'active');
                     };
                     dom.skillModal.tabs.appendChild(tab);
                 });
+                // Passive Tab
+                const passiveTab = document.createElement('button');
+                passiveTab.id = 'passive-tab-btn';
+                passiveTab.className = 'p-2 text-gray-400 hover:text-white';
+                passiveTab.textContent = '패시브';
+                passiveTab.onclick = () => {
+                    document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
+                    passiveTab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
+                    renderSkillList(selectedClassName, 'passive');
+                };
+                dom.skillModal.tabs.appendChild(passiveTab);
+
+                // Combo Tab
                 const comboTab = document.createElement('button');
                 comboTab.id = 'combo-tab-btn';
                 comboTab.className = 'p-2 text-gray-400 hover:text-white';
-                comboTab.textContent = '콤보 목록';
+                comboTab.textContent = '콤보';
                 comboTab.onclick = () => {
                     document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
                     comboTab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
-                    dom.skillModal.treeContainer.classList.add('hidden');
-                    dom.skillModal.comboContainer.classList.remove('hidden');
-                    renderComboList();
+                    renderSkillList(null, 'combo');
                 };
                 dom.skillModal.tabs.appendChild(comboTab);
             }
             renderEquippedSkills();
         }
         
-        function renderSkillTree(treeKey) {
-            dom.skillModal.display.innerHTML = '';
-            dom.skillModal.upgradePanel.classList.add('hidden');
-            const tree = SKILL_TREES[treeKey];
-            const SPRITE_SCALE_FACTOR = 5.0;
-            tree.skills.forEach(tier => {
-                const tierDiv = document.createElement('div');
-                tierDiv.className = 'skill-tier';
-                tier.forEach(skillId => {
-                    const skill = SKILLS[skillId];
-                    const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                    const node = document.createElement('div');
-                    const learned = gameState.player.learnedSkills.includes(skillId);
-                    const prereqLearned = !skill.requires || gameState.player.learnedSkills.includes(skill.requires);
-                    const canLearn = gameState.player.skillPoints > 0 && !learned && prereqLearned;
-                    const level = gameState.player.skillLevels[skillId] || 0;
-                    const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                    const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                    const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                    const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    node.className = `skill-node ${learned ? 'learned' : canLearn ? 'can-learn' : 'locked'}`;
-                    node.innerHTML = `<div class="icon-container"><div class="skill-sprite-icon" style="background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><span class="text-xs">${skill.name} ${level > 0 ? `Lv.${level}`: ''}</span>`;
-                    node.onclick = () => showUpgradePanel(skillId, treeKey);
-                    tierDiv.appendChild(node);
-                });
-                dom.skillModal.display.appendChild(tierDiv);
+        function renderSkillList(key, type) {
+            const listPanel = dom.skillModal.listPanel;
+            listPanel.innerHTML = '';
+            dom.skillModal.detailsPanel.innerHTML = '';
+
+            let skillsToList = [];
+            if (type === 'active') {
+                skillsToList = SKILL_TREES[key].skills.flat();
+            } else if (type === 'passive') {
+                skillsToList = Object.keys(PASSIVE_SKILLS[key]);
+            } else if (type === 'combo') {
+                skillsToList = COMBOS.map(c => c.id);
+            }
+
+            skillsToList.forEach(skillId => {
+                const isPassive = type === 'passive';
+                const isCombo = type === 'combo';
+                const skillData = isPassive ? PASSIVE_SKILLS[key][skillId] : (isCombo ? COMBOS.find(c => c.id === skillId) : SKILLS[skillId]);
+                if (!skillData) return;
+
+                const item = document.createElement('div');
+                item.className = 'skill-list-item';
+                item.dataset.skillId = skillId;
+                item.dataset.type = type;
+                item.dataset.key = key;
+
+                const iconName = isCombo ? SKILLS[skillData.skills[1]].icon : skillData.icon;
+                const sprite = spriteData.sprites.find(s => s.name === iconName);
+                const SPRITE_SCALE_FACTOR = 6.0;
+                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
+                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
+                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
+                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
+                
+                const level = isPassive ? (gameState.player.passiveSkills[skillId] || 0) : (gameState.player.skillLevels[skillId] || 0);
+                const levelText = isCombo ? '콤보' : (level > 0 ? `Lv. ${level}` : '미습득');
+
+                item.innerHTML = `
+                    <div class="icon-container rounded-md overflow-hidden border border-gray-600">
+                        <div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div>
+                    </div>
+                    <div>
+                        <p class="font-bold">${skillData.name}</p>
+                        <p class="text-xs text-gray-400">${levelText}</p>
+                    </div>
+                `;
+                item.onclick = () => {
+                    document.querySelectorAll('.skill-list-item').forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    if (isPassive) {
+                        showPassiveUpgradePanel(skillId);
+                    } else if (isCombo) {
+                        showComboDetailsPanel(skillId);
+                    } else {
+                        showUpgradePanel(skillId, key);
+                    }
+                };
+                listPanel.appendChild(item);
             });
         }
 
-        function showUpgradePanel(skillId, treeKey) {
-            const panel = dom.skillModal.upgradePanel;
+        function showUpgradePanel(skillId) {
+            const detailsPanel = dom.skillModal.detailsPanel;
             const skill = SKILLS[skillId];
-            const level = gameState.player.skillLevels[skillId] || 0;
-            const learned = level > 0;
-            const prereqLearned = !skill.requires || gameState.player.learnedSkills.includes(skill.requires);
-            const canLearn = gameState.player.skillPoints > 0 && !learned && prereqLearned;
-            const canUpgrade = learned && gameState.player.skillPoints > 0;
-            const isEquipped = gameState.player.equippedSkills.includes(skillId);
+            const p = gameState.player;
+            const currentLevel = p.skillLevels[skillId] || 0;
+            const isLearned = currentLevel > 0;
+            const canLearn = p.skillPoints > 0 && (!skill.requires || p.learnedSkills.includes(skill.requires));
+
+            let html = `<h4 class="font-bold text-lg text-yellow-300 mb-2">${skill.name} ${isLearned ? `(Lv.${currentLevel})` : ''}</h4>`;
+            html += `<p class="text-sm text-gray-300 mb-4">${skill.desc}</p>`;
             
-            let buttonHTML = '';
-            if (canLearn) {
-                buttonHTML += `<button id="learn-skill-btn" class="game-button w-full text-sm py-2 mb-2">학습 (1 SP)</button>`;
-            } else if (canUpgrade) {
-                buttonHTML += `<button id="upgrade-skill-btn" class="game-button w-full text-sm py-2 mb-2">업그레이드 (1 SP)</button>`;
-            }
-            if(learned){
-                 if(isEquipped){
-                    buttonHTML += `<button id="unequip-skill-btn" class="game-button w-full text-sm py-2">해제</button>`;
-                 } else {
-                    buttonHTML += `<button id="equip-skill-btn" class="game-button w-full text-sm py-2" ${gameState.player.equippedSkills.filter(s => s).length >= 5 ? 'disabled' : ''}>장착</button>`;
-                 }
+            if (skill.requires && !p.learnedSkills.includes(skill.requires)) {
+                html += `<p class="text-sm text-red-400 mb-2">선행 스킬: ${SKILLS[skill.requires].name} 필요</p>`;
             }
 
-            let effectsHTML = `<p class="text-xs text-gray-400 mb-1">효과: ${skill.desc}</p>`;
-            if (skill.upgradeEffects && skill.upgradeEffects[level + 1]) {
-                effectsHTML += `<p class="text-xs text-green-400 mb-2">다음 레벨: ${skill.upgradeEffects[level + 1].desc}</p>`;
-            }
-            
-            if(skill.type === 'attack'){
-                const p = gameState.player;
-                const scale = skill.scale || {};
-                const power = ((p.attack * (scale.str || 0)) + (p.stats.int * 2 * (scale.int || 0)) + (p.stats.agi * 1.5 * (scale.agi || 0)));
-                const minDamage = Math.floor(Math.max(10, power * 0.85));
-                const maxDamage = Math.floor(Math.max(10, power * 1.0));
-                effectsHTML += `<p class="text-xs text-yellow-300">예상 피해량: ${minDamage} ~ ${maxDamage}</p>`;
-            }
-
-
-            panel.innerHTML = `<h4 class="font-bold text-lg text-yellow-300 mb-2">${skill.name}</h4><p class="text-sm mb-4">현재 레벨: ${level}</p>${effectsHTML}${buttonHTML}`;
-            panel.classList.remove('hidden');
-
-            if (canLearn) {
-                document.getElementById('learn-skill-btn').onclick = () => {
-                    gameState.player.learnedSkills.push(skillId);
-                    gameState.player.skillLevels[skillId] = 1;
-                    gameState.player.skillPoints--;
-                    updateSkillModal();
-                    renderSkillTree(treeKey);
-                };
-            }
-            if (canUpgrade) {
-                document.getElementById('upgrade-skill-btn').onclick = () => {
-                    gameState.player.skillLevels[skillId]++;
-                    gameState.player.skillPoints--;
-                    updateSkillModal();
-                    renderSkillTree(treeKey);
-                };
-            }
-            if(learned){
-                if(isEquipped){
-                    document.getElementById('unequip-skill-btn').onclick = () => {
-                        const index = gameState.player.equippedSkills.indexOf(skillId);
-                        if(index > -1) gameState.player.equippedSkills[index] = null;
-                        updateSkillModal();
-                        renderSkillTree(treeKey);
-                        setupSkillButtons();
-                    };
+            // Buttons
+            const buttons = [];
+            if (!isLearned) {
+                buttons.push(`<button id="learn-skill-btn" class="game-button text-sm py-2 px-4" ${!canLearn ? 'disabled' : ''}>배우기 (1 SP)</button>`);
+            } else {
+                buttons.push(`<button id="upgrade-skill-btn" class="game-button text-sm py-2 px-4" ${p.skillPoints < 1 ? 'disabled' : ''}>강화 (1 SP)</button>`);
+                
+                const isEquipped = p.equippedSkills.includes(skillId);
+                if (isEquipped) {
+                    buttons.push(`<button id="unequip-skill-btn" class="game-button text-sm py-2 px-4">해제</button>`);
                 } else {
-                    const equipBtn = document.getElementById('equip-skill-btn');
-                    if(equipBtn) equipBtn.onclick = () => {
-                        const emptySlotIndex = gameState.player.equippedSkills.indexOf(null);
-                        if(emptySlotIndex > -1){
-                            gameState.player.equippedSkills[emptySlotIndex] = skillId;
-                            updateSkillModal();
-                            renderSkillTree(treeKey);
-                            setupSkillButtons();
-                        }
-                    };
+                    const hasEmptySlot = p.equippedSkills.includes(null);
+                    buttons.push(`<button id="equip-skill-btn" class="game-button text-sm py-2 px-4" ${!hasEmptySlot ? 'disabled' : ''}>장착</button>`);
                 }
             }
+            html += `<div class="flex gap-2 mt-4">${buttons.join('')}</div>`;
+            detailsPanel.innerHTML = html;
+
+            // Event Listeners
+            document.getElementById('learn-skill-btn')?.addEventListener('click', () => {
+                p.skillPoints--;
+                p.skillLevels[skillId] = 1;
+                p.learnedSkills.push(skillId);
+                updateSkillModal();
+                showUpgradePanel(skillId); // Refresh panel
+            });
+            document.getElementById('upgrade-skill-btn')?.addEventListener('click', () => {
+                p.skillPoints--;
+                p.skillLevels[skillId]++;
+                updateSkillModal();
+                showUpgradePanel(skillId); // Refresh panel
+            });
+            document.getElementById('equip-skill-btn')?.addEventListener('click', () => {
+                const emptySlotIndex = p.equippedSkills.findIndex(s => s === null);
+                if (emptySlotIndex !== -1) {
+                    p.equippedSkills[emptySlotIndex] = skillId;
+                    updateSkillModal();
+                    setupSkillButtons();
+                    showUpgradePanel(skillId); // Refresh panel
+                }
+            });
+            document.getElementById('unequip-skill-btn')?.addEventListener('click', () => {
+                const slotIndex = p.equippedSkills.findIndex(s => s === skillId);
+                if (slotIndex !== -1) {
+                    unequipSkillFromSlot(slotIndex);
+                    updateSkillModal();
+                    showUpgradePanel(skillId); // Refresh panel
+                }
+            });
+        }
+
+        function showPassiveUpgradePanel(skillId) {
+            const detailsPanel = dom.skillModal.detailsPanel;
+            const skill = PASSIVE_SKILLS[selectedClassName][skillId];
+            const p = gameState.player;
+            const currentLevel = p.passiveSkills[skillId] || 0;
+            const isMaxLevel = currentLevel >= skill.maxLevel;
+            const canUpgrade = p.passiveSkillPoints > 0 && !isMaxLevel;
+
+            let html = `<h4 class="font-bold text-lg text-yellow-300 mb-2">${skill.name} (Lv.${currentLevel}/${skill.maxLevel})</h4>`;
+            html += `<p class="text-sm text-gray-300 mb-2">현재 효과: ${currentLevel > 0 ? skill.desc(currentLevel) : '없음'}</p>`;
+            if (!isMaxLevel) {
+                html += `<p class="text-sm text-green-400 mb-4">다음 레벨: ${skill.desc(currentLevel + 1)}</p>`;
+            }
+            
+            html += `<button id="upgrade-passive-btn" class="game-button text-sm py-2 px-4" ${!canUpgrade ? 'disabled' : ''}>강화 (1 PSP)</button>`;
+            detailsPanel.innerHTML = html;
+
+            document.getElementById('upgrade-passive-btn')?.addEventListener('click', () => {
+                p.passiveSkillPoints--;
+                p.passiveSkills[skillId] = (p.passiveSkills[skillId] || 0) + 1;
+                updateSkillModal();
+                showPassiveUpgradePanel(skillId); // Refresh panel
+            });
+        }
+        
+        function showComboDetailsPanel(comboId) {
+            const detailsPanel = dom.skillModal.detailsPanel;
+            const combo = COMBOS.find(c => c.id === comboId);
+            const skill1 = SKILLS[combo.skills[0]];
+            const skill2 = SKILLS[combo.skills[1]];
+            detailsPanel.innerHTML = `
+                <h4 class="font-bold text-lg text-purple-400 mb-2">${combo.name}</h4>
+                <p class="text-sm mb-2">조건: ${skill1.name} → ${skill2.name}</p>
+                <p class="text-xs text-gray-400">효과: ${combo.desc}</p>
+            `;
         }
         
         function renderEquippedSkills() {
@@ -986,10 +1360,10 @@
             container.innerHTML = '<h3 class="text-xl font-bold mb-2 text-center">장착된 스킬</h3><div class="flex justify-center gap-2 flex-wrap"></div>';
             const grid = container.querySelector('div');
             const equipped = ['basic_attack', ...gameState.player.equippedSkills];
-            for(let i=0; i < 6; i++){
+            for(let i=0; i < 11; i++){
                 const skillId = equipped[i];
                 const slot = document.createElement('div');
-                slot.className = 'w-16 h-16 bg-gray-900 border border-gray-600 rounded-lg flex items-center justify-center';
+                slot.className = 'w-16 h-16 bg-gray-900 border border-gray-600 rounded-lg flex items-center justify-center cursor-pointer';
                 if(skillId){
                     const skill = SKILLS[skillId];
                     const sprite = spriteData.sprites.find(s => s.name === skill.icon);
@@ -998,30 +1372,40 @@
                     const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
                     const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
                     const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    slot.innerHTML = `<div class="w-12 h-12 overflow-hidden rounded"><div class="skill-sprite-icon" style="background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div>`;
+                    slot.innerHTML = `<div class="w-12 h-12 overflow-hidden rounded"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div>`;
+                    if (i > 0) { // Basic attack cannot be unequipped
+                        slot.onclick = () => {
+                            unequipSkillFromSlot(i - 1);
+                            updateSkillModal();
+                            dom.skillModal.tabs.querySelector('.text-yellow-300').click(); // Re-render current tab
+                        };
+                    }
                 }
                 grid.appendChild(slot);
             }
         }
 
         function renderComboList() {
-            const container = dom.skillModal.comboContainer;
-            container.innerHTML = '<h3 class="text-xl font-bold mb-4">콤보 목록</h3>';
-            const list = document.createElement('div');
-            list.className = 'space-y-4';
+            const listPanel = dom.skillModal.listPanel;
+            listPanel.innerHTML = '';
+            dom.skillModal.detailsPanel.innerHTML = '';
             COMBOS.forEach(combo => {
-                const comboEl = document.createElement('div');
-                comboEl.className = 'p-2 border-b border-gray-700';
-                const skill1 = SKILLS[combo.skills[0]];
-                const skill2 = SKILLS[combo.skills[1]];
-                comboEl.innerHTML = `
-                    <p class="text-lg font-bold text-purple-400">${combo.name}</p>
-                    <p class="text-sm text-gray-300">조건: ${skill1.name} → ${skill2.name}</p>
-                    <p class="text-sm text-gray-400">효과: ${combo.desc}</p>
-                `;
-                list.appendChild(comboEl);
+                const item = document.createElement('div');
+                item.className = 'skill-list-item';
+                item.innerHTML = `<p class="font-bold text-purple-400">${combo.name}</p>`;
+                item.onclick = () => {
+                     document.querySelectorAll('.skill-list-item').forEach(i => i.classList.remove('selected'));
+                    item.classList.add('selected');
+                    const skill1 = SKILLS[combo.skills[0]];
+                    const skill2 = SKILLS[combo.skills[1]];
+                    dom.skillModal.detailsPanel.innerHTML = `
+                        <h4 class="font-bold text-lg text-yellow-300 mb-2">${combo.name}</h4>
+                        <p class="text-sm mb-2">조건: ${skill1.name} → ${skill2.name}</p>
+                        <p class="text-xs text-gray-400">효과: ${combo.desc}</p>
+                    `;
+                };
+                listPanel.appendChild(item);
             });
-            container.appendChild(list);
         }
 
         function updateMenuButtonsNotification() {
@@ -1032,7 +1416,7 @@
             } else {
                 charBtn.classList.remove('has-points');
             }
-            if (gameState.player && gameState.player.skillPoints > 0) {
+            if (gameState.player && (gameState.player.skillPoints > 0 || gameState.player.passiveSkillPoints > 0)) {
                 skillBtn.classList.add('has-points');
             } else {
                 skillBtn.classList.remove('has-points');
@@ -1063,7 +1447,8 @@
              document.getElementById('bgm').play().catch(e => console.log("BGM auto-play failed."));
         });
         dom.screens.classSelection.addEventListener('click', (e) => { const card = e.target.closest('.class-card'); if (card) { showSkillSelection(card.dataset.class); } });
-        dom.skillSelection.confirmBtn.addEventListener('click', startGame);
+        dom.skillSelection.confirmBtn.addEventListener('click', showPassiveSkillSelection);
+        dom.passiveSkillSelection.confirmBtn.addEventListener('click', startGame);
         dom.screens.gameOver.querySelector('#restart-game-btn').addEventListener('click', () => location.reload());
         dom.screens.gameClear.querySelector('#play-again-btn').addEventListener('click', () => location.reload());
         dom.screens.stageClear.querySelector('#next-stage-btn').addEventListener('click', () => { gameState.currentStage++; if (gameState.currentStage >= STAGES.length) { switchScreen('gameClear'); } else { switchScreen('battle'); loadStage(gameState.currentStage); } });
@@ -1076,6 +1461,9 @@
             const imageUrls = [
                 SPRITE_IMAGE_URL,
                 MAGE_SPRITE_URL,
+                ROGUE_SPRITE_URL,
+                WARRIOR_SPRITE_URL,
+                SUNDER_VFX_URL,
                 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp',
                 ...STAGES.map(stage => stage.img),
                 bossBg
