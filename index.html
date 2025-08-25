@@ -154,6 +154,7 @@
         .vfx-damage-text { position: absolute; font-family: 'Cinzel', serif; font-size: 2rem; font-weight: bold; text-shadow: 1px 1px 2px black; animation: vfx-damage-float 1.5s ease-out forwards; }
         .critical { font-size: 2.5rem !important; color: var(--gold-color) !important; font-weight: 900; }
         @keyframes vfx-damage-float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-80px); opacity: 0; } }
+        @keyframes vfx-fade-fast { from{opacity:1;} to{opacity:0;} }
 
         @media (max-width: 768px) {
             #title-screen h1 { font-size: 3rem; }
@@ -169,27 +170,19 @@
             .hp-text, .mp-text { font-size: 0.7rem; }
 
             .controls { flex-direction: column; align-items: center; }
-            .skills-container { order: 1; }
-            .skill-btn { width: 56px; height: 56px; }
-            .skill-btn .icon-wrapper { width: 32px; height: 32px; }
+            .skills-container { order: 1; padding: 0.25rem; gap: 0.25rem; }
+            .skill-btn { width: 48px; height: 48px; }
+            .skill-btn .icon-wrapper { width: 28px; height: 28px; }
+            .skill-btn .skill-label { font-size: 0.5rem; line-height: 0.6rem; }
 
             .log-panel { bottom: 150px; top: auto; height: 80px; width: 90%; }
             .log-panel:hover { height: 80px; }
 
             /* Skill Modal Mobile Optimizations */
-            #skill-tree-modal .modal-content {
-                width: 95%;
-                padding: 1rem;
-            }
-            #skill-modal-layout {
-                grid-template-columns: 1fr;
-            }
-            #skill-list-panel, #skill-tree-panel {
-                max-height: 40vh;
-            }
-            #skill-details-panel .flex {
-                flex-direction: column;
-            }
+            #skill-tree-modal .modal-content { width: 95%; padding: 1rem; }
+            #skill-modal-layout { grid-template-columns: 1fr; }
+            #skill-list-panel, #skill-tree-panel { max-height: 40vh; }
+            #skill-details-panel .flex { flex-direction: column; }
         }
     </style>
 </head>
@@ -263,7 +256,7 @@
 
                 <div id="log-panel" class="log-panel"><div id="log-messages-container"></div></div>
                 
-                <div class="controls">
+                <div class="controls hidden">
                     <div id="skills-grid" class="skills-container"></div>
                 </div>
             </div>
@@ -306,13 +299,13 @@
             
             // Warrior
             knight_bash: { name: "강타", type: "attack", cost: 8, scale: { str: 2.4 }, vfx: "slash", icon: "sprite_6", desc: "적에게 강력한 일격을 가합니다.", tier: 1 },
-            knight_sunder: { name: "방어구 부수기", type: "attack", cost: 12, scale: { str: 1.8 }, addEffect: { type: 'def_down', chance: 1.0, duration: 3, power: 0.2 }, vfx: "slash", icon: "sprite_3", desc: "적을 공격하여 3턴간 방어력을 20% 감소시킵니다.", tier: 2, requires: 'knight_bash' },
+            knight_sunder: { name: "방어구 부수기", type: "attack", cost: 12, scale: { str: 1.8 }, addEffect: { type: 'def_down', chance: 1.0, duration: 3, power: 0.3 }, vfx: "slash", icon: "sprite_3", desc: "적을 공격하여 3턴간 방어력을 30% 감소시킵니다.", tier: 2, requires: 'knight_bash' },
             knight_whirlwind: { name: "휠윈드", type: "attack", cost: 28, scale: { str: 6.0 }, vfx: "slash", icon: "sprite_14", desc: "주위의 모든 적을 베어버리는 회전 공격입니다.", tier: 3, requires: 'knight_sunder' },
-            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 40, duration: 5, effects: { def: 2.0, immune: true }, vfx: "holy", icon: "sprite_17", desc: "5턴간 방어력이 100% 증가하고 모든 상태이상에 면역이 됩니다.", tier: 4, requires: 'knight_whirlwind' },
+            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 40, duration: 5, effects: { def: 2.5, immune: true }, vfx: "holy", icon: "sprite_17", desc: "5턴간 방어력이 150% 증가하고 모든 상태이상에 면역이 됩니다.", tier: 4, requires: 'knight_whirlwind' },
 
             // Mage
             mage_fireball: { name: "파이어볼", type: "attack", cost: 12, scale: { int: 3.0 }, vfx: "fire", icon: "sprite_8", desc: "작은 화염구를 날려 피해를 줍니다.", tier: 1 },
-            mage_frostbite: { name: "동상", type: "attack", cost: 18, scale: {int: 2.5}, addEffect: { type: 'atk_down', chance: 1.0, duration: 3, power: 0.2 }, vfx: "ice", icon: "sprite_22", desc: "적을 얼려 3턴간 공격력을 20% 감소시킵니다.", tier: 2, requires: 'mage_fireball'},
+            mage_frostbite: { name: "동상", type: "attack", cost: 18, scale: {int: 2.5}, addEffect: { type: 'atk_down', chance: 1.0, duration: 3, power: 0.3 }, vfx: "ice", icon: "sprite_22", desc: "적을 얼려 3턴간 공격력을 30% 감소시킵니다.", tier: 2, requires: 'mage_fireball'},
             mage_chain_lightning: { name: "체인 라이트닝", type: "attack", cost: 32, scale: { int: 8.0 }, vfx: "lightning", icon: "sprite_5", desc: "연쇄적으로 방출되는 번개로 큰 피해를 줍니다.", tier: 3, requires: 'mage_frostbite' },
             mage_ultimate: { name: "메테오", type: "attack", cost: 65, scale: { int: 16.0 }, vfx: "fire", icon: "sprite_9", desc: "거대한 운석을 떨어뜨려 초토화시킵니다.", tier: 4, requires: 'mage_chain_lightning' },
 
@@ -369,7 +362,7 @@
                 fleet_footed: { name: "질풍", icon: "sprite_16", maxLevel: 5, desc: level => `민첩(AGI) 20당 ${level * 0.5}% 확률로 추가 턴을 얻습니다.`, effects: {} },
                 lethality: { name: "치명성", icon: "sprite_20", maxLevel: 5, desc: level => `치명타 피해량이 ${level * 10}% 증가합니다.`, effects: { critDamage: 10 } },
                 venom: { name: "맹독", icon: "sprite_2", maxLevel: 3, desc: level => `공격 시 ${level * 5}% 확률로 적을 중독시킵니다.`, effects: {} },
-                evasion: { name: "회피", icon: "sprite_23", maxLevel: 5, desc: level => `${level * 2}% 확률로 적의 공격을 회피합니다.`, effects: {} },
+                evasion: { name: "회피", icon: "sprite_23", maxLevel: 5, desc: level => `${level * 4}% 확률로 적의 공격을 회피합니다.`, effects: { evasion: 4 } },
                 opportunist: { name: "약점 포착", icon: "sprite_4", maxLevel: 3, desc: level => `상태 이상에 걸린 적에게 ${level * 10}% 추가 피해를 줍니다.`, effects: {} },
             }
         };
@@ -423,21 +416,9 @@
                 defense: 10 + (player.stats.str * 1) + Math.floor(player.stats.agi * 0.5) + (player.stats.vit * 2),
                 critChance: 10 + (player.stats.luk * 0.8),
                 critDamage: 180 + (player.stats.luk * 2.5),
-                regen_percent: 0.05
+                regen_percent: 0.05,
+                evasion: 0
             };
-
-            player.learnedSkills.forEach(skillId => {
-                const boost = SKILLS[skillId]?.permanentBoost;
-                if (boost) {
-                    if (boost.str_percent) modifiedStats.stats.str *= (1 + boost.str_percent);
-                    if (boost.int_percent) modifiedStats.stats.int *= (1 + boost.int_percent);
-                    if (boost.agi_percent) modifiedStats.stats.agi *= (1 + boost.agi_percent);
-                    if (boost.maxHp_percent) modifiedStats.maxHp *= (1 + boost.maxHp_percent);
-                    if (boost.maxMp_percent) modifiedStats.maxMp *= (1 + boost.maxMp_percent);
-                    if (boost.critChance) modifiedStats.critChance += boost.critChance;
-                    if (boost.critDamage) modifiedStats.critDamage += boost.critDamage;
-                }
-            });
 
             for (const skillId in player.passiveSkills) {
                 const level = player.passiveSkills[skillId];
@@ -450,6 +431,7 @@
                 if (passive.effects.regen_percent) modifiedStats.regen_percent += passive.effects.regen_percent * level;
                 if (passive.effects.str_percent) modifiedStats.stats.str *= (1 + passive.effects.str_percent * level);
                 if (passive.effects.int_percent) modifiedStats.stats.int *= (1 + passive.effects.int_percent * level);
+                if (passive.effects.evasion) modifiedStats.evasion += passive.effects.evasion * level;
             }
             
             modifiedStats.attack = 20 + (modifiedStats.stats.str * 2) + Math.floor(modifiedStats.stats.agi * 1.5);
@@ -474,7 +456,7 @@
             
             const stateProxy = new Proxy(player, {
                 get(target, prop) {
-                    if (['maxHp', 'maxMp', 'attack', 'defense', 'critChance', 'critDamage', 'regen_percent'].includes(prop)) {
+                    if (['maxHp', 'maxMp', 'attack', 'defense', 'critChance', 'critDamage', 'regen_percent', 'evasion'].includes(prop)) {
                         const calculatedStats = applyPassiveEffects(target);
                         return calculatedStats[prop];
                     }
@@ -497,7 +479,7 @@
             vfxContainer: document.getElementById('vfx-container'),
             player: { el: document.getElementById('player'), sprite: document.getElementById('player-sprite'), name: document.getElementById('player-name'), level: document.getElementById('player-level'), hpBar: document.getElementById('player-hp-bar'), hpText: document.getElementById('player-hp-text'), mpBar: document.getElementById('player-mp-bar'), mpText: document.getElementById('player-mp-text'), xpBar: document.getElementById('player-xp-bar'), buffs: document.getElementById('player-buffs') },
             enemy: { el: document.getElementById('enemy'), img: document.getElementById('enemy-img'), name: document.getElementById('enemy-name'), hpBar: document.getElementById('enemy-hp-bar'), hpText: document.getElementById('enemy-hp-text'), stage: document.getElementById('stage-indicator'), buffs: document.getElementById('enemy-buffs') },
-            controls: { skills: document.getElementById('skills-grid') },
+            controls: { el: document.querySelector('.controls'), skills: document.getElementById('skills-grid') },
             charModal: { points: document.getElementById('stat-points-display'), str: document.getElementById('stat-str'), int: document.getElementById('stat-int'), agi: document.getElementById('stat-agi'), vit: document.getElementById('stat-vit'), luk: document.getElementById('stat-luk'), atk: document.getElementById('detail-atk'), def: document.getElementById('detail-def'), hp: document.getElementById('detail-hp'), mp: document.getElementById('detail-mp'), critChance: document.getElementById('detail-crit-chance'), critDamage: document.getElementById('detail-crit-damage'), confirmBtn: document.getElementById('confirm-stats-btn') },
             skillModal: { 
                 points: document.getElementById('skill-points'), 
@@ -783,7 +765,7 @@
                     const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
                     const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
                     const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip"><p class="font-bold">${skill.name} ${level > 1 ? `(Lv.${level})` : ''}</p><p class="text-xs text-gray-300">${skill.desc}</p><p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p></div>`;
+                    button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip">${getSkillDetailsHTML(skillId)}</div>`;
                     
                     button.addEventListener('click', () => playerTurn(skillId));
 
@@ -902,7 +884,7 @@
             if (character.stats) { // Player
                 baseStats = applyPassiveEffects(character);
             } else { // Enemy
-                baseStats = { attack: character.attack, defense: character.defense, immune: false };
+                baseStats = { attack: character.attack, defense: character.defense, immune: false, evasion: 0 };
             }
 
             let effectiveStats = {...baseStats};
@@ -986,53 +968,57 @@
                 const attackerStats = getEffectiveStats(attacker);
                 const defenderStats = getEffectiveStats(defender);
 
-                if (skill.type === 'attack') {
-                    if (defenderStats.immune) {
-                        addLog(`<span class="font-bold text-blue-300">면역!</span> 피해를 받지 않았습니다.`);
-                    } else {
-                        playSound(skill.vfx);
-                        playParticleVFX(defenderEl, skill.vfx);
-                        
-                        let power = 0;
-                        if (attacker === p) { 
-                            power = (attackerStats.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0));
-                        } else { 
-                            power = attackerStats.attack * (skill.scale || 1.0); 
-                        }
-                        let damage = Math.floor(Math.max(10, power * (100 / (100 + defenderStats.defense)) * (Math.random() * 0.15 + 0.85)));
-                        const isCrit = (attacker === p) && (Math.random() * 100 < attackerStats.critChance);
-                        if (isCrit) {
-                            damage = Math.floor(damage * (attackerStats.critDamage / 100));
-                            addLog(`<span class="font-bold text-yellow-300">치명타!</span>`);
-                        }
-                        
-                        if(skill.lifesteal) {
-                            const healed = Math.floor(damage * skill.lifesteal);
-                            attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + healed);
-                            showDamageVFX(attackerEl, `+${healed}`);
-                        }
+                if (defender.stats && Math.random() * 100 < defenderStats.evasion) {
+                    addLog(`<span class="font-bold text-blue-300">회피!</span>`);
+                } else {
+                    if (skill.type === 'attack') {
+                        if (defenderStats.immune) {
+                            addLog(`<span class="font-bold text-blue-300">면역!</span> 피해를 받지 않았습니다.`);
+                        } else {
+                            playSound(skill.vfx);
+                            playParticleVFX(defenderEl, skill.vfx);
+                            
+                            let power = 0;
+                            if (attacker === p) { 
+                                power = (attackerStats.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0));
+                            } else { 
+                                power = attackerStats.attack * (skill.scale || 1.0); 
+                            }
+                            let damage = Math.floor(Math.max(10, power * (100 / (100 + defenderStats.defense)) * (Math.random() * 0.15 + 0.85)));
+                            const isCrit = (attacker === p) && (Math.random() * 100 < attackerStats.critChance);
+                            if (isCrit) {
+                                damage = Math.floor(damage * (attackerStats.critDamage / 100));
+                                addLog(`<span class="font-bold text-yellow-300">치명타!</span>`);
+                            }
+                            
+                            if(skill.lifesteal) {
+                                const healed = Math.floor(damage * skill.lifesteal);
+                                attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + healed);
+                                showDamageVFX(attackerEl, `+${healed}`);
+                            }
 
-                        playSound('damage');
-                        defender.currentHp = Math.max(0, defender.currentHp - damage);
-                        showDamageVFX(defenderEl, `-${damage}`, isCrit);
-                        addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
-                        defenderEl.classList.add('take-damage');
-                        setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
+                            playSound('damage');
+                            defender.currentHp = Math.max(0, defender.currentHp - damage);
+                            showDamageVFX(defenderEl, `-${damage}`, isCrit);
+                            addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
+                            defenderEl.classList.add('take-damage');
+                            setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
+                        }
+                    } else if (skill.type === 'heal') {
+                        playSound('holy');
+                        playParticleVFX(attackerEl, 'holy');
+                        const heal = Math.floor(attackerStats.stats.int * 5 * (skill.scale.int || 1));
+                        attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + heal);
+                        showDamageVFX(attackerEl, `+${heal}`);
+                        addLog(`<span class="font-bold text-green-400">${attacker.name || '플레이어'}</span>의 체력이 ${heal} 회복되었다!`, 'text-white');
                     }
-                } else if (skill.type === 'heal') {
-                    playSound('holy');
-                    playParticleVFX(attackerEl, 'holy');
-                    const heal = Math.floor(attackerStats.stats.int * 5 * (skill.scale.int || 1));
-                    attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + heal);
-                    showDamageVFX(attackerEl, `+${heal}`);
-                    addLog(`<span class="font-bold text-green-400">${attacker.name || '플레이어'}</span>의 체력이 ${heal} 회복되었다!`, 'text-white');
+                    
+                    if (skill.addEffect && Math.random() < skill.addEffect.chance) {
+                        defender.statusEffects.push({ ...skill.addEffect });
+                        addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>가 ${skill.addEffect.type} 상태가 되었다!`);
+                    }
+                    if (skill.effects) attacker.activeBuffs.push({ id: skillId, duration: skill.duration });
                 }
-                
-                if (skill.addEffect && Math.random() < skill.addEffect.chance) {
-                    defender.statusEffects.push({ ...skill.addEffect });
-                    addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>가 ${skill.addEffect.type} 상태가 되었다!`);
-                }
-                if (skill.effects) attacker.activeBuffs.push({ id: skillId, duration: skill.duration });
                 
                 updateAllUI();
                 checkBattleOver();
@@ -1101,7 +1087,10 @@
             performAction(enemy, gameState.player, randomSkill.id); 
         }
 
-        function toggleSkillButtons(disabled) { dom.controls.skills.querySelectorAll('button').forEach(btn => btn.disabled = disabled); }
+        function toggleSkillButtons(disabled) { 
+            dom.controls.el.classList.toggle('hidden', disabled);
+            dom.controls.skills.querySelectorAll('button').forEach(btn => btn.disabled = disabled); 
+        }
         
         function openModal(modalName) { if(dom.modals[modalName]) dom.modals[modalName].classList.remove('hidden'); }
         function closeModal(modalName) { 
@@ -1188,6 +1177,7 @@
                     tab.onclick = () => {
                         document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
                         tab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
+                        dom.skillModal.detailsPanel.innerHTML = '';
                         renderSkillTree(key);
                     };
                     dom.skillModal.tabs.appendChild(tab);
@@ -1199,6 +1189,7 @@
                 passiveTab.onclick = () => {
                     document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
                     passiveTab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
+                    dom.skillModal.detailsPanel.innerHTML = '';
                     renderPassiveSkillList(selectedClassName);
                 };
                 dom.skillModal.tabs.appendChild(passiveTab);
@@ -1233,7 +1224,7 @@
                     const isLearned = level > 0;
                     const canLearn = gameState.player.skillPoints > 0 && (!skill.requires || gameState.player.learnedSkills.includes(skill.requires));
 
-                    node.innerHTML = `<div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div><div class="tooltip"><p class="font-bold">${skill.name} ${level > 0 ? `(Lv.${level})` : ''}</p><p class="text-xs">${skill.desc}</p></div>`;
+                    node.innerHTML = `<div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div><div class="tooltip">${getSkillDetailsHTML(skillId)}</div>`;
                     
                     if (isLearned) node.classList.add('learned');
                     else if (canLearn) node.classList.add('can-learn');
@@ -1297,6 +1288,26 @@
             });
         }
 
+        function getSkillDetailsHTML(skillId) {
+            const skill = getEffectiveSkill(skillId);
+            const p = gameState.player;
+            const level = p.skillLevels[skillId] || 0;
+            let html = `<p class="font-bold">${skill.name} ${level > 0 ? `(Lv.${level})` : ''}</p>`;
+            html += `<p class="text-xs text-gray-300">${skill.desc}</p>`;
+            html += `<p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p>`;
+
+            if (skill.type === 'attack') {
+                const power = (p.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0));
+                const minDamage = Math.floor(Math.max(10, power * 0.85));
+                const maxDamage = Math.floor(Math.max(10, power * 1.0));
+                html += `<p class="text-xs text-red-400">예상 피해: ${minDamage}~${maxDamage}</p>`;
+            }
+            if (skill.addEffect) {
+                html += `<p class="text-xs text-purple-400">효과: ${skill.addEffect.duration}턴간 ${Math.floor(skill.addEffect.power * 100)}% ${skill.addEffect.type}</p>`;
+            }
+            return html;
+        }
+
         function showUpgradePanel(skillId) {
             const detailsPanel = dom.skillModal.detailsPanel;
             const skill = SKILLS[skillId];
@@ -1305,12 +1316,7 @@
             const isLearned = currentLevel > 0;
             const canLearn = p.skillPoints > 0 && (!skill.requires || p.learnedSkills.includes(skill.requires));
 
-            let html = `<h4 class="font-bold text-lg text-yellow-300 mb-2">${skill.name} ${isLearned ? `(Lv.${currentLevel})` : ''}</h4>`;
-            html += `<p class="text-sm text-gray-300 mb-4">${skill.desc}</p>`;
-            
-            if (skill.requires && !p.learnedSkills.includes(skill.requires)) {
-                html += `<p class="text-sm text-red-400 mb-2">선행 스킬: ${SKILLS[skill.requires].name} 필요</p>`;
-            }
+            detailsPanel.innerHTML = getSkillDetailsHTML(skillId);
 
             const buttons = [];
             if (!isLearned) {
@@ -1326,8 +1332,7 @@
                     buttons.push(`<button id="equip-skill-btn" class="game-button text-sm py-2 px-4" ${!hasEmptySlot ? 'disabled' : ''}>장착</button>`);
                 }
             }
-            html += `<div class="flex gap-2 mt-4">${buttons.join('')}</div>`;
-            detailsPanel.innerHTML = html;
+            detailsPanel.innerHTML += `<div class="flex gap-2 mt-4">${buttons.join('')}</div>`;
 
             document.getElementById('learn-skill-btn')?.addEventListener('click', () => {
                 p.skillPoints--;
