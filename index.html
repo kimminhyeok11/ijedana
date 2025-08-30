@@ -231,7 +231,7 @@
 
         // --- Game State & Constants ---
         let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, baseScore = 0, bonusScore = 0, highestY = 0, finalGameScore = 0;
-        let guestbookLimit = 3; let lastTime = 0; let lastMilestoneScore = 0;
+        let guestbookLimit = 3; let lastTime = 0;
         let availableBackgroundSprites = [];
         let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
@@ -243,7 +243,9 @@
             { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
             { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
             { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
-            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계
+            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') },  // 3: 천상계
+            { top: hexToRgb('#101030'), bottom: hexToRgb('#301040') },  // 4: 심연 (Abyss)
+            { top: hexToRgb('#FFFFE0'), bottom: hexToRgb('#FFFFFF') }   // 5: 특이점 (Singularity)
         ];
         let currentBgTop = backgrounds[0].top;
         let currentBgBottom = backgrounds[0].bottom;
@@ -270,7 +272,6 @@
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
             comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
             backgroundElements = [];
-            lastMilestoneScore = 0;
             
             const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
             shuffleArray(allBackgroundSpriteNames);
@@ -303,10 +304,27 @@
             }
             score = baseScore + bonusScore;
             scoreDisplay.innerText = score;
+
+            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
+            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
+            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
+            backgroundElements = backgroundElements.filter(el => (el.y - cameraY * 0.5) < canvas.height + 50);
+
+            player.frameCount++; 
+            const currentAnimData = animations[player.animationState];
+            if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
+            if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
+            if(player.y > cameraY + canvas.height) endGame();
+
+            let targetState = 0;
+            if (score > 50000) targetState = 5;
+            else if (score > 40000) targetState = 4;
+            else if (score > 30000) targetState = 3;
+            else if (score > 20000) targetState = 2;
+            else if (score > 10000) targetState = 1;
             
-            if (score > lastMilestoneScore + 500) {
-                lastMilestoneScore += 500;
-                
+            if (backgroundState !== targetState) {
+                backgroundState = targetState;
                 if (availableBackgroundSprites.length === 0) {
                     const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
                     shuffleArray(allBackgroundSpriteNames);
@@ -317,31 +335,15 @@
                 const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
                 
                 if(spriteInfo){
+                     const newElementHeight = spriteInfo.h / 1.5;
                      backgroundElements.push({
                         spriteName: spriteInfo.name,
                         x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
-                        y: player.y - canvas.height - (Math.random() * 200),
+                        y: cameraY * 0.5 - newElementHeight - (Math.random() * 200),
                         width: spriteInfo.w / 1.5,
-                        height: spriteInfo.h / 1.5
+                        height: newElementHeight
                     });
                 }
-            }
-
-            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
-            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
-            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
-            backgroundElements = backgroundElements.filter(el => el.y < cameraY + canvas.height + 50);
-
-            player.frameCount++; 
-            const currentAnimData = animations[player.animationState];
-            if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
-            if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
-            if(player.y > cameraY + canvas.height) endGame();
-
-            let targetState = 0;
-            if (score > 2500) targetState = 3; else if (score > 1500) targetState = 2; else if (score > 500) targetState = 1;
-            if (backgroundState !== targetState) {
-                backgroundState = targetState;
             }
 
             const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
@@ -370,6 +372,8 @@
                 let starColor = `rgba(255, 255, 255, ${s.alpha})`;
                 if (backgroundState === 2) starColor = `rgba(200, 180, 255, ${s.alpha})`;
                 else if (backgroundState === 3) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                else if (backgroundState === 4) starColor = `rgba(180, 180, 255, ${s.alpha})`; 
+                else if (backgroundState === 5) starColor = `rgba(255, 215, 0, ${s.alpha})`;
                 ctx.fillStyle = starColor;
                 ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
             });
@@ -386,7 +390,6 @@
                 });
             }
             ctx.restore();
-
 
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
@@ -424,10 +427,12 @@
             ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
             
             // 캐릭터 틴트 효과
-            if (backgroundState > 1) { // 2: 제4세계, 3: 천상계에서만 적용
+            if (backgroundState > 1) { 
                 let tintColor = '';
                 if (backgroundState === 2) tintColor = 'rgba(162, 82, 255, 0.15)'; // 제4세계
                 if (backgroundState === 3) tintColor = 'rgba(250, 204, 21, 0.15)';   // 천상계
+                if (backgroundState === 4) tintColor = 'rgba(80, 80, 220, 0.15)';   // 심연
+                if (backgroundState === 5) tintColor = 'rgba(255, 255, 224, 0.2)'; // 특이점
 
                 if (tintColor) {
                     ctx.globalCompositeOperation = 'source-atop';
