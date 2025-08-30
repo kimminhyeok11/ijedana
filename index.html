@@ -3,1566 +3,587 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>시련의 탑</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>에테르의 마지막 별</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --gold-color: #D4AF37;
-            --dark-bg: #1a1a2e;
-            --panel-bg: rgba(12, 12, 22, 0.85);
-            --border-color: #4a4a68;
-            --border-gold-gradient: linear-gradient(to bottom, #E6C66E, #A38A00);
+            --primary-accent: #a252ff; --secondary-accent: #4f46e5; --text-light: #e5e7eb;
+            --text-dark: #9ca3af; --bg-dark-1: #111827; --bg-dark-2: rgba(31, 41, 55, 0.5);
+            --border-color: rgba(255, 255, 255, 0.1); --error-color: #f87171;
+            --combo-color: #facc15;
         }
-        /* --- 기본 설정 및 애니메이션 --- */
-        body { font-family: 'Noto Sans KR', sans-serif; background-color: var(--dark-bg); color: #e0e0e0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
-        .font-cinzel { font-family: 'Cinzel', serif; }
-        .hidden { display: none !important; }
-        .fade-in { animation: fade-in 0.5s ease-out forwards; }
-        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slow-pan { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-        @keyframes title-glow { 0%, 100% { text-shadow: 0 0 10px #fff, 0 0 20px var(--gold-color), 0 0 30px var(--gold-color); } 50% { text-shadow: 0 0 20px #fff, 0 0 40px var(--gold-color), 0 0 50px var(--gold-color); } }
-        @keyframes subtitle-fade { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-        @keyframes take-damage-anim { 0%,100%{filter:brightness(1)} 50%{filter:brightness(3) contrast(2)} }
-        .take-damage { animation: take-damage-anim 0.3s; }
-        @keyframes attack-forward { 0%,100%{transform:translate(0,0)} 50%{transform:translate(20px,-10px) scale(1.1)} }
-        .player.attack { animation: attack-forward 0.4s; }
-        .enemy.attack { animation: attack-forward 0.4s; animation-name: attack-backward; }
-        @keyframes attack-backward { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-20px,-10px) scale(1.1)} }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes notification-ping { 0% { transform: scale(1); opacity: 1; } 75%, 100% { transform: scale(2); opacity: 0; } }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
+        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); overflow: hidden; }
+        canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; image-rendering: pixelated; }
+        #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
         
-        .notification-dot { display: none; }
-        .has-points .notification-dot { 
-            display: block;
-            position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background-color: #ef4444; border-radius: 50%; border: 2px solid var(--dark-bg); 
+        #combo-display {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--combo-color);
+            font-size: 1.8rem;
+            font-weight: 900;
+            text-shadow: 0 0 10px rgba(250, 204, 21, 0.7);
+            z-index: 10;
+            opacity: 0;
+            pointer-events: none;
         }
-        .has-points .notification-dot::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 50%; background-color: #ef4444; animation: notification-ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; }
-
-        /* --- 화면 구성 --- */
-        .game-screen, .modal-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
-        .overlay { background-color: rgba(0,0,0,0.7); backdrop-filter: blur(10px); }
-        #title-screen { text-align: center; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp'); background-size: cover; background-repeat: no-repeat; animation: slow-pan 30s ease-in-out infinite; }
-        #title-screen h1 { animation: title-glow 3s ease-in-out infinite; }
-        #title-screen h2 { text-shadow: 0 0 5px #fff; animation: subtitle-fade 4s ease-in-out infinite; }
-        #loading-screen .spinner { width: 60px; height: 60px; border: 5px solid var(--border-color); border-top-color: var(--gold-color); border-radius: 50%; animation: spin 1s linear infinite; }
-
-        .class-card, .skill-card { background: var(--panel-bg); border: 2px solid var(--border-color); transition: all 0.3s; cursor: pointer; position: relative; overflow: hidden; }
-        .class-card:hover, .skill-card:hover { transform: scale(1.05); border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); }
-        .skill-card.selected { border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); transform: scale(1.05); }
-        .class-card { width: 200px; height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .class-card svg { width: 80px; height: 80px; margin-bottom: 1rem; color: var(--gold-color); }
-        .class-card h3 { font-family: 'Cinzel', serif; font-size: 1.5rem; color: var(--gold-color); }
-        .class-card p { font-size: 0.8rem; color: #ccc; text-align: center; padding: 0 1rem; }
-        #starter-skills-container, #passive-skills-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; width: 100%; max-width: 800px; margin-bottom: 2rem; }
-        .skill-card { padding: 1rem; text-align: center; }
-        .skill-card h4 { font-size: 0.9rem; font-weight: bold; }
-        .skill-card p { font-size: 0.75rem; color: #bbb; }
-
-        .game-button { font-family: 'Cinzel', serif; background: linear-gradient(145deg, #3a3a5e, #2a2a4e); border: 2px solid var(--border-color); padding: 0.75rem 2rem; font-size: 1.25rem; color: var(--gold-color); text-shadow: 0 0 10px var(--gold-color); transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .game-button:hover:not(:disabled) { transform: scale(1.05); border-color: var(--gold-color); box-shadow: 0 0 20px var(--gold-color); }
-        .game-button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .battle-scene { background-size: cover; background-position: center; width: 100vw; height: 100vh; position: relative; transition: background-image 0.5s ease-in-out; }
-        .character { position: absolute; bottom: 15%; width: 28%; max-width: 300px; transition: transform 0.2s; display: flex; justify-content: center; align-items: flex-end; }
-        .player { left: 5%; }
-        .enemy { right: 10%; }
-        .character img, #player-sprite { width: 100%; height: auto; object-fit: contain; filter: drop-shadow(0 5px 20px rgba(0,0,0,0.8)); }
-        #player-sprite {
-            background-repeat: no-repeat;
-            image-rendering: pixelated;
-            transform-origin: bottom center;
-            background-size: contain;
-            background-position: center bottom;
+        
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; }
+        .overlay.hidden { opacity: 0; visibility: hidden; }
+        .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
+        .is-hidden { opacity: 0; }
+        
+        #intro-character {
+            width: 84px;
+            height: 141px;
+            background-image: url('https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp');
+            background-size: 410px 614px;
+            background-position: -51px -68px;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
         }
 
-        .ui-panel { position: absolute; width: 25%; max-width: 320px; background: var(--panel-bg); border: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.75rem; backdrop-filter: blur(5px); }
-        .player-ui { top: 2%; left: 1%; }
-        .enemy-ui { top: 2%; right: 1%; }
-        .bar-container { background-color: #1f1f3d; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); padding: 1px; }
-        .bar { transition: width 0.5s; border-radius: 2px; }
-        .hp-bar { height: 14px; background: linear-gradient(to right, #4ade80, #16a34a); }
-        .mp-bar { height: 10px; background: linear-gradient(to right, #60a5fa, #2563eb); }
-        .xp-bar { height: 6px; background: linear-gradient(to right, #8b5cf6, #6d28d9); }
-        .hp-text, .mp-text { font-size: 0.8rem; font-family: monospace; }
-        
-        .buff-container { display: flex; gap: 4px; margin-top: 6px; min-height: 28px; flex-wrap: wrap; }
-        .buff-icon { position: relative; width: 24px; height: 24px; border-radius: 4px; overflow: hidden; border: 1px solid var(--gold-color); }
-        .buff-icon .duration { position: absolute; bottom: 0; right: 0; font-size: 10px; font-weight: bold; background-color: rgba(0,0,0,0.7); color: white; padding: 0 2px; border-radius: 2px 0 0 0; }
-
-        .controls { position: absolute; bottom: 1%; left: 50%; transform: translateX(-50%); width: 95%; max-width: 820px; display: flex; align-items: flex-end; justify-content: center; gap: 0.5rem; transition: opacity 0.3s, visibility 0.3s; }
-        .controls.hidden { opacity: 0; visibility: hidden; }
-        .menu-btn { position: relative; background: linear-gradient(145deg, #2a2a4e, #1a1a2e); border: 1px solid var(--border-color); width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border-radius: 0.75rem; }
-        .menu-btn:hover { border-color: var(--gold-color); transform: translateY(-2px); }
-        .menu-btn svg { width: 24px; height: 24px; color: var(--gold-color); }
-        
-        .player-ui .menu-buttons { display: flex; gap: 0.25rem; }
-        .player-ui .menu-btn { width: 36px; height: 36px; border-radius: 0.5rem; }
-        .player-ui .menu-btn svg { width: 20px; height: 20px; }
-
-        .skills-container { display: flex; align-items: center; gap: 0.5rem; background: var(--panel-bg); border-top: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 0.5rem; border-radius: 1rem 1rem 0 0; flex-wrap: wrap; justify-content: center; }
-        .skill-btn { background: #1f1f3d; border: 1px solid var(--border-color); transition: all 0.2s; width: 64px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.75rem; overflow: hidden; padding: 2px; }
-        .skill-btn:hover:not(:disabled) { border-color: var(--gold-color); transform: scale(1.1); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-        .skill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .skill-btn .icon-wrapper { width: 36px; height: 36px; overflow: hidden; border-radius: 0.375rem; }
-        .skill-btn .skill-label { font-size: 0.6rem; line-height: 0.7rem; margin-top: 2px; text-align: center; }
-        
-        .log-panel { position: absolute; top: 2%; left: 50%; transform: translateX(-50%); width: 40%; max-width: 500px; height: 30px; background: rgba(12, 12, 22, 0.7); border: 1px solid var(--border-color); overflow: hidden; font-size: 0.8rem; border-radius: 15px; transition: height 0.3s; }
-        .log-panel:hover { height: 120px; }
-        #log-messages-container { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
-        
-        .modal-content { background: var(--panel-bg); border: 2px solid; border-image-source: var(--border-gold-gradient); border-image-slice: 1; padding: 1.5rem; width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; }
-        .stat-row { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; align-items: center; }
-        .stat-value { text-align: center; }
-        .stat-btn { background: var(--gold-color); color: black; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; }
-        
-        #skill-modal-layout { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-        @media (min-width: 768px) { #skill-modal-layout { grid-template-columns: 1fr 300px; } }
-        #skill-list-panel, #skill-tree-panel { background: #1f1f3d; border-radius: 0.5rem; border: 1px solid var(--border-color); overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        .skill-list-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background-color 0.2s; }
-        .skill-list-item:hover { background-color: rgba(255,255,255,0.1); }
-        .skill-list-item.selected { background-color: var(--gold-color); color: black; }
-        .skill-list-item .icon-container { width: 40px; height: 40px; flex-shrink: 0; }
-        #skill-details-panel { background: #1f1f3d; padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border-color); word-break: keep-all; }
-
-        /* Skill Tree */
-        #skill-tree-wrapper { position: relative; width: 100%; height: 100%; }
-        #skill-tree-container { position: absolute; transform-origin: top left; }
-        .skill-node { position: absolute; width: 50px; height: 50px; border: 2px solid var(--border-color); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; }
-        .skill-node.learned { border-color: var(--gold-color); box-shadow: 0 0 10px var(--gold-color); }
-        .skill-node.can-learn { border-color: #fff; animation: can-learn-glow 2s infinite; }
-        @keyframes can-learn-glow { 0%, 100% { box-shadow: 0 0 8px #fff; } 50% { box-shadow: 0 0 16px #fff; } }
-        .skill-node.locked { opacity: 0.5; }
-        .skill-line { position: absolute; background-color: var(--border-color); height: 2px; transform-origin: left center; }
-        .skill-line.learned { background-color: var(--gold-color); }
-
-        .tooltip { position: absolute; bottom: 115%; left: 50%; transform: translateX(-50%); width: 250px; background: black; border: 1px solid var(--gold-color); padding: 0.75rem; border-radius: 0.5rem; z-index: 10; pointer-events: none; opacity: 0; transition: opacity 0.2s, visibility 0.2s; visibility: hidden; }
-        .skill-node:hover .tooltip, .skill-btn .tooltip.show { opacity: 1; visibility: visible; }
-        
-        .skill-sprite-icon {
-            width: 100%; height: 100%;
-            background-repeat: no-repeat;
-            image-rendering: pixelated;
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
         }
 
-        #vfx-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
-        .particle { position: absolute; border-radius: 50%; animation: particle-anim 0.6s forwards; }
-        @keyframes particle-anim {
-            from { transform: scale(1); opacity: 1; }
-            to { transform: scale(0); opacity: 0; }
+        .story-blurb {
+            font-size: 0.9rem;
+            color: var(--text-dark);
+            margin-top: -5px;
+            margin-bottom: 25px;
+            max-width: 280px;
         }
-        .vfx-damage-text { position: absolute; font-family: 'Cinzel', serif; font-size: 2rem; font-weight: bold; text-shadow: 1px 1px 2px black; animation: vfx-damage-float 1.5s ease-out forwards; }
-        .critical { font-size: 2.5rem !important; color: var(--gold-color) !important; font-weight: 900; }
-        @keyframes vfx-damage-float { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-80px); opacity: 0; } }
-        @keyframes vfx-fade-fast { from{opacity:1;} to{opacity:0;} }
 
-        @media (max-width: 768px) {
-            #title-screen h1 { font-size: 3rem; }
-            #title-screen h2 { font-size: 1.5rem; }
-            #class-selection-screen .flex { flex-direction: column; gap: 1rem; }
-            #class-selection-screen .class-card { width: 220px; height: 200px; }
-            
-            #battle-scene { background-position: center 25%; }
-            .character { bottom: 25%; }
-            .ui-panel { width: 45%; font-size: 0.8rem; }
-            .ui-panel h2 { font-size: 1rem; }
-            .hp-bar { height: 10px; } .mp-bar { height: 8px; } .xp-bar { height: 5px; }
-            .hp-text, .mp-text { font-size: 0.7rem; }
+        #instructions { background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
+        .control-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
+        .control-info:not(:last-child) { margin-bottom: 15px; }
+        .control-info span { font-size: 1.5rem; }
+        .control-info p { margin: 0; font-size: 0.9rem; color: var(--text-dark); }
+        
+        .touch-indicator { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: rgba(255, 255, 255, 0.2); z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.3s; user-select: none; }
+        .touch-indicator.visible { opacity: 1; }
+        #touch-left { left: 20px; }
+        #touch-right { right: 20px; }
 
-            .controls { flex-direction: column; align-items: center; bottom: 0; }
-            .skills-container { order: 1; padding: 0.25rem; gap: 0.25rem; border-radius: 0.5rem 0.5rem 0 0; }
-            .skill-btn { width: 48px; height: 48px; }
-            .skill-btn .icon-wrapper { width: 28px; height: 28px; }
-            .skill-btn .skill-label { font-size: 0.5rem; line-height: 0.6rem; }
+        #gameOverScreen { justify-content: flex-start; padding-top: 2vh; overflow-y: auto; }
+        #finalScore { font-size: 2.5rem; font-weight: 700; color: var(--combo-color); }
+        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 5px; }
 
-            .log-panel { bottom: 65px; top: auto; height: 60px; width: 90%; }
-            .log-panel:hover { height: 60px; }
+        .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
+        .content-box { width: 100%; background-color: var(--bg-dark-2); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; box-sizing: border-box; text-align: left; }
+        .content-box h3 { font-size: 1rem; font-weight: 600; margin: 0 0 10px 0; color: var(--text-light); }
+        
+        #ranking-list { list-style: none; padding: 0; margin: 0; }
+        #ranking-list li { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 0.9rem; }
+        .rank-name { color: var(--text-light); }
+        .rank-score { font-weight: 600; color: var(--combo-color); }
 
-            /* Skill Modal Mobile Optimizations */
-            #skill-tree-modal .modal-content { width: 95%; padding: 0.5rem; }
-            #skill-tree-modal h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
-            #skill-modal-layout { grid-template-columns: 1fr; }
-            #skill-list-panel, #skill-tree-panel { max-height: 45vh; }
-            #skill-details-panel .flex { flex-direction: column; }
-        }
+        #guestbook-entries { max-height: 120px; overflow-y: auto; }
+        .guestbook-entry { padding: 8px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
+        .guestbook-entry:last-child { border-bottom: none; }
+        .guestbook-entry p { margin: 0; line-height: 1.5; word-wrap: break-word; }
+        .guestbook-entry strong { color: var(--primary-accent); font-weight: 600; }
+        .guestbook-entry .score { font-size: 0.75rem; color: var(--text-dark); margin-left: 5px; }
+        
+        #more-guestbook-btn { background: none; border: 1px solid var(--border-color); color: var(--text-dark); width: 100%; padding: 8px; border-radius: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; }
+        #more-guestbook-btn:hover { background-color: var(--border-color); }
+        #more-guestbook-btn.hidden { display: none; }
+
+        #guestbook-form { margin-top: 15px; }
+        .input-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        #guestbook-name { flex: 1 1 80px; }
+        #guestbook-message { flex: 1 1 120px; }
+        #guestbook-form input { background-color: var(--bg-dark-1); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; color: var(--text-light); font-size: 0.9rem; min-width: 0; }
+        #guestbook-submit { background: linear-gradient(45deg, var(--secondary-accent), var(--primary-accent)); border: none; border-radius: 8px; padding: 10px 15px; color: white; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+        #guestbook-submit:disabled { background: #374151; cursor: not-allowed; }
+        #guestbook-error { color: var(--error-color); font-size: 0.8rem; height: 1em; text-align: left; margin-top: 5px; }
+
+        .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 8px; margin-top: 12px; }
+        .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; text-align: center; }
+        .btn-style:hover { background-color: var(--border-color); }
     </style>
 </head>
 <body>
-    <audio id="bgm" loop src="https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/cave-141845.mp3"></audio>
-    <div id="game-container">
-        <div id="loading-screen" class="game-screen">
-            <div class="spinner"></div>
-            <p class="mt-4 text-lg font-cinzel text-gray-400">Now Loading...</p>
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    <div id="score-display">0</div>
+    <div id="combo-display"></div>
+    <div id="touch-left" class="touch-indicator">&lt;</div>
+    <div id="touch-right" class="touch-indicator">&gt;</div>
+    
+    <div id="startScreen" class="overlay">
+        <div id="intro-character"></div>
+        <h2 id="main-title">에테르의 마지막 별</h2>
+        <p class="story-blurb">길 잃은 마지막 별이 고향으로 돌아갈 수 있도록 도와주세요.</p>
+        <div id="instructions">
+            <div class="control-info"><span>🖥️</span><p>A / D or ← / →</p></div>
+            <div class="control-info"><span>📱</span><p>Touch Left / Right</p></div>
         </div>
-        <div id="title-screen" class="game-screen hidden">
-            <h1 class="text-8xl font-cinzel text-white mb-4">TOWER OF TRIALS</h1>
-            <h2 class="text-4xl font-cinzel text-gray-300 mb-12">시련의 탑</h2>
-            <button id="start-game-btn" class="game-button">게임 시작</button>
-        </div>
-        <div id="class-selection-screen" class="game-screen overlay hidden">
-            <h2 class="text-5xl font-cinzel text-yellow-300 mb-10">최초의 길을 선택하십시오</h2>
-            <div class="flex flex-wrap justify-center gap-8">
-                <div data-class="warrior" class="class-card rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 9l4 12h14l4-12L12 2zm0 4.69L15.53 9h-7.06L12 6.69zM6.47 19L5 13.58l5.5-2.2V19H6.47zm6.5-7.62L18 13.58 16.53 19H13v-7.62z"></path></svg>
-                    <h3>전사</h3>
-                    <p>강인한 체력과 힘으로 적을 압도합니다.</p>
-                </div>
-                <div data-class="mage" class="class-card rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.25a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75zM12 18a.75.75 0 01.75.75v3a.75.75 0 01-1.5 0v-3A.75.75 0 0112 18zM5.25 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM21 12a.75.75 0 01-.75-.75h-3a.75.75 0 010-1.5h3a.75.75 0 01.75.75zM7.34 7.34a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06L7.34 8.4A.75.75 0 017.34 7.34zM14.47 14.47a.75.75 0 011.06 0l2.12 2.12a.75.75 0 01-1.06 1.06l-2.12-2.12a.75.75 0 010-1.06zM16.59 7.34a.75.75 0 010 1.06L14.47 10.52a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0zM8.4 14.47a.75.75 0 010 1.06L6.28 17.65a.75.75 0 01-1.06-1.06l2.12-2.12a.75.75 0 011.06 0z"></path></svg>
-                    <h3>마법사</h3>
-                    <p>원소의 힘을 빌려 강력한 마법을 사용합니다.</p>
-                </div>
-                <div data-class="rogue" class="class-card rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M14.25 2.25a.75.75 0 01.75.75v18a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zm-4.5 0a.75.75 0 01.75.75v18a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zm-3.75 9a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75a.75.75 0 01-.75-.75z"></path></svg>
-                    <h3>도적</h3>
-                    <p>민첩한 몸놀림으로 적의 급소를 노립니다.</p>
-                </div>
-            </div>
-        </div>
-        <div id="skill-selection-screen" class="game-screen overlay hidden">
-            <h2 id="skill-select-title" class="text-4xl font-cinzel text-yellow-300 mb-10">초기 스킬을 선택하십시오 (0 / 3)</h2>
-            <div id="starter-skills-container"></div>
-            <button id="confirm-skills-btn" class="game-button" disabled>다음</button>
-        </div>
-        <div id="passive-skill-selection-screen" class="game-screen overlay hidden">
-            <h2 id="passive-skill-select-title" class="text-4xl font-cinzel text-yellow-300 mb-10">패시브 스킬을 선택하십시오 (0 / 2)</h2>
-            <div id="passive-skills-container"></div>
-            <button id="confirm-passive-skills-btn" class="game-button" disabled>모험 시작</button>
-        </div>
-        <div id="battle-screen" class="game-screen hidden">
-            <div id="battle-scene" class="battle-scene">
-                <div id="vfx-container"></div>
-                <div id="player" class="character player"><div id="player-sprite"></div></div>
-                <div id="enemy" class="character enemy"><img id="enemy-img" src=""></div>
-                
-                <div class="ui-panel player-ui">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <h2 id="player-name" class="text-lg font-cinzel">플레이어</h2>
-                            <span id="player-level" class="font-cinzel text-md text-yellow-300"></span>
-                        </div>
-                        <div class="menu-buttons">
-                            <button id="char-menu-btn" class="menu-btn"><div class="notification-dot"></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5a5.5 5.5 0 0 1 5.5 5.5c0 1.58-.64 3.01-1.68 4.06a6.5 6.5 0 0 1-8.64 0A5.5 5.5 0 0 1 6.5 8 5.5 5.5 0 0 1 12 2.5zM12 14.5a9.5 9.5 0 0 1 9.5 9.5H2.5A9.5 9.5 0 0 1 12 14.5z"></path></svg></button>
-                            <button id="skill-menu-btn" class="menu-btn"><div class="notification-dot"></div><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18.6l-3.44 1.81 0.66-3.83-2.78-2.71 3.84-0.56L12 10l1.72 3.48 3.84 0.56-2.78 2.71 0.66 3.83L12 18.6zM12 2l-2.4 4.8-5.3 0.78 3.8 3.7-0.9 5.22L12 14.1l4.7 2.4-0.9-5.22 3.8-3.7-5.3-0.78L12 2z"></path></svg></button>
-                        </div>
-                    </div>
-                    <div class="bar-container my-1"><div id="player-hp-bar" class="bar hp-bar"></div></div><p id="player-hp-text" class="text-right hp-text"></p><div class="bar-container my-1"><div id="player-mp-bar" class="bar mp-bar"></div></div><p id="player-mp-text" class="text-right mp-text"></p><div class="bar-container mt-1"><div id="player-xp-bar" class="bar xp-bar"></div></div>
-                    <div id="player-buffs" class="buff-container"></div>
-                </div>
-                <div class="ui-panel enemy-ui">
-                    <div class="flex justify-between items-center"><h2 id="enemy-name" class="text-lg font-cinzel"></h2><span id="stage-indicator" class="font-cinzel text-md text-red-400"></span></div>
-                    <div class="bar-container my-1"><div id="enemy-hp-bar" class="bar hp-bar"></div></div><p id="enemy-hp-text" class="text-right hp-text"></p>
-                    <div id="enemy-buffs" class="buff-container"></div>
-                </div>
-
-                <div id="log-panel" class="log-panel"><div id="log-messages-container"></div></div>
-                
-                <div class="controls hidden">
-                    <div id="skills-grid" class="skills-container"></div>
-                </div>
-            </div>
-        </div>
-        <div id="stage-clear-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-blue-400 mb-6">VICTORY</h2><p id="xp-gain-text" class="text-xl text-purple-400 mb-10"></p><button id="next-stage-btn" class="game-button">다음 층으로</button></div>
-        <div id="game-over-screen" class="game-screen overlay hidden"><h2 class="text-7xl font-cinzel text-red-500 mb-10">DEFEAT</h2><button id="restart-game-btn" class="game-button">다시 시작</button></div>
-        <div id="game-clear-screen" class="game-screen overlay hidden"><h2 class="text-8xl font-cinzel text-yellow-300 mb-10">CONGRATULATIONS</h2><p class="text-2xl mb-12">조또 당신은 시련의 탑을 정복했습니다!</p><button id="play-again-btn" class="game-button">다시 플레이</button></div>
-
-        <div id="character-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">캐릭터 정보</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div><h3 class="text-xl font-bold mb-4">능력치 (남은 스탯: <span id="stat-points-display"></span>)</h3><div class="space-y-3"><div class="stat-row"><span>빠워 (STR)</span><div class="flex items-center gap-2"><button data-stat="str" class="stat-btn minus-btn">-</button><span id="stat-str" class="stat-value w-8"></span><button data-stat="str" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>능지 (INT)</span><div class="flex items-center gap-2"><button data-stat="int" class="stat-btn minus-btn">-</button><span id="stat-int" class="stat-value w-8"></span><button data-stat="int" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재빠름(AGI)</span><div class="flex items-center gap-2"><button data-stat="agi" class="stat-btn minus-btn">-</button><span id="stat-agi" class="stat-value w-8"></span><button data-stat="agi" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>체력 (VIT)</span><div class="flex items-center gap-2"><button data-stat="vit" class="stat-btn minus-btn">-</button><span id="stat-vit" class="stat-value w-8"></span><button data-stat="vit" class="stat-btn plus-btn">+</button></div></div><div class="stat-row"><span>재수 (LUK)</span><div class="flex items-center gap-2"><button data-stat="luk" class="stat-btn minus-btn">-</button><span id="stat-luk" class="stat-value w-8"></span><button data-stat="luk" class="stat-btn plus-btn">+</button></div></div></div></div><div><h3 class="text-xl font-bold mb-4">상세 정보</h3><p>공격력: <span id="detail-atk"></span></p><p>방어력: <span id="detail-def"></span></p><p>최대 HP: <span id="detail-hp"></span></p><p>최대 MP: <span id="detail-mp"></span></p><p>치명타 확률: <span id="detail-crit-chance"></span>%</p><p>치명타 데미지: <span id="detail-crit-damage"></span>%</p></div></div><div class="flex justify-center gap-4 mt-8"><button id="confirm-stats-btn" class="game-button">변경사항 저장</button><button id="close-char-modal" class="game-button">닫기</button></div></div></div>
-        <div id="skill-tree-modal" class="modal-overlay hidden"><div class="modal-content rounded-lg"><h2 class="text-3xl font-cinzel text-yellow-300 mb-6">스킬 (남은 포인트: <span id="skill-points"></span> | 패시브 포인트: <span id="passive-skill-points"></span>)</h2><div id="skill-tree-tabs" class="flex border-b border-gray-600 mb-4 overflow-x-auto"></div><div id="skill-modal-layout"><div id="skill-tree-panel" class="hidden"></div><div id="skill-list-panel"></div><div id="skill-details-panel"></div></div><div id="equipped-skills-container" class="mt-4"></div><button id="close-skill-modal" class="game-button mt-8">닫기</button></div></div>
     </div>
 
-    <script type="module">
-        const SPRITE_IMAGE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000685461f8ad0ef9b0754421cc.webp';
-        const MAGE_SPRITE_URL = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c82061f5880850490b718d78.webp';
-        const ROGUE_SPRITE_URL = 'https://mbjwjkvaksucinhowody.supabase.co/storage/v1/object/public/xxx/dodook.webp';
-        const WARRIOR_SPRITE_URL = 'https://mbjwjkvaksucinhowody.supabase.co/storage/v1/object/public/xxx/gisa.webp';
+    <div id="gameOverScreen" class="overlay hidden">
+        <p id="finalScoreLabel" class="is-hidden">최종 점수</p>
+        <p id="finalScore" class="is-hidden">0</p>
         
-        const MAGE_SPRITE_DATA = { "meta": { "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 53, "y": 118, "w": 269, "h": 378 }, { "name": "sprite_2", "x": 384, "y": 127, "w": 312, "h": 367 }, { "name": "sprite_3", "x": 713, "y": 140, "w": 727, "h": 353 } ], "animations": { "attack": { "frames": [ 0, 1, 2 ], "fps": 8 } } };
-        const ROGUE_SPRITE_DATA = { "meta": { "image": "dodook.webp", "size": { "w": 1536, "h": 1024 } }, "sprites": [ { "name": "sprite_1", "x": 31, "y": 120, "w": 266, "h": 386 }, { "name": "sprite_2", "x": 346, "y": 128, "w": 305, "h": 372 }, { "name": "sprite_3", "x": 693, "y": 128, "w": 307, "h": 370 }, { "name": "sprite_4", "x": 1015, "y": 128, "w": 490, "h": 371 }, { "name": "sprite_5", "x": 32, "y": 544, "w": 272, "h": 384 }, { "name": "sprite_6", "x": 352, "y": 544, "w": 296, "h": 382 }, { "name": "sprite_7", "x": 1070, "y": 544, "w": 427, "h": 382 }, { "name": "sprite_8", "x": 696, "y": 547, "w": 296, "h": 378 } ], "animations": { "attack": { "frames": [0, 1, 2, 3, 4, 5, 6, 7], "fps": 12 } } };
-        const WARRIOR_SPRITE_DATA = {
-            "meta": { "image": "gisa.webp", "size": { "w": 1024, "h": 1024 } },
-            "sprites": [
-                { "name": "frame_1", "x": 27, "y": 47, "w": 286, "h": 305 },
-                { "name": "frame_2", "x": 336, "y": 36, "w": 291, "h": 316 },
-                { "name": "frame_3", "x": 655, "y": 44, "w": 345, "h": 308 },
-                { "name": "frame_4", "x": 24, "y": 383, "w": 235, "h": 291 }
-            ],
-            "animations": { "attack": { "frames": [0, 1, 2, 3], "fps": 8 } }
-        };
+        <div class="content-wrapper is-hidden">
+            <div id="ranking-container" class="content-box">
+                <h3>명예의 전당</h3>
+                <ol id="ranking-list"><p>랭킹을 불러오는 중...</p></ol>
+            </div>
+
+            <div id="guestbook-container" class="content-box">
+                <h3>방명록</h3>
+                <div id="guestbook-entries"><p>방명록을 불러오는 중...</p></div>
+                <button id="more-guestbook-btn" class="hidden">더보기</button>
+                <form id="guestbook-form">
+                    <div class="input-group">
+                        <input type="text" id="guestbook-name" placeholder="이름" maxlength="20" required>
+                        <input type="text" id="guestbook-message" placeholder="한마디" maxlength="150" required>
+                        <button type="submit" id="guestbook-submit">등록</button>
+                    </div>
+                    <div id="guestbook-error"></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="button-group is-hidden">
+            <button id="restartButton" class="btn-style">다시 시작</button>
+            <a href="https://www.threads.net/@ilovemom_2026" target="_blank" class="btn-style">개발자 Threads 방문</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.addEventListener('DOMContentLoaded', () => {
+        // --- Supabase 설정 ---
+        const SUPABASE_URL = 'https://fzfnjtlzovbpbglvkroh.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6Zm5qdGx6b3ZicGJnbHZrcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4OTcyMjEsImV4cCI6MjA3MTQ3MzIyMX0.yg43GbdVBPAzaghmERNGxRu9dte3bcpWTWjrOa0p55I';
+        let supabase = null;
+        try {
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } else {
+                console.error("Supabase 라이브러리가 로드되지 않았습니다.");
+            }
+        } catch (e) {
+            console.error("Supabase 초기화 오류:", e);
+        }
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score-display'); const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen'); const finalScoreEl = document.getElementById('finalScore');
+        const restartButton = document.getElementById('restartButton'); const rankingList = document.getElementById('ranking-list');
+        const guestbookEntries = document.getElementById('guestbook-entries'); const guestbookForm = document.getElementById('guestbook-form');
+        const guestbookName = document.getElementById('guestbook-name'); const guestbookMessage = document.getElementById('guestbook-message');
+        const guestbookSubmit = document.getElementById('guestbook-submit'); const guestbookError = document.getElementById('guestbook-error');
+        const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
+        const touchLeft = document.getElementById('touch-left'); const touchRight = document.getElementById('touch-right');
+        const comboDisplay = document.getElementById('combo-display');
+
+        // --- Sprite Sheet 설정 ---
+        const spriteSheet = new Image();
+        const backgroundSheet = new Image(); // 배경 스프라이트 시트
+        let isSpriteSheetLoaded = false;
+        let isBackgroundSheetLoaded = false; // 배경 스프라이트 로드 상태
 
         const spriteData = {
-            "meta": { "size": { "w": 1536, "h": 1024 } },
-            "sprites": [{"name":"sprite_1","x":111,"y":64,"w":250,"h":242},{"name":"sprite_2","x":894,"y":64,"w":237,"h":242},{"name":"sprite_3","x":377,"y":65,"w":240,"h":241},{"name":"sprite_4","x":1152,"y":65,"w":240,"h":239},{"name":"sprite_5","x":635,"y":66,"w":237,"h":238},{"name":"sprite_6","x":112,"y":320,"w":249,"h":237},{"name":"sprite_7","x":894,"y":320,"w":238,"h":237},{"name":"sprite_8","x":636,"y":321,"w":236,"h":236},{"name":"sprite_9","x":1152,"y":321,"w":240,"h":237},{"name":"sprite_10","x":378,"y":322,"w":239,"h":235},{"name":"sprite_12","x":894,"y":573,"w":238,"h":232},{"name":"sprite_13","x":111,"y":576,"w":250,"h":230},{"name":"sprite_14","x":378,"y":576,"w":238,"h":231},{"name":"sprite_16","x":636,"y":576,"w":237,"h":228},{"name":"sprite_17","x":1152,"y":576,"w":240,"h":228},{"name":"sprite_20","x":1152,"y":822,"w":240,"h":202},{"name":"sprite_21","x":110,"y":823,"w":251,"h":201},{"name":"sprite_22","x":378,"y":823,"w":239,"h":201},{"name":"sprite_23","x":635,"y":823,"w":237,"h":201},{"name":"sprite_24","x":894,"y":823,"w":238,"h":201}]
+            sprites: [
+                { "name": "sprite_1", "x": 128, "y": 169, "w": 209, "h": 352 },
+                { "name": "sprite_2", "x": 414, "y": 170, "w": 210, "h": 355 },
+                { "name": "sprite_3", "x": 688, "y": 170, "w": 208, "h": 353 },
+                { "name": "sprite_4", "x": 128, "y": 605, "w": 225, "h": 355 },
+                { "name": "sprite_5", "x": 400, "y": 605, "w": 225, "h": 347 },
+                { "name": "sprite_6", "x": 688, "y": 605, "w": 208, "h": 355 },
+                { "name": "sprite_7", "x": 147, "y": 1049, "w": 206, "h": 357 },
+                { "name": "sprite_8", "x": 702, "y": 1049, "w": 200, "h": 343 },
+                { "name": "sprite_9", "x": 429, "y": 1050, "w": 196, "h": 355 }
+            ]
+        };
+        const backgroundSpriteData = {
+            sprites: [
+                { "name": "sprite_2", "x": 689, "y": 94, "w": 321, "h": 434 },
+                { "name": "sprite_3", "x": 357, "y": 107, "w": 320, "h": 418 },
+                { "name": "sprite_4", "x": 55, "y": 132, "w": 265, "h": 381 },
+                { "name": "sprite_5", "x": 424, "y": 571, "w": 170, "h": 414 },
+                { "name": "sprite_6", "x": 660, "y": 572, "w": 303, "h": 412 },
+                { "name": "sprite_7", "x": 41, "y": 584, "w": 308, "h": 397 },
+                { "name": "sprite_9", "x": 396, "y": 1036, "w": 234, "h": 400 },
+                { "name": "sprite_10", "x": 704, "y": 1047, "w": 296, "h": 390 },
+                { "name": "sprite_11", "x": 43, "y": 1080, "w": 302, "h": 188 }
+            ]
         };
 
-        const SKILLS = {
-            // Basic
-            basic_attack: { name: "기본 공격", type: "attack", cost: 0, scale: { str: 1.6 }, vfx: "slash", icon: "sprite_21", desc: "MP를 소모하지 않는 기본 공격입니다." },
-            
-            // Warrior
-            knight_bash: { name: "강타", type: "attack", cost: 8, scale: { str: 2.4 }, vfx: "slash", icon: "sprite_6", desc: "적에게 강력한 일격을 가합니다.", tier: 1 },
-            knight_sunder: { name: "방어구 부수기", type: "attack", cost: 12, scale: { str: 1.8 }, addEffect: { type: 'def_down', chance: 1.0, duration: 3, power: 0.3 }, vfx: "slash", icon: "sprite_3", desc: "적을 공격하여 3턴간 방어력을 30% 감소시킵니다.", tier: 2, requires: 'knight_bash' },
-            knight_whirlwind: { name: "휠윈드", type: "attack", cost: 28, scale: { str: 6.0 }, vfx: "slash", icon: "sprite_14", desc: "주위의 모든 적을 베어버리는 회전 공격입니다.", tier: 3, requires: 'knight_sunder' },
-            knight_ultimate: { name: "아발론의 가호", type: "buff", cost: 40, duration: 5, effects: { def: 2.5, immune: true }, vfx: "holy", icon: "sprite_17", desc: "5턴간 방어력이 150% 증가하고 모든 상태이상에 면역이 됩니다.", tier: 4, requires: 'knight_whirlwind' },
-
-            // Mage
-            mage_fireball: { name: "파이어볼", type: "attack", cost: 12, scale: { int: 3.0 }, vfx: "fire", icon: "sprite_8", desc: "작은 화염구를 날려 피해를 줍니다.", tier: 1 },
-            mage_frostbite: { name: "동상", type: "attack", cost: 18, scale: {int: 2.5}, addEffect: { type: 'atk_down', chance: 1.0, duration: 3, power: 0.3 }, vfx: "ice", icon: "sprite_22", desc: "적을 얼려 3턴간 공격력을 30% 감소시킵니다.", tier: 2, requires: 'mage_fireball'},
-            mage_chain_lightning: { name: "체인 라이트닝", type: "attack", cost: 32, scale: { int: 8.0 }, vfx: "lightning", icon: "sprite_5", desc: "연쇄적으로 방출되는 번개로 큰 피해를 줍니다.", tier: 3, requires: 'mage_frostbite' },
-            mage_ultimate: { name: "메테오", type: "attack", cost: 65, scale: { int: 16.0 }, vfx: "fire", icon: "sprite_9", desc: "거대한 운석을 떨어뜨려 초토화시킵니다.", tier: 4, requires: 'mage_chain_lightning' },
-
-            // Rogue
-            assassin_quick_stab: { name: "급소 찌르기", type: "attack", cost: 10, scale: { agi: 2.6 }, vfx: "slash", icon: "sprite_16", desc: "적의 급소를 빠르게 찔러 공격합니다.", tier: 1 },
-            assassin_hemorrhage: { name: "과다출혈", type: "attack", cost: 20, scale: {agi: 3.0}, addEffect: { type: 'bleed', chance: 1.0, duration: 3, power: 0.8 }, vfx: "slash", icon: "sprite_23", desc: "적에게 깊은 상처를 내 3턴간 출혈 피해를 입힙니다.", tier: 2, requires: 'assassin_quick_stab'},
-            assassin_shadow_strike: { name: "그림자 습격", type: "attack", cost: 30, scale: { agi: 7.0 }, vfx: "shadow", icon: "sprite_23", desc: "그림자 속에서 나타나 적을 기습합니다.", tier: 3, requires: 'assassin_hemorrhage' },
-            assassin_ultimate: { name: "필살", type: "attack", cost: 45, scale: { agi: 12.0 }, vfx: "shadow", icon: "sprite_20", desc: "모든 힘을 모아 적의 심장을 노리는 일격입니다.", tier: 4, requires: 'assassin_shadow_strike' },
-
-            // Common
-            common_heal: { name: "치유", type: "heal", cost: 25, scale: { int: 4.0 }, vfx: "holy", icon: "sprite_13", desc: "생명력을 회복합니다.", tier: 1 },
-            common_lifesteal: { name: "흡혈", type: "attack", cost: 18, scale: { str: 1.5, int: 1.5 }, lifesteal: 0.5, vfx: "shadow", icon: "sprite_24", desc: "적에게 피해를 주고 피해량의 50%만큼 생명력을 흡수합니다.", tier: 2, requires: 'common_heal' },
-
-            // Enemy Skills
-            enemy_bash: { name: "몸통박치기", type: "attack", scale: 1.0, vfx: "slash" },
-            enemy_quick_stab: { name: "단검 찌르기", type: "attack", scale: 1.2, vfx: "slash" },
-            enemy_rage_smash: { name: "분노의 강타", type: "attack", scale: 1.5, vfx: "slash" },
-            enemy_ambush: { name: "기습", type: "attack", scale: 1.8, vfx: "shadow" },
-            enemy_rock_throw: { name: "암석 투척", type: "attack", scale: 1.3, vfx: "slash" },
-            enemy_earthquake: { name: "지진", type: "attack", scale: 2.0, vfx: "slash" },
-            enemy_wing_slash: { name: "날개 베기", type: "attack", scale: 1.6, vfx: "slash" },
-            enemy_scream: { name: "비명", type: "attack", scale: 2.5, vfx: "shadow" },
-            enemy_soul_drain: { name: "영혼 흡수", type: "attack", scale: 2.0, vfx: "shadow" },
-            enemy_death_grip: { name: "죽음의 손아귀", type: "attack", scale: 3.0, vfx: "shadow" },
-            enemy_flame_breath: { name: "화염 숨결", type: "attack", scale: 2.5, vfx: "fire" },
-            enemy_poison_fang: { name: "독 송곳니", type: "attack", scale: 2.2, vfx: "slash" },
-            enemy_tentacle: { name: "촉수 공격", type: "attack", scale: 2.2, vfx: "slash" },
-            enemy_void_blast: { name: "공허 폭발", type: "attack", scale: 3.5, vfx: "shadow" },
-            enemy_doom_blade: { name: "파멸의 검", type: "attack", scale: 3.0, vfx: "slash" },
-            enemy_judgment: { name: "천벌", type: "attack", scale: 5.0, vfx: "holy" },
+        const spriteMap = spriteData.sprites.reduce((acc, sprite) => { acc[sprite.name] = sprite; return acc; }, {});
+        const animations = {
+            idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
+            running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
+            jumping: { frames: ["sprite_8", "sprite_9"], speed: 1 }
         };
-        const SKILL_TREES = {
-            warrior: { name: "전사", skills: [["knight_bash"], ["knight_sunder"], ["knight_whirlwind"], ["knight_ultimate"]] },
-            mage: { name: "마법사", skills: [["mage_fireball"], ["mage_frostbite"], ["mage_chain_lightning"], ["mage_ultimate"]] },
-            rogue: { name: "도적", skills: [["assassin_quick_stab"], ["assassin_hemorrhage"], ["assassin_shadow_strike"], ["assassin_ultimate"]] },
-            common: { name: "공용", skills: [["common_heal"], ["common_lifesteal"]] }
-        };
-        const PASSIVE_SKILLS = {
-            warrior: {
-                overpower: { name: "압도", icon: "sprite_6", maxLevel: 5, desc: level => `힘(STR)이 ${level * 5}% 증가합니다.`, effects: { str_percent: 0.05 } },
-                weapon_mastery: { name: "무기 숙련", icon: "sprite_21", maxLevel: 5, desc: level => `기본 공격력이 ${level * 4}% 증가합니다.`, effects: { attack_percent: 0.04 } },
-                adrenaline: { name: "아드레날린", icon: "sprite_1", maxLevel: 3, desc: level => `HP가 30% 이하일 때 공격력이 ${level * 10}% 증가합니다.`, effects: {} },
-                toughness: { name: "강인함", icon: "sprite_10", maxLevel: 5, desc: level => `최대 HP가 ${level * 5}% 증가합니다.`, effects: { maxHp_percent: 0.05 } },
-                counter_attack: { name: "반격", icon: "sprite_14", maxLevel: 3, desc: level => `피격 시 ${level * 5}% 확률로 반격합니다.`, effects: {} },
-            },
-            mage: {
-                mana_font: { name: "마나 샘", icon: "sprite_7", maxLevel: 5, desc: level => `턴 시작 시 MP 회복량이 ${level * 3}% 증가합니다.`, effects: { regen_percent: 0.03 } },
-                arcane_intellect: { name: "비전 지능", icon: "sprite_5", maxLevel: 5, desc: level => `지능(INT)이 ${level * 5}% 증가합니다.`, effects: { int_percent: 0.05 } },
-                elementalist: { name: "원소 전문가", icon: "sprite_8", maxLevel: 3, desc: level => `모든 스킬의 공격력이 ${level * 5}% 증가합니다.`, effects: { all_damage_percent: 0.05 } },
-                mana_shield: { name: "마나 보호막", icon: "sprite_12", maxLevel: 5, desc: level => `받는 피해의 ${level * 4}%를 MP로 대신 받습니다.`, effects: {} },
-                concentration: { name: "집중", icon: "sprite_9", maxLevel: 3, desc: level => `스킬의 MP 소모량이 ${level * 5}% 감소합니다.`, effects: { cost_reduction_percent: 0.05 } },
-            },
-            rogue: {
-                fleet_footed: { name: "질풍", icon: "sprite_16", maxLevel: 5, desc: level => `민첩(AGI) 20당 ${level * 0.5}% 확률로 추가 턴을 얻습니다.`, effects: {} },
-                lethality: { name: "치명성", icon: "sprite_20", maxLevel: 5, desc: level => `치명타 피해량이 ${level * 10}% 증가합니다.`, effects: { critDamage: 10 } },
-                venom: { name: "맹독", icon: "sprite_2", maxLevel: 3, desc: level => `공격 시 ${level * 5}% 확률로 적을 중독시킵니다.`, effects: {} },
-                evasion: { name: "회피", icon: "sprite_23", maxLevel: 5, desc: level => `${level * 4}% 확률로 적의 공격을 회피합니다.`, effects: { evasion: 4 } },
-                opportunist: { name: "약점 포착", icon: "sprite_4", maxLevel: 3, desc: level => `상태 이상에 걸린 적에게 ${level * 10}% 추가 피해를 줍니다.`, effects: {} },
-            }
-        };
-        const COMBOS = [
-            { id: 'explosive_smash', name: '폭발 강타', skills: ['knight_bash', 'mage_fireball'], type: 'attack', scale: { str: 2.0, int: 2.0 }, vfx: 'fire', desc: "'강타' 후 '파이어볼' 사용 시 발동. 물리/마법 피해를 동시에 줍니다." },
+
+        // --- Game State & Constants ---
+        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
+        let guestbookLimit = 3; let lastTime = 0; let lastMilestone = 0;
+        let comboCount = 0; let comboTimeout; let lastPlatform = null;
+        const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
+        
+        // --- 배경화면 상태 ---
+        let backgroundState = 0;
+        const hexToRgb = (hex) => { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null; };
+        const backgrounds = [
+            { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
+            { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
+            { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
+            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') }  // 3: 천상계
         ];
-        const defaultBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp';
-        const bossBg = 'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000ee64622f8f560adf6ed8ad9e.webp';
-        const STAGES = [
-            { name: "동굴 슬라임", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000063c46246bee6c5711f863e5f.webp", bg: defaultBg, maxHp: 300, attack: 20, defense: 10, xp: 50, skills: [{ id: "enemy_bash" }], element: 'ice' },
-            { name: "고블린", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000a02461fdba091ea7bb7d17f0.webp", bg: defaultBg, maxHp: 550, attack: 35, defense: 15, xp: 70, skills: [{ id: "enemy_quick_stab" }], element: 'earth' },
-            { name: "오우거", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000007a1861f59566d6a1c9ec3efd.webp", bg: defaultBg, maxHp: 1000, attack: 55, defense: 30, xp: 120, skills: [{ id: "enemy_rage_smash" }], element: 'earth' },
-            { name: "변이 늑대", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000003ba461f78d98d364bee72b77.webp", bg: defaultBg, maxHp: 900, attack: 80, defense: 25, xp: 150, skills: [{ id: "enemy_ambush" }], element: 'lightning' },
-            { name: "골렘", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000c4c061f8b39ab285d7781ae6.webp", bg: defaultBg, maxHp: 2500, attack: 65, defense: 75, xp: 200, skills: [{ id: "enemy_rock_throw" }, { id: "enemy_earthquake" }], element: 'earth' },
-            { name: "하피", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000076c061fd8158be4983e0af69.webp", bg: defaultBg, maxHp: 1800, attack: 100, defense: 35, xp: 250, skills: [{ id: "enemy_wing_slash" }, { id: "enemy_scream" }], element: 'lightning' },
-            { name: "흑마법사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000043bc61f7ac1fc49a00e6d658.webp", bg: defaultBg, maxHp: 2200, attack: 125, defense: 40, xp: 320, skills: [{ id: "enemy_soul_drain" }, { id: "enemy_death_grip" }], element: 'shadow' },
-            { name: "해골 기사", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000845861f58269c10b4859ac0d.webp", bg: defaultBg, maxHp: 3000, attack: 115, defense: 50, xp: 400, skills: [{ id: "enemy_rage_smash" }, { id: "enemy_doom_blade" }], element: 'shadow' },
-            { name: "변이 괴물", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_0000000001a861fa835a0405826b25d7_copy_768x1152.png", bg: defaultBg, maxHp: 4000, attack: 140, defense: 65, xp: 500, skills: [{ id: "enemy_tentacle" }, { id: "enemy_void_blast" }], element: 'shadow' },
-            { name: "고대 용", img: "https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_000000008b60622f9a53cc299a4d59d9.webp", bg: bossBg, maxHp: 8000, attack: 180, defense: 90, xp: 0, skills: [{ id: "enemy_doom_blade" }, { id: "enemy_judgment" }], element: 'fire' }
-        ];
-        const STARTER_SKILL_POOLS = {
-            warrior: { name: "전사", skills: ['knight_bash', 'knight_sunder', 'knight_whirlwind', 'knight_ultimate'] },
-            mage: { name: "마법사", skills: ['mage_fireball', 'mage_frostbite', 'mage_chain_lightning', 'mage_ultimate'] },
-            rogue: { name: "도적", skills: ['assassin_quick_stab', 'assassin_hemorrhage', 'assassin_shadow_strike', 'assassin_ultimate'] }
-        };
-        const CLASS_ELEMENTS = { warrior: 'fire', mage: 'ice', rogue: 'lightning' };
+        let currentBgTop = backgrounds[0].top;
+        let currentBgBottom = backgrounds[0].bottom;
 
-        let gameState = {};
-        let enemy = {};
-        let isPlayerTurn = true;
-        let isBattleOver = false;
-        let selectedClassName = '';
-        let selectedSkills = [];
-        let selectedPassiveSkills = [];
-        const MAX_SKILLS = 3;
-        const MAX_PASSIVE_SKILLS = 2;
-        let tempStats = {};
-        let initialStats = {};
-        const sounds = {};
-        let animationInterval = null;
+        // --- Audio ---
+        let isAudioReady = false; let jumpSound, gameOverSound, crumbleSound;
+        function initAudio() { if(isAudioReady) return; Tone.start().then(() => { jumpSound = new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.1,sustain:0.05,release:0.1}}).toDestination(); gameOverSound = new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.1,decay:0.5,sustain:0.1,release:0.5}}).toDestination(); crumbleSound = new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1}}).toDestination(); isAudioReady = true; }); }
 
-        function applyPassiveEffects(player) {
-            if (!player.stats) { 
-                return { attack: player.attack, defense: player.defense };
-            }
-
-            let modifiedStats = {
-                stats: { ...player.stats },
-                maxHp: 250 + (player.level * 25) + (player.stats.vit * 25),
-                maxMp: 100 + (player.level * 10) + (player.stats.int * 10),
-                attack: 20 + (player.stats.str * 2.5) + Math.floor(player.stats.agi * 1.5),
-                defense: 10 + (player.stats.str * 1) + Math.floor(player.stats.agi * 0.5) + (player.stats.vit * 2.5),
-                critChance: 10 + (player.stats.luk * 0.8),
-                critDamage: 180 + (player.stats.luk * 2.5),
-                regen_percent: 0.05,
-                evasion: 0
-            };
-
-            for (const skillId in player.passiveSkills) {
-                const level = player.passiveSkills[skillId];
-                const passive = PASSIVE_SKILLS[selectedClassName][skillId];
-                if (passive.effects.maxHp_percent) modifiedStats.maxHp *= (1 + passive.effects.maxHp_percent * level);
-                if (passive.effects.maxMp_percent) modifiedStats.maxMp *= (1 + passive.effects.maxMp_percent * level);
-                if (passive.effects.str) modifiedStats.stats.str += passive.effects.str * level;
-                if (passive.effects.critChance) modifiedStats.critChance += passive.effects.critChance * level;
-                if (passive.effects.critDamage) modifiedStats.critDamage += passive.effects.critDamage * level;
-                if (passive.effects.regen_percent) modifiedStats.regen_percent += passive.effects.regen_percent * level;
-                if (passive.effects.str_percent) modifiedStats.stats.str *= (1 + passive.effects.str_percent * level);
-                if (passive.effects.int_percent) modifiedStats.stats.int *= (1 + passive.effects.int_percent * level);
-                if (passive.effects.evasion) modifiedStats.evasion += passive.effects.evasion * level;
-            }
+        // --- Initialization & Game Loop ---
+        function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
+            stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
+            moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
+            gameState='playing';
+            backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
+            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
+            backgroundElements = []; lastMilestone = 0;
+        }
+        function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
+        
+        function update(deltaTime){
+            if(gameState!=='playing'||!player)return;
+            const speed = Math.min(9 + score * 0.007, 16); 
+            player.dx=0;
+            if(keys.left){ player.dx=-speed; player.direction = 'left'; }
+            if(keys.right){ player.dx=speed; player.direction = 'right'; }
+            const currentJumpForce = JUMP_FORCE;
+            player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
+            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
+                player.y = p.y - player.height; player.dy = currentJumpForce; 
+                if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
+                if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
+                if(p.type === 'moving') player.x += p.dx * deltaTime;
+                handleCombo(p);
+            }}); }
+            if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
+            if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
+            if(player.y < highestY){highestY = player.y; score = Math.floor((canvas.height - 80 - highestY) / 10); scoreDisplay.innerText = score;}
             
-            modifiedStats.attack = 20 + (modifiedStats.stats.str * 2.5) + Math.floor(modifiedStats.stats.agi * 1.5);
-            modifiedStats.defense = 10 + (modifiedStats.stats.str * 1) + Math.floor(modifiedStats.stats.agi * 0.5) + (modifiedStats.stats.vit * 2.5);
-
-            return modifiedStats;
-        }
-
-        function createInitialPlayerState() {
-            const player = {
-                level: 1, xp: 0, xpToNextLevel: 100,
-                stats: { str: 5, int: 5, agi: 5, vit: 5, luk: 5 },
-                statPoints: 0, skillPoints: 1, passiveSkillPoints: 0,
-                learnedSkills: [],
-                equippedSkills: Array(10).fill(null),
-                skillLevels: {},
-                passiveSkills: {},
-                comboHistory: [],
-                activeBuffs: [],
-                statusEffects: [],
-            };
-            
-            const stateProxy = new Proxy(player, {
-                get(target, prop) {
-                    if (['maxHp', 'maxMp', 'attack', 'defense', 'critChance', 'critDamage', 'regen_percent', 'evasion'].includes(prop)) {
-                        const calculatedStats = applyPassiveEffects(target);
-                        return calculatedStats[prop];
-                    }
-                    return target[prop];
-                }
-            });
-
-            stateProxy.learnedSkills.forEach(id => stateProxy.skillLevels[id] = 1);
-            stateProxy.currentHp = stateProxy.maxHp;
-            stateProxy.currentMp = stateProxy.maxMp;
-            return stateProxy;
-        }
-
-        const dom = {
-            screens: { loading: document.getElementById('loading-screen'), title: document.getElementById('title-screen'), classSelection: document.getElementById('class-selection-screen'), skillSelection: document.getElementById('skill-selection-screen'), passiveSkillSelection: document.getElementById('passive-skill-selection-screen'), battle: document.getElementById('battle-screen'), stageClear: document.getElementById('stage-clear-screen'), gameOver: document.getElementById('game-over-screen'), gameClear: document.getElementById('game-clear-screen') },
-            modals: { character: document.getElementById('character-modal'), skillTree: document.getElementById('skill-tree-modal') },
-            skillSelection: { title: document.getElementById('skill-select-title'), container: document.getElementById('starter-skills-container'), confirmBtn: document.getElementById('confirm-skills-btn') },
-            passiveSkillSelection: { title: document.getElementById('passive-skill-select-title'), container: document.getElementById('passive-skills-container'), confirmBtn: document.getElementById('confirm-passive-skills-btn') },
-            logContainer: document.getElementById('log-messages-container'),
-            vfxContainer: document.getElementById('vfx-container'),
-            player: { el: document.getElementById('player'), sprite: document.getElementById('player-sprite'), name: document.getElementById('player-name'), level: document.getElementById('player-level'), hpBar: document.getElementById('player-hp-bar'), hpText: document.getElementById('player-hp-text'), mpBar: document.getElementById('player-mp-bar'), mpText: document.getElementById('player-mp-text'), xpBar: document.getElementById('player-xp-bar'), buffs: document.getElementById('player-buffs') },
-            enemy: { el: document.getElementById('enemy'), img: document.getElementById('enemy-img'), name: document.getElementById('enemy-name'), hpBar: document.getElementById('enemy-hp-bar'), hpText: document.getElementById('enemy-hp-text'), stage: document.getElementById('stage-indicator'), buffs: document.getElementById('enemy-buffs') },
-            controls: { el: document.querySelector('.controls'), skills: document.getElementById('skills-grid') },
-            charModal: { points: document.getElementById('stat-points-display'), str: document.getElementById('stat-str'), int: document.getElementById('stat-int'), agi: document.getElementById('stat-agi'), vit: document.getElementById('stat-vit'), luk: document.getElementById('stat-luk'), atk: document.getElementById('detail-atk'), def: document.getElementById('detail-def'), hp: document.getElementById('detail-hp'), mp: document.getElementById('detail-mp'), critChance: document.getElementById('detail-crit-chance'), critDamage: document.getElementById('detail-crit-damage'), confirmBtn: document.getElementById('confirm-stats-btn') },
-            skillModal: { 
-                points: document.getElementById('skill-points'), 
-                passivePoints: document.getElementById('passive-skill-points'), 
-                tabs: document.getElementById('skill-tree-tabs'), 
-                layout: document.getElementById('skill-modal-layout'),
-                treePanel: document.getElementById('skill-tree-panel'),
-                listPanel: document.getElementById('skill-list-panel'),
-                detailsPanel: document.getElementById('skill-details-panel'),
-                equippedSkills: document.getElementById('equipped-skills-container') 
-            },
-        };
-
-        function setupSounds() {
-            sounds.click = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination();
-            sounds.slash = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.15, sustain: 0, release: 0.1 } }).toDestination();
-            sounds.fire = new Tone.Synth({ oscillator: { type: 'fmsquare', modulationType: 'sawtooth', modulationIndex: 2 }, envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 0.4 } }).toDestination();
-            sounds.ice = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).toDestination();
-            sounds.holy = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.2, release: 0.5 } }).toDestination();
-            sounds.damage = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 } }).toDestination();
-            sounds.levelUp = new Tone.PolySynth(Tone.Synth).toDestination();
-            sounds.victory = new Tone.PolySynth(Tone.Synth).toDestination();
-            sounds.defeat = new Tone.PolySynth(Tone.Synth).toDestination();
-        }
-
-        function playSound(effect) {
-            if (!sounds[effect] || Tone.context.state !== 'running') return;
-            const now = Tone.now();
-            switch (effect) {
-                case 'click': sounds.click.triggerAttackRelease('C5', '8n', now); break;
-                case 'slash': sounds.slash.triggerAttackRelease('4n', now); break;
-                case 'fire': sounds.fire.triggerAttackRelease('G2', '8n', now); break;
-                case 'ice': sounds.ice.triggerAttackRelease('C6', '16n', now); break;
-                case 'holy': sounds.holy.triggerAttackRelease(['C4', 'E4', 'G4'], '2n', now); break;
-                case 'damage': sounds.damage.triggerAttackRelease('C2', '8n', now); break;
-                case 'levelUp': sounds.levelUp.triggerAttackRelease(['C4', 'E4', 'G4', 'C5'], '16n', now); break;
-                case 'victory': sounds.victory.triggerAttackRelease(['C4', 'E4', 'G4'], '4n', now); setTimeout(() => sounds.victory.triggerAttackRelease(['G4', 'A4', 'C5'], '4n', Tone.now() + 0.3), 300); break;
-                case 'defeat': sounds.defeat.triggerAttackRelease(['C4', 'D#4', 'G4'], '2n', now); break;
+            const currentMilestone = Math.floor(score / 1000);
+            if (currentMilestone > 0 && currentMilestone > lastMilestone) {
+                lastMilestone = currentMilestone;
+                const spriteInfo = backgroundSpriteData.sprites[Math.floor(Math.random() * backgroundSpriteData.sprites.length)];
+                backgroundElements.push({
+                    spriteName: spriteInfo.name,
+                    x: Math.random() * (canvas.width - spriteInfo.w / 3),
+                    y: player.y - canvas.height,
+                    width: spriteInfo.w / 1.5,
+                    height: spriteInfo.h / 1.5
+                });
             }
-        }
 
-        function switchScreen(screenName) {
-            Object.values(dom.screens).forEach(s => s.classList.add('hidden'));
-            if (dom.screens[screenName]) {
-                dom.screens[screenName].classList.remove('hidden');
-                dom.screens[screenName].classList.add('fade-in');
-            }
+            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
+            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
+            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
+            backgroundElements = backgroundElements.filter(el => el.y < cameraY + canvas.height + 50);
+
+            player.frameCount++; 
+            const currentAnimData = animations[player.animationState];
+            if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
+            if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
+            if(player.y > cameraY + canvas.height) endGame();
+
+            let targetState = 0;
+            if (score > 2500) targetState = 3; else if (score > 1500) targetState = 2; else if (score > 500) targetState = 1;
+            if (backgroundState !== targetState) backgroundState = targetState;
+            const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
+            const targetBg = backgrounds[backgroundState];
+            currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
+            currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
+
+            stars.forEach(s => { s.alpha = s.baseAlpha + Math.sin(Date.now() * s.twinkleSpeed) * (s.baseAlpha / 2); });
+            particles.forEach((p, i) => { p.x += p.dx * deltaTime; p.y += p.dy * deltaTime; p.life -= deltaTime; if(p.life <= 0) particles.splice(i, 1); });
         }
         
-        function showSkillSelection(className) {
-            selectedClassName = className;
-            selectedSkills = [];
-            switchScreen('skillSelection');
-            const skillPool = STARTER_SKILL_POOLS[className].skills;
-            dom.skillSelection.container.innerHTML = '';
-            const tempPlayer = { stats: { str: 5, int: 5, agi: 5 }, attack: 20 + (5 * 2) + Math.floor(5 * 1.5) };
-            skillPool.forEach(skillId => {
-                const skill = SKILLS[skillId];
-                const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                const card = document.createElement('div');
-                card.className = 'skill-card rounded-lg';
-                card.dataset.skillId = skillId;
-                const SPRITE_SCALE_FACTOR = 3.5;
-                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                
-                let detailsHTML = `<p class="text-xs text-gray-400 mt-1">${skill.desc}</p><p class="text-xs text-blue-400 mt-2">MP 소모: ${skill.cost}</p>`;
-                if (skill.type === 'attack' && skill.scale) {
-                    const power = ((tempPlayer.attack * (skill.scale.str || 0)) + (tempPlayer.stats.int * 2.5 * (skill.scale.int || 0)) + (tempPlayer.stats.agi * 1.5 * (skill.scale.agi || 0)));
-                    const minDamage = Math.floor(Math.max(10, power * 0.85));
-                    const maxDamage = Math.floor(Math.max(10, power * 1.0));
-                    detailsHTML += `<p class="text-xs text-red-400">예상 피해: ${minDamage}~${maxDamage}</p>`;
-                }
-
-                card.innerHTML = `<div class="w-16 h-16 mb-2 mx-auto overflow-hidden rounded-lg border-2 border-gray-600"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><h4 class="text-white">${skill.name}</h4>${detailsHTML}`;
-                card.addEventListener('click', () => toggleSkillSelection(card, skillId));
-                dom.skillSelection.container.appendChild(card);
-            });
-            updateSkillSelectionUI();
-        }
-
-        function toggleSkillSelection(card, skillId) {
-            if (selectedSkills.includes(skillId)) {
-                selectedSkills = selectedSkills.filter(id => id !== skillId);
-                card.classList.remove('selected');
-            } else {
-                if (selectedSkills.length < MAX_SKILLS) {
-                    selectedSkills.push(skillId);
-                    card.classList.add('selected');
-                }
-            }
-            updateSkillSelectionUI();
-        }
-
-        function updateSkillSelectionUI() {
-            dom.skillSelection.title.textContent = `초기 스킬을 선택하십시오 (${selectedSkills.length} / ${MAX_SKILLS})`;
-            dom.skillSelection.confirmBtn.disabled = selectedSkills.length !== MAX_SKILLS;
-        }
-
-        function showPassiveSkillSelection() {
-            switchScreen('passiveSkillSelection');
-            selectedPassiveSkills = [];
-            const container = dom.passiveSkillSelection.container;
-            container.innerHTML = '';
-            Object.keys(PASSIVE_SKILLS[selectedClassName]).forEach(skillId => {
-                const skill = PASSIVE_SKILLS[selectedClassName][skillId];
-                const card = document.createElement('div');
-                card.className = 'skill-card rounded-lg';
-                card.dataset.skillId = skillId;
-                card.innerHTML = `<h4 class="text-white">${skill.name}</h4><p>${skill.desc(1)}</p>`;
-                card.addEventListener('click', () => togglePassiveSkillSelection(card, skillId));
-                container.appendChild(card);
-            });
-            updatePassiveSkillSelectionUI();
-        }
-
-        function togglePassiveSkillSelection(card, skillId) {
-            if (selectedPassiveSkills.includes(skillId)) {
-                selectedPassiveSkills = selectedPassiveSkills.filter(id => id !== skillId);
-                card.classList.remove('selected');
-            } else {
-                if (selectedPassiveSkills.length < MAX_PASSIVE_SKILLS) {
-                    selectedPassiveSkills.push(skillId);
-                    card.classList.add('selected');
-                }
-            }
-            updatePassiveSkillSelectionUI();
-        }
-
-        function updatePassiveSkillSelectionUI() {
-            dom.passiveSkillSelection.title.textContent = `패시브 스킬을 선택하십시오 (${selectedPassiveSkills.length} / ${MAX_PASSIVE_SKILLS})`;
-            dom.passiveSkillSelection.confirmBtn.disabled = selectedPassiveSkills.length !== MAX_PASSIVE_SKILLS;
-        }
-
-        function startGame() {
-            gameState = { player: createInitialPlayerState(), currentStage: 0 };
-            gameState.player.element = CLASS_ELEMENTS[selectedClassName];
-            gameState.player.learnedSkills = [...selectedSkills];
-            gameState.player.equippedSkills = [...selectedSkills, ...Array(10 - selectedSkills.length).fill(null)];
-            gameState.player.learnedSkills.forEach(id => gameState.player.skillLevels[id] = 1);
-            selectedPassiveSkills.forEach(id => gameState.player.passiveSkills[id] = 1);
+        function draw(){
+            const rgbToString = (rgb) => `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            bgGrad.addColorStop(0, rgbToString(currentBgTop)); bgGrad.addColorStop(1, rgbToString(currentBgBottom));
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            gameState.player.currentHp = gameState.player.maxHp;
-            gameState.player.currentMp = gameState.player.maxMp;
-
-            const spriteEl = dom.player.sprite;
-            const isMobile = window.innerWidth < 768;
-
-            if (selectedClassName === 'mage') {
-                const sprite = MAGE_SPRITE_DATA.sprites[0];
-                const scale = 0.8;
-                spriteEl.style.backgroundImage = `url('${MAGE_SPRITE_URL}')`;
-                spriteEl.style.backgroundSize = `${MAGE_SPRITE_DATA.meta.size.w * scale}px ${MAGE_SPRITE_DATA.meta.size.h * scale}px`;
-                spriteEl.style.width = `${sprite.w * scale}px`;
-                spriteEl.style.height = `${sprite.h * scale}px`;
-                setSpriteFrame(spriteEl, MAGE_SPRITE_DATA, 0, scale);
-            } else if (selectedClassName === 'rogue') {
-                const maxWidth = Math.max(...ROGUE_SPRITE_DATA.sprites.map(s => s.w));
-                const maxHeight = Math.max(...ROGUE_SPRITE_DATA.sprites.map(s => s.h));
-                const scale = 0.6;
-                spriteEl.style.backgroundImage = `url('${ROGUE_SPRITE_URL}')`;
-                spriteEl.style.backgroundSize = `${ROGUE_SPRITE_DATA.meta.size.w * scale}px ${ROGUE_SPRITE_DATA.meta.size.h * scale}px`;
-                spriteEl.style.width = `${maxWidth * scale}px`;
-                spriteEl.style.height = `${maxHeight * scale}px`;
-                setSpriteFrame(spriteEl, ROGUE_SPRITE_DATA, 0, scale);
-            } else if (selectedClassName === 'warrior') {
-                const maxWidth = Math.max(...WARRIOR_SPRITE_DATA.sprites.map(s => s.w));
-                const maxHeight = Math.max(...WARRIOR_SPRITE_DATA.sprites.map(s => s.h));
-                const scale = isMobile ? 0.65 : 0.8; 
-                spriteEl.style.backgroundImage = `url('${WARRIOR_SPRITE_URL}')`;
-                spriteEl.style.backgroundSize = `${WARRIOR_SPRITE_DATA.meta.size.w * scale}px ${WARRIOR_SPRITE_DATA.meta.size.h * scale}px`;
-                spriteEl.style.width = `${maxWidth * scale}px`;
-                spriteEl.style.height = `${maxHeight * scale}px`;
-                setSpriteFrame(spriteEl, WARRIOR_SPRITE_DATA, 0, scale);
+            ctx.save();
+            ctx.translate(0, -cameraY * 0.8);
+            if (backgroundState === 0 && moon) {
+                ctx.fillStyle = 'rgba(240, 240, 255, 0.8)'; ctx.shadowColor = 'white'; ctx.shadowBlur = 20;
+                ctx.beginPath(); ctx.arc(moon.x, moon.y, moon.radius, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
             }
+            stars.forEach(s => {
+                let starColor = `rgba(255, 255, 255, ${s.alpha})`;
+                if (backgroundState === 2) starColor = `rgba(200, 180, 255, ${s.alpha})`;
+                else if (backgroundState === 3) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                ctx.fillStyle = starColor;
+                ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.restore();
+            
+            ctx.save();
+            ctx.translate(0, -cameraY * 0.5);
+            if (isBackgroundSheetLoaded) {
+                backgroundElements.forEach(el => {
+                    const sprite = backgroundSpriteData.sprites.find(s => s.name === el.spriteName);
+                    if (sprite) {
+                        ctx.drawImage(backgroundSheet, sprite.x, sprite.y, sprite.w, sprite.h, el.x, el.y, el.width, el.height);
+                    }
+                });
+            }
+            ctx.restore();
 
-            switchScreen('battle');
-            loadStage(gameState.currentStage);
+
+            if(gameState!=='playing'||!player)return;
+            ctx.save();ctx.translate(0,-cameraY);
+            platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
+            
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.8)';
+            particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / 60), 0, Math.PI * 2); ctx.fill(); });
+
+            drawPlayer();
+            ctx.restore();
+        }
+        
+        function gameLoop(currentTime){
+            if(!lastTime) lastTime = currentTime;
+            const deltaTime = (currentTime - lastTime) / (1000 / 60);
+            lastTime = currentTime;
+            update(deltaTime);
+            draw();
+            requestAnimationFrame(gameLoop);
         }
 
-        function loadStage(stageIndex) {
-            isBattleOver = false; isPlayerTurn = true;
-            const stageData = STAGES[stageIndex];
-            enemy = { ...stageData, currentHp: stageData.maxHp, activeBuffs: [], statusEffects: [] };
-            dom.enemy.img.src = enemy.img;
-            dom.screens.battle.querySelector('.battle-scene').style.backgroundImage = `url('${stageData.bg}')`;
-            updateAllUI();
-            clearLogs();
-            addLog(`제 ${stageIndex + 1}층: <span class="font-bold text-red-300">${enemy.name}</span>(이)가 나타났다!`);
+        function drawPlayer() {
+            if (!player || !isSpriteSheetLoaded) return;
+            const currentAnim = animations[player.animationState];
+            let frameIndex = player.animationFrame;
+            if (player.animationState === 'jumping') { frameIndex = player.dy < 0 ? 0 : 1; }
+            const spriteName = currentAnim.frames[frameIndex];
+            const sprite = spriteMap[spriteName];
+            if (!sprite) return;
+            ctx.save();
+            const cX = player.x + player.width / 2; const cY = player.y + player.height / 2;
+            ctx.translate(cX, cY);
+            if (player.direction === 'left') { ctx.scale(-1, 1); }
+            ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
+            ctx.restore();
         }
 
-        function handleVictory() {
-            isBattleOver = true;
-            playSound('victory');
-            const xpGained = STAGES[gameState.currentStage].xp;
-            document.getElementById('xp-gain-text').textContent = `경험치 ${xpGained} XP 획득!`;
-            setTimeout(() => {
-                switchScreen('stageClear');
-                gainXP(xpGained);
+        // --- 콤보 & 파티클 함수 ---
+        function handleCombo(platform) {
+            if (platform === lastPlatform) return; 
+            lastPlatform = platform;
+            comboCount++;
+            clearTimeout(comboTimeout);
+            if (comboCount >= 2) {
+                const comboBonus = comboCount * 5;
+                score += comboBonus;
+                scoreDisplay.innerText = score;
+                comboDisplay.innerText = `${comboCount} COMBO`;
+                comboDisplay.style.opacity = 1;
+                anime.remove(comboDisplay);
+                anime({ targets: comboDisplay, scale: [1.5, 1], translateY: [-20, 0], duration: 400, easing: 'easeOutElastic(1, .8)' });
+                createParticles();
+            }
+            comboTimeout = setTimeout(() => {
+                anime({ targets: comboDisplay, opacity: 0, duration: 500, easing: 'easeOutExpo', complete: () => { comboCount = 0; lastPlatform = null; } });
             }, 1500);
         }
-
-        function handleDefeat() { isBattleOver = true; playSound('defeat'); setTimeout(() => switchScreen('gameOver'), 1500); }
-        
-        function checkBattleOver() {
-            if (isBattleOver) return;
-            if (gameState.player.currentHp <= 0) {
-                handleDefeat();
-            } else if (enemy.currentHp <= 0) {
-                handleVictory();
-            }
-        }
-
-        function gainXP(amount) {
-            gameState.player.xp += amount;
-            while (gameState.player.xp >= gameState.player.xpToNextLevel) {
-                levelUp();
-            }
-            updatePlayerUI();
-        }
-
-        function levelUp() {
-            const p = gameState.player;
-            p.xp -= p.xpToNextLevel;
-            p.level++;
-            p.xpToNextLevel = Math.floor(p.xpToNextLevel * 1.5);
-            p.statPoints += 10;
-            p.skillPoints += 1;
-            p.passiveSkillPoints += 1;
-            p.currentHp = p.maxHp;
-            p.currentMp = p.maxMp;
-            addLog(`<strong class="text-xl font-cinzel text-yellow-300">LEVEL UP!</strong>`, 'text-yellow-300');
-            playSound('levelUp');
-            updateMenuButtonsNotification();
-        }
-
-        function updateAllUI() { updatePlayerUI(); updateEnemyUI(); setupSkillButtons(); updateMenuButtonsNotification(); }
-        
-        function updatePlayerUI() {
-            const p = gameState.player;
-            dom.player.level.textContent = `Lv. ${p.level}`;
-            dom.player.hpText.textContent = `${Math.round(p.currentHp)}/${Math.round(p.maxHp)}`;
-            dom.player.hpBar.style.width = `${(p.currentHp / p.maxHp) * 100}%`;
-            dom.player.mpText.textContent = `${Math.round(p.currentMp)}/${Math.round(p.maxMp)}`;
-            dom.player.mpBar.style.width = `${(p.currentMp / p.maxMp) * 100}%`;
-            dom.player.xpBar.style.width = `${(p.xp / p.xpToNextLevel) * 100}%`;
-            updateBuffUI(p, dom.player.buffs);
-        }
-
-        function updateEnemyUI() {
-            if (!enemy) return;
-            dom.enemy.name.textContent = enemy.name;
-            dom.enemy.stage.textContent = `${gameState.currentStage + 1}F`;
-            dom.enemy.hpText.textContent = `${Math.round(enemy.currentHp)}/${enemy.maxHp}`;
-            dom.enemy.hpBar.style.width = `${(enemy.currentHp / enemy.maxHp) * 100}%`;
-            updateBuffUI(enemy, dom.enemy.buffs);
-        }
-
-        function updateBuffUI(character, container) {
-            container.innerHTML = '';
-            const allEffects = [...character.activeBuffs, ...character.statusEffects];
-            allEffects.forEach(effect => {
-                const skill = SKILLS[effect.id] || { name: effect.type, icon: 'sprite_24' }; // Fallback for status effects
-                const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                const buffEl = document.createElement('div');
-                buffEl.className = 'buff-icon';
-                const SPRITE_SCALE_FACTOR = 10;
-                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                buffEl.innerHTML = `<div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div><span class="duration">${effect.duration}</span>`;
-                container.appendChild(buffEl);
-            });
-        }
-        
-        function setupSkillButtons() {
-            dom.controls.skills.innerHTML = '';
-            const activeSkills = ['basic_attack', ...gameState.player.equippedSkills];
-            const SPRITE_SCALE_FACTOR = 6.5;
-
-            for(let i = 0; i < 11; i++) {
-                const skillId = activeSkills[i];
-                if(!skillId) continue;
-
-                const button = document.createElement('button');
-                button.className = 'skill-btn relative';
-                
-                const skill = getEffectiveSkill(skillId);
-                const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                const level = gameState.player.skillLevels[skillId] || 1;
-                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                button.innerHTML = `<div class="icon-wrapper"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div class="skill-label"><span class="truncate">${skill.name}</span>${level > 1 ? `<span class="text-yellow-400">Lv.${level}</span>` : ''}</div><div class="tooltip">${getSkillDetailsHTML(skillId)}</div>`;
-                
-                button.addEventListener('click', () => playerTurn(skillId));
-
-                let pressTimer;
-                button.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    pressTimer = setTimeout(() => {
-                        const tooltip = e.currentTarget.querySelector('.tooltip');
-                        tooltip.classList.add('show');
-                    }, 500);
+        function createParticles() {
+            const pX = player.x + player.width / 2;
+            const pY = player.y + player.height / 2;
+            for (let i = 0; i < 10; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                particles.push({
+                    x: pX, y: pY,
+                    dx: Math.cos(angle) * speed,
+                    dy: Math.sin(angle) * speed,
+                    size: Math.random() * 3 + 2,
+                    life: 60
                 });
-                button.addEventListener('touchend', () => {
-                    clearTimeout(pressTimer);
-                    const tooltip = document.querySelector('.tooltip.show');
-                    if(tooltip) tooltip.classList.remove('show');
-                });
-
-
-                dom.controls.skills.appendChild(button);
-            }
-            toggleSkillButtons(isPlayerTurn ? false : true);
-        }
-
-        function unequipSkillFromSlot(slotIndex) {
-            const skillId = gameState.player.equippedSkills[slotIndex];
-            if (skillId) {
-                gameState.player.equippedSkills[slotIndex] = null;
-                addLog(`<span class="font-bold text-yellow-300">${SKILLS[skillId].name}</span> 스킬을 해제했습니다.`);
-                setupSkillButtons();
             }
         }
 
-        function clearLogs() { dom.logContainer.innerHTML = ''; }
-        function addLog(message, color = 'text-gray-300') { 
-            const logEl = document.createElement('div'); 
-            logEl.className = `px-2 py-1 text-center ${color}`; 
-            logEl.innerHTML = message; 
-            dom.logContainer.prepend(logEl);
-            if(dom.logContainer.children.length > 10) {
-                dom.logContainer.lastChild.remove();
-            }
+        // --- State Transition ---
+        function startGame() { 
+            initAudio(); 
+            startScreen.classList.add('hidden'); 
+            touchLeft.classList.add('visible');
+            touchRight.classList.add('visible');
+            setTimeout(resetGame, 500); 
+        }
+        function endGame() {
+            gameState = 'gameOver'; finalGameScore = score;
+            if(isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
+            scoreDisplay.style.display = 'none'; 
+            gameOverScreen.classList.remove('hidden');
+            touchLeft.classList.remove('visible');
+            touchRight.classList.remove('visible');
+            clearTimeout(comboTimeout); comboCount = 0; comboDisplay.style.opacity = 0; lastPlatform = null;
+            
+            const scoreObj = { value: 0 };
+            anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
+            
+            const tl = anime.timeline({ easing: 'easeOutExpo', duration: 750 });
+            tl.add({ targets: ['#finalScoreLabel', '#finalScore'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) })
+              .add({ targets: ['.content-wrapper', '.button-group'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) }, '-=500');
+
+            loadRankingAndGuestbook();
+        }
+        function restartGame() {
+            gameOverScreen.classList.add('hidden');
+            document.querySelectorAll('#gameOverScreen .content-wrapper, #gameOverScreen .button-group, #finalScoreLabel, #finalScore').forEach(el => { el.style.opacity = 0; });
+            setTimeout(() => {
+                guestbookLimit = 3; 
+                startGame();
+            }, 500);
         }
         
-        function showDamageVFX(target, text, isCrit = false) {
-            const vfxEl = document.createElement('div');
-            const colorClass = text.startsWith('+') ? 'text-green-400' : 'text-red-500';
-            vfxEl.className = `vfx-damage-text absolute ${colorClass} ${isCrit ? 'critical' : ''}`;
-            vfxEl.textContent = text;
-            const targetRect = target.getBoundingClientRect();
-            const containerRect = dom.vfxContainer.getBoundingClientRect();
-            vfxEl.style.left = `${targetRect.left - containerRect.left + targetRect.width / 2}px`;
-            vfxEl.style.top = `${targetRect.top - containerRect.top}px`;
-            dom.vfxContainer.appendChild(vfxEl);
-            vfxEl.addEventListener('animationend', () => vfxEl.remove());
-        }
-
-        function playParticleVFX(target, type) {
-            const targetRect = target.getBoundingClientRect();
-            const containerRect = dom.vfxContainer.getBoundingClientRect();
-            const centerX = targetRect.left - containerRect.left + targetRect.width / 2;
-            const centerY = targetRect.top - containerRect.top + targetRect.height / 2;
-
-            const effects = {
-                slash: { count: 8, colors: ['#ffffff', '#e2e8f0'], size: [5, 10], speed: 200 },
-                fire: { count: 15, colors: ['#f97316', '#fef08a', '#dc2626'], size: [8, 16], speed: 150 },
-                ice: { count: 12, colors: ['#60a5fa', '#e0f2fe', '#3b82f6'], size: [6, 12], speed: 180 },
-                shadow: { count: 10, colors: ['#4c1d95', '#a78bfa', '#000000'], size: [10, 20], speed: 160 },
-                holy: { count: 20, colors: ['#facc15', '#fefce8', '#ffffff'], size: [5, 15], speed: 100 },
-                lightning: { count: 1, colors: [], size: [], speed: 0 } // Special case
-            };
-
-            const config = effects[type] || effects.slash;
-
-            if (type === 'lightning') {
-                const bolt = document.createElement('div');
-                bolt.style.position = 'absolute';
-                bolt.style.left = `${centerX - 5}px`;
-                bolt.style.top = `${targetRect.top - containerRect.top - 20}px`;
-                bolt.style.width = '10px';
-                bolt.style.height = `${targetRect.height + 40}px`;
-                bolt.style.backgroundColor = 'white';
-                bolt.style.boxShadow = '0 0 20px #a78bfa';
-                bolt.style.clipPath = 'polygon(50% 0, 60% 20%, 45% 40%, 55% 60%, 40% 80%, 50% 100%, 60% 80%, 45% 60%, 55% 40%, 40% 20%)';
-                bolt.style.animation = 'vfx-fade-fast 0.3s forwards';
-                dom.vfxContainer.appendChild(bolt);
-                setTimeout(() => bolt.remove(), 300);
+        // --- Supabase Functions ---
+        async function loadRankingAndGuestbook() {
+            if (!supabase) {
+                const errorMsg = `<p style="color: var(--error-color);">서버에 연결할 수 없습니다.</p>`;
+                rankingList.innerHTML = errorMsg;
+                guestbookEntries.innerHTML = errorMsg;
                 return;
             }
-
-            for (let i = 0; i < config.count; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                const size = Math.random() * (config.size[1] - config.size[0]) + config.size[0];
-                p.style.width = `${size}px`;
-                p.style.height = `${size}px`;
-                p.style.backgroundColor = config.colors[Math.floor(Math.random() * config.colors.length)];
-                p.style.left = `${centerX}px`;
-                p.style.top = `${centerY}px`;
-
-                const angle = Math.random() * 2 * Math.PI;
-                const distance = Math.random() * config.speed;
-                const translateX = Math.cos(angle) * distance;
-                const translateY = Math.sin(angle) * distance;
-
-                p.style.animation = `particle-anim 0.6s ease-out forwards`;
-                p.style.transform = `translate(${translateX}px, ${translateY}px)`;
-                
-                dom.vfxContainer.appendChild(p);
-                setTimeout(() => p.remove(), 600);
-            }
+            fetchRankings();
+            fetchGuestbookEntries();
         }
 
-        function getEffectiveSkill(skillId) {
-            const baseSkill = { ...SKILLS[skillId] };
-            const level = gameState.player.skillLevels[skillId] || 1;
-            if (level > 1) {
-                if(baseSkill.scale?.str) baseSkill.scale.str *= (1 + (level - 1) * 0.1);
-                if(baseSkill.scale?.int) baseSkill.scale.int *= (1 + (level - 1) * 0.1);
-                if(baseSkill.scale?.agi) baseSkill.scale.agi *= (1 + (level - 1) * 0.1);
-                if(baseSkill.cost) baseSkill.cost = Math.floor(baseSkill.cost * (1 + (level - 1) * 0.05));
-            }
-            return baseSkill;
-        }
-
-        function getEffectiveStats(character) {
-            let baseStats = {};
-            if (character.stats) { // Player
-                baseStats = applyPassiveEffects(character);
-            } else { // Enemy
-                baseStats = { attack: character.attack, defense: character.defense, immune: false, evasion: 0 };
-            }
-
-            let effectiveStats = {...baseStats};
-            
-            character.activeBuffs.forEach(buff => {
-                const skill = SKILLS[buff.id];
-                if (skill.effects?.atk) effectiveStats.attack *= skill.effects.atk;
-                if (skill.effects?.def) effectiveStats.defense *= skill.effects.def;
-                if (skill.effects?.immune) effectiveStats.immune = true;
-            });
-            
-            character.statusEffects.forEach(effect => {
-                if (effect.type === 'atk_down') effectiveStats.attack *= (1 - effect.power);
-                if (effect.type === 'def_down') effectiveStats.defense *= (1 - effect.power);
-            });
-
-            return effectiveStats;
-        }
-
-        function setSpriteFrame(element, spriteData, frameIndex, scale = 1) {
-            const frame = spriteData.sprites[frameIndex];
-            if (frame) {
-                element.style.aspectRatio = frame.w / frame.h;
-                element.style.backgroundPosition = `-${frame.x * scale}px -${frame.y * scale}px`;
-            }
-        }
-
-        function playSpriteAnimation(element, spriteData, animationName, scale = 1) {
-            if (animationInterval) clearInterval(animationInterval);
-            
-            const animation = spriteData.animations[animationName];
-            if (!animation) return;
-
-            let currentFrameIndex = 0;
-            animationInterval = setInterval(() => {
-                const frameIndex = animation.frames[currentFrameIndex];
-                setSpriteFrame(element, spriteData, frameIndex, scale);
-                currentFrameIndex++;
-                if (currentFrameIndex >= animation.frames.length) {
-                    clearInterval(animationInterval);
-                    animationInterval = null;
-                    const idleFrameIndex = 0;
-                    setSpriteFrame(element, spriteData, idleFrameIndex, scale);
-                }
-            }, 1000 / animation.fps);
-        }
-
-        function getElementalMultiplier(attackerElement, defenderElement) {
-            if (!attackerElement || !defenderElement) return 1.0;
-            const advantages = {
-                fire: 'ice',
-                ice: 'lightning',
-                lightning: 'fire'
-            };
-            if (advantages[attackerElement] === defenderElement) return 1.5;
-            if (advantages[defenderElement] === attackerElement) return 0.75;
-            return 1.0;
-        }
-
-        function performAction(attacker, defender, skillId) {
-            const skill = getEffectiveSkill(skillId);
-            const p = gameState.player;
-
-            if (attacker === p && p.currentMp < skill.cost) { 
-                addLog('MP가 부족합니다!'); 
-                isPlayerTurn = true; 
-                toggleSkillButtons(false); 
-                return; 
-            }
-            if (attacker === p) p.currentMp -= skill.cost;
-            
-            const skillLevel = (attacker === p) ? (p.skillLevels[skillId] || 1) : 1;
-            const skillName = `${skill.name} ${skillLevel > 1 ? `(Lv.${skillLevel})` : ''}`;
-            addLog(`${attacker.name || '플레이어'}의 <span class="font-bold text-yellow-300">${skillName}</span>!`);
-            
-            const attackerEl = attacker === p ? dom.player.el : dom.enemy.el;
-            const defenderEl = defender === p ? dom.player.el : dom.enemy.el;
-            
-            if (attacker === p) {
-                const isMobile = window.innerWidth < 768;
-                if (selectedClassName === 'mage') playSpriteAnimation(dom.player.sprite, MAGE_SPRITE_DATA, 'attack', 0.8);
-                else if (selectedClassName === 'rogue') playSpriteAnimation(dom.player.sprite, ROGUE_SPRITE_DATA, 'attack', 0.6);
-                else if (selectedClassName === 'warrior') playSpriteAnimation(dom.player.sprite, WARRIOR_SPRITE_DATA, 'attack', isMobile ? 0.65 : 0.8);
-            } else {
-                 attackerEl.classList.add('attack');
-                 setTimeout(() => attackerEl.classList.remove('attack'), 400);
-            }
-            
-            setTimeout(() => {
-                const attackerStats = getEffectiveStats(attacker);
-                const defenderStats = getEffectiveStats(defender);
-
-                if (defender.stats && Math.random() * 100 < defenderStats.evasion) {
-                    addLog(`<span class="font-bold text-blue-300">회피!</span>`);
-                } else {
-                    if (skill.type === 'attack') {
-                        if (defenderStats.immune) {
-                            addLog(`<span class="font-bold text-blue-300">면역!</span> 피해를 받지 않았습니다.`);
-                        } else {
-                            playSound(skill.vfx);
-                            playParticleVFX(defenderEl, skill.vfx);
-                            
-                            let power = 0;
-                            if (attacker === p) { 
-                                power = (attackerStats.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0));
-                            } else { 
-                                power = attackerStats.attack * (skill.scale || 1.0); 
-                            }
-                            
-                            const damageReduction = 1 - (defenderStats.defense / (defenderStats.defense + 200));
-                            let damage = power * damageReduction * (Math.random() * 0.15 + 0.85);
-                            
-                            const attackerElement = attacker.stats ? attacker.element : enemy.element;
-                            const defenderElement = defender.stats ? defender.element : enemy.element;
-                            const elementalMultiplier = getElementalMultiplier(attackerElement, defenderElement);
-                            
-                            if (elementalMultiplier > 1.0) addLog(`<span class="font-bold text-green-400">효과가 굉장했다!</span>`);
-                            if (elementalMultiplier < 1.0) addLog(`<span class="font-bold text-gray-400">효과가 미미했다...</span>`);
-                            damage *= elementalMultiplier;
-
-                            const isCrit = (attacker === p) && (Math.random() * 100 < attackerStats.critChance);
-                            if (isCrit) {
-                                damage *= (attackerStats.critDamage / 100);
-                                addLog(`<span class="font-bold text-yellow-300">치명타!</span>`);
-                            }
-                            
-                            damage = Math.floor(Math.max(1, damage));
-
-                            if(skill.lifesteal) {
-                                const healed = Math.floor(damage * skill.lifesteal);
-                                attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + healed);
-                                showDamageVFX(attackerEl, `+${healed}`);
-                            }
-
-                            playSound('damage');
-                            defender.currentHp = Math.max(0, defender.currentHp - damage);
-                            showDamageVFX(defenderEl, `-${damage}`, isCrit);
-                            addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>에게 ${damage}의 데미지!`, 'text-white');
-                            defenderEl.classList.add('take-damage');
-                            setTimeout(() => defenderEl.classList.remove('take-damage'), 300);
-                        }
-                    } else if (skill.type === 'heal') {
-                        playSound('holy');
-                        playParticleVFX(attackerEl, 'holy');
-                        const heal = Math.floor(attackerStats.stats.int * 5 * (skill.scale.int || 1));
-                        attacker.currentHp = Math.min(attacker.maxHp, attacker.currentHp + heal);
-                        showDamageVFX(attackerEl, `+${heal}`);
-                        addLog(`<span class="font-bold text-green-400">${attacker.name || '플레이어'}</span>의 체력이 ${heal} 회복되었다!`, 'text-white');
-                    }
-                    
-                    if (skill.addEffect && Math.random() < skill.addEffect.chance) {
-                        defender.statusEffects.push({ ...skill.addEffect });
-                        addLog(`<span class="font-bold text-red-400">${defender.name || '플레이어'}</span>가 ${skill.addEffect.type} 상태가 되었다!`);
-                    }
-                    if (skill.effects) attacker.activeBuffs.push({ id: skillId, duration: skill.duration });
-                }
-                
-                updateAllUI();
-                checkBattleOver();
-
-                if (!isBattleOver) { 
-                    if (attacker === p) setTimeout(enemyTurn, 1000);
-                    else { isPlayerTurn = true; toggleSkillButtons(false); } 
-                }
-            }, 400);
-        }
-
-        function tickStatusEffects(character) {
-            let totalDotDamage = 0;
-            const charEl = (character === gameState.player) ? dom.player.el : dom.enemy.el;
-            character.statusEffects.forEach(effect => {
-                if(effect.type === 'bleed' || effect.type === 'poison') {
-                    const damage = Math.floor((character.maxHp * 0.02) + (getEffectiveStats(character).attack * effect.power));
-                    character.currentHp = Math.max(0, character.currentHp - damage);
-                    totalDotDamage += damage;
-                }
-                effect.duration--;
-            });
-            if(totalDotDamage > 0) {
-                showDamageVFX(charEl, `-${totalDotDamage}`);
-                addLog(`<span class="font-bold text-purple-400">${character.name || '플레이어'}</span>가 지속 피해로 ${totalDotDamage}의 데미지를 입었다!`);
-            }
-            character.statusEffects = character.statusEffects.filter(effect => effect.duration > 0);
-        }
-
-        function tickBuffs(character) {
-            character.activeBuffs.forEach(buff => {
-                buff.duration--;
-                if (buff.duration <= 0) addLog(`<span class="font-bold">${character.name || '플레이어'}</span>의 ${SKILLS[buff.id].name} 효과가 사라졌다.`);
-            });
-            character.activeBuffs = character.activeBuffs.filter(buff => buff.duration > 0);
-        }
-
-        function playerTurn(skillId) { 
-            if (!isPlayerTurn || isBattleOver) return; 
-            
-            tickBuffs(gameState.player);
-            tickStatusEffects(gameState.player);
-
-            const regenPercent = gameState.player.regen_percent;
-            const mpRegen = Math.floor(gameState.player.maxMp * regenPercent);
-            if (mpRegen > 0 && gameState.player.currentHp > 0) {
-                gameState.player.currentMp = Math.min(gameState.player.maxMp, gameState.player.currentMp + mpRegen);
-                addLog(`MP <span class="text-blue-400">${mpRegen}</span> 회복!`, 'text-gray-200');
-            }
-            
-            if (gameState.player.currentHp <= 0) { checkBattleOver(); return; }
-
-            isPlayerTurn = false; 
-            toggleSkillButtons(true);
-            performAction(gameState.player, enemy, skillId);
-        }
-
-        function enemyTurn() { 
-            if (isBattleOver) return; 
-            tickBuffs(enemy);
-            tickStatusEffects(enemy);
-
-            if (enemy.currentHp <= 0) { checkBattleOver(); return; }
-
-            const randomSkill = enemy.skills[Math.floor(Math.random() * enemy.skills.length)]; 
-            performAction(enemy, gameState.player, randomSkill.id); 
-        }
-
-        function toggleSkillButtons(disabled) { 
-            dom.controls.el.classList.toggle('hidden', disabled);
-            dom.controls.skills.querySelectorAll('button').forEach(btn => btn.disabled = disabled); 
-        }
-        
-        function openModal(modalName) { if(dom.modals[modalName]) dom.modals[modalName].classList.remove('hidden'); }
-        function closeModal(modalName) { 
-            if(dom.modals[modalName]) dom.modals[modalName].classList.add('hidden'); 
-            updateMenuButtonsNotification();
-        }
-
-        function openCharModal() {
-            tempStats = { stats: { ...gameState.player.stats }, statPoints: gameState.player.statPoints };
-            initialStats = { ...gameState.player.stats };
-            updateCharModalUI();
-            openModal('character');
-        }
-
-        function updateCharModalUI() {
-            const p = { ...gameState.player, ...tempStats };
-            const derived = applyPassiveEffects(p);
-
-            dom.charModal.points.textContent = p.statPoints;
-            dom.charModal.str.textContent = Math.round(p.stats.str);
-            dom.charModal.int.textContent = Math.round(p.stats.int);
-            dom.charModal.agi.textContent = Math.round(p.stats.agi);
-            dom.charModal.vit.textContent = Math.round(p.stats.vit);
-            dom.charModal.luk.textContent = Math.round(p.stats.luk);
-
-            dom.charModal.atk.textContent = Math.round(derived.attack);
-            dom.charModal.def.textContent = Math.round(derived.defense);
-            dom.charModal.hp.textContent = Math.round(derived.maxHp);
-            dom.charModal.mp.textContent = Math.round(derived.maxMp);
-            dom.charModal.critChance.textContent = derived.critChance.toFixed(1);
-            dom.charModal.critDamage.textContent = derived.critDamage.toFixed(1);
-        }
-
-        dom.modals.character.addEventListener('click', e => {
-            const target = e.target.closest('.stat-btn');
-            if (!target) return;
-            const stat = target.dataset.stat;
-            if (target.classList.contains('plus-btn')) {
-                if (tempStats.statPoints > 0) {
-                    tempStats.stats[stat]++;
-                    tempStats.statPoints--;
-                }
-            } else if (target.classList.contains('minus-btn')) {
-                if (tempStats.stats[stat] > initialStats[stat]) {
-                    tempStats.stats[stat]--;
-                    tempStats.statPoints++;
-                }
-            }
-            updateCharModalUI();
-        });
-
-        dom.charModal.confirmBtn.addEventListener('click', () => {
-            const oldStats = applyPassiveEffects(gameState.player);
-            const hpRatio = gameState.player.currentHp / oldStats.maxHp;
-            const mpRatio = gameState.player.currentMp / oldStats.maxMp;
-            
-            gameState.player.stats = tempStats.stats;
-            gameState.player.statPoints = tempStats.statPoints;
-            
-            const newStats = applyPassiveEffects(gameState.player);
-            gameState.player.currentHp = newStats.maxHp * hpRatio;
-            gameState.player.currentMp = newStats.maxMp * mpRatio;
-            
-            updateAllUI();
-            closeModal('character');
-        });
-
-        function openSkillModal() { 
-            updateSkillModal(); 
-            openModal('skillTree'); 
-            dom.skillModal.tabs.querySelector('button:not(#passive-tab-btn)')?.click();
-        }
-
-        function updateSkillModal() {
-            dom.skillModal.points.textContent = gameState.player.skillPoints;
-            dom.skillModal.passivePoints.textContent = gameState.player.passiveSkillPoints;
-            updateMenuButtonsNotification();
-            
-            if (dom.skillModal.tabs.innerHTML === '') {
-                Object.keys(SKILL_TREES).forEach((key) => {
-                    const tab = document.createElement('button');
-                    tab.className = 'p-2 text-gray-400 hover:text-white whitespace-nowrap';
-                    tab.textContent = SKILL_TREES[key].name;
-                    tab.onclick = () => {
-                        document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
-                        tab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
-                        dom.skillModal.detailsPanel.innerHTML = '';
-                        renderSkillTree(key);
-                    };
-                    dom.skillModal.tabs.appendChild(tab);
-                });
-                const passiveTab = document.createElement('button');
-                passiveTab.id = 'passive-tab-btn';
-                passiveTab.className = 'p-2 text-gray-400 hover:text-white whitespace-nowrap';
-                passiveTab.textContent = '패시브';
-                passiveTab.onclick = () => {
-                    document.querySelectorAll('#skill-tree-tabs button').forEach(b => b.classList.remove('text-yellow-300', 'border-b-2', 'border-yellow-300'));
-                    passiveTab.classList.add('text-yellow-300', 'border-b-2', 'border-yellow-300');
-                    dom.skillModal.detailsPanel.innerHTML = '';
-                    renderPassiveSkillList(selectedClassName);
-                };
-                dom.skillModal.tabs.appendChild(passiveTab);
-            }
-            renderEquippedSkills();
-        }
-        
-        function renderSkillTree(treeKey) {
-            dom.skillModal.listPanel.innerHTML = '<div id="skill-tree-wrapper"><div id="skill-tree-container"></div></div>';
-            const wrapper = document.getElementById('skill-tree-wrapper');
-            const container = document.getElementById('skill-tree-container');
-            const tree = SKILL_TREES[treeKey].skills;
-            const nodeElements = {};
-
-            let maxWidth = 0;
-            let maxHeight = 0;
-
-            tree.forEach((tier, tierIndex) => {
-                tier.forEach((skillId, skillIndex) => {
-                    const node = document.createElement('div');
-                    node.className = 'skill-node';
-                    const left = (skillIndex * 100) + 50;
-                    const top = (tierIndex * 100) + 20;
-                    node.style.left = `${left}px`;
-                    node.style.top = `${top}px`;
-                    
-                    maxWidth = Math.max(maxWidth, left + 50);
-                    maxHeight = Math.max(maxHeight, top + 50);
-
-                    const skill = SKILLS[skillId];
-                    const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                    const SPRITE_SCALE_FACTOR = 5.0;
-                    const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                    const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                    const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                    const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    
-                    const level = gameState.player.skillLevels[skillId] || 0;
-                    const isLearned = level > 0;
-                    const canLearn = gameState.player.skillPoints > 0 && (!skill.requires || gameState.player.learnedSkills.includes(skill.requires));
-
-                    node.innerHTML = `<div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div><div class="tooltip"></div>`;
-                    
-                    if (isLearned) node.classList.add('learned');
-                    else if (canLearn) node.classList.add('can-learn');
-                    else node.classList.add('locked');
-
-                    node.addEventListener('mouseenter', (e) => {
-                        const tooltip = e.currentTarget.querySelector('.tooltip');
-                        tooltip.innerHTML = getSkillDetailsHTML(skillId);
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        const modalRect = dom.modals.skillTree.querySelector('.modal-content').getBoundingClientRect();
-                        if(rect.right + 250 > modalRect.right) {
-                            tooltip.style.left = 'auto';
-                            tooltip.style.right = '105%';
-                            tooltip.style.transform = 'none';
-                        } else {
-                            tooltip.style.left = '50%';
-                            tooltip.style.right = 'auto';
-                            tooltip.style.transform = 'translateX(-50%)';
-                        }
-                    });
-
-                    node.onclick = () => showUpgradePanel(skillId);
-                    container.appendChild(node);
-                    nodeElements[skillId] = node;
-
-                    if (skill.requires && nodeElements[skill.requires]) {
-                        const parentNode = nodeElements[skill.requires];
-                        const line = document.createElement('div');
-                        const pX = parseFloat(parentNode.style.left) + 25;
-                        const pY = parseFloat(parentNode.style.top) + 50;
-                        const nX = parseFloat(node.style.left) + 25;
-                        const nY = parseFloat(node.style.top);
-
-                        const length = Math.sqrt(Math.pow(nX - pX, 2) + Math.pow(nY - pY, 2));
-                        const angle = Math.atan2(nY - pY, nX - pX) * (180 / Math.PI);
-                        
-                        line.className = 'skill-line';
-                        if (gameState.player.learnedSkills.includes(skillId)) line.classList.add('learned');
-                        line.style.width = `${length}px`;
-                        line.style.left = `${pX}px`;
-                        line.style.top = `${pY}px`;
-                        line.style.transform = `rotate(${angle}deg)`;
-                        container.prepend(line);
-                    }
-                });
-            });
-
-            container.style.width = `${maxWidth}px`;
-            container.style.height = `${maxHeight}px`;
-
-            setTimeout(() => {
-                const scaleX = wrapper.clientWidth / maxWidth;
-                const scaleY = wrapper.clientHeight / maxHeight;
-                container.style.transform = `scale(${Math.min(scaleX, scaleY, 1)})`;
-            }, 0);
-        }
-
-        function renderPassiveSkillList(classKey) {
-            dom.skillModal.listPanel.innerHTML = '';
-            const skillsToList = Object.keys(PASSIVE_SKILLS[classKey]);
-
-            skillsToList.forEach(skillId => {
-                const skillData = PASSIVE_SKILLS[classKey][skillId];
-                const item = document.createElement('div');
-                item.className = 'skill-list-item';
-                item.onclick = () => {
-                    document.querySelectorAll('.skill-list-item').forEach(i => i.classList.remove('selected'));
-                    item.classList.add('selected');
-                    showPassiveUpgradePanel(skillId);
-                };
-
-                const sprite = spriteData.sprites.find(s => s.name === skillData.icon);
-                const SPRITE_SCALE_FACTOR = 6.0;
-                const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                const level = gameState.player.passiveSkills[skillId] || 0;
-
-                item.innerHTML = `<div class="icon-container rounded-md overflow-hidden border border-gray-600"><div class="skill-sprite-icon w-full h-full" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div><div><p class="font-bold">${skillData.name}</p><p class="text-xs text-gray-400">Lv. ${level}/${skillData.maxLevel}</p></div>`;
-                dom.skillModal.listPanel.appendChild(item);
-            });
-        }
-
-        function getSkillDetailsHTML(skillId) {
-            const skill = getEffectiveSkill(skillId);
-            const p = gameState.player;
-            const level = p.skillLevels[skillId] || 0;
-            let html = `<p class="font-bold">${skill.name} ${level > 0 ? `(Lv.${level})` : ''}</p>`;
-            html += `<p class="text-xs text-gray-300">${skill.desc}</p>`;
-            html += `<p class="text-xs text-blue-400">MP 소모: ${skill.cost}</p>`;
-
-            if (skill.type === 'attack') {
-                const power = (p.attack * (skill.scale.str || 0)) + (p.stats.int * 2.5 * (skill.scale.int || 0)) + (p.stats.agi * 1.5 * (skill.scale.agi || 0));
-                const minDamage = Math.floor(Math.max(10, power * 0.85));
-                const maxDamage = Math.floor(Math.max(10, power * 1.0));
-                html += `<p class="text-xs text-red-400">예상 피해: ${minDamage}~${maxDamage}</p>`;
-            }
-             if (skill.type === 'heal') {
-                const heal = Math.floor(p.stats.int * 5 * (skill.scale.int || 1));
-                html += `<p class="text-xs text-green-400">예상 회복량: ${heal}</p>`;
-            }
-            if (skill.addEffect) {
-                html += `<p class="text-xs text-purple-400">효과: ${skill.addEffect.duration}턴간 ${Math.floor(skill.addEffect.power * 100)}% ${skill.addEffect.type}</p>`;
-            }
-            return html;
-        }
-
-        function showUpgradePanel(skillId) {
-            const detailsPanel = dom.skillModal.detailsPanel;
-            const skill = SKILLS[skillId];
-            const p = gameState.player;
-            const currentLevel = p.skillLevels[skillId] || 0;
-            const isLearned = currentLevel > 0;
-            const canLearn = p.skillPoints > 0 && (!skill.requires || p.learnedSkills.includes(skill.requires));
-
-            detailsPanel.innerHTML = getSkillDetailsHTML(skillId);
-
-            const buttons = [];
-            if (!isLearned) {
-                buttons.push(`<button id="learn-skill-btn" class="game-button text-sm py-2 px-4" ${!canLearn ? 'disabled' : ''}>배우기 (1 SP)</button>`);
-            } else {
-                buttons.push(`<button id="upgrade-skill-btn" class="game-button text-sm py-2 px-4" ${p.skillPoints < 1 ? 'disabled' : ''}>강화 (1 SP)</button>`);
-                
-                const isEquipped = p.equippedSkills.includes(skillId);
-                if (isEquipped) {
-                    buttons.push(`<button id="unequip-skill-btn" class="game-button text-sm py-2 px-4">해제</button>`);
-                } else {
-                    const hasEmptySlot = p.equippedSkills.includes(null);
-                    buttons.push(`<button id="equip-skill-btn" class="game-button text-sm py-2 px-4" ${!hasEmptySlot ? 'disabled' : ''}>장착</button>`);
-                }
-            }
-            detailsPanel.innerHTML += `<div class="flex gap-2 mt-4">${buttons.join('')}</div>`;
-
-            document.getElementById('learn-skill-btn')?.addEventListener('click', () => {
-                p.skillPoints--;
-                p.skillLevels[skillId] = 1;
-                p.learnedSkills.push(skillId);
-                updateSkillModal();
-                renderSkillTree(Object.keys(SKILL_TREES).find(key => SKILL_TREES[key].skills.flat().includes(skillId)));
-                showUpgradePanel(skillId);
-            });
-            document.getElementById('upgrade-skill-btn')?.addEventListener('click', () => {
-                p.skillPoints--;
-                p.skillLevels[skillId]++;
-                updateSkillModal();
-                showUpgradePanel(skillId);
-            });
-            document.getElementById('equip-skill-btn')?.addEventListener('click', () => {
-                const emptySlotIndex = p.equippedSkills.findIndex(s => s === null);
-                if (emptySlotIndex !== -1) {
-                    p.equippedSkills[emptySlotIndex] = skillId;
-                    updateSkillModal();
-                    setupSkillButtons();
-                    showUpgradePanel(skillId);
-                }
-            });
-            document.getElementById('unequip-skill-btn')?.addEventListener('click', () => {
-                const slotIndex = p.equippedSkills.findIndex(s => s === skillId);
-                if (slotIndex !== -1) {
-                    unequipSkillFromSlot(slotIndex);
-                    updateSkillModal();
-                    showUpgradePanel(skillId);
-                }
-            });
-        }
-
-        function showPassiveUpgradePanel(skillId) {
-            const detailsPanel = dom.skillModal.detailsPanel;
-            const skill = PASSIVE_SKILLS[selectedClassName][skillId];
-            const p = gameState.player;
-            const currentLevel = p.passiveSkills[skillId] || 0;
-            const isMaxLevel = currentLevel >= skill.maxLevel;
-            const canUpgrade = p.passiveSkillPoints > 0 && !isMaxLevel;
-
-            let html = `<h4 class="font-bold text-lg text-yellow-300 mb-2">${skill.name} (Lv.${currentLevel}/${skill.maxLevel})</h4>`;
-            html += `<p class="text-sm text-gray-300 mb-2">현재 효과: ${currentLevel > 0 ? skill.desc(currentLevel) : '없음'}</p>`;
-            if (!isMaxLevel) {
-                html += `<p class="text-sm text-green-400 mb-4">다음 레벨: ${skill.desc(currentLevel + 1)}</p>`;
-            }
-            
-            html += `<button id="upgrade-passive-btn" class="game-button text-sm py-2 px-4" ${!canUpgrade ? 'disabled' : ''}>강화 (1 PSP)</button>`;
-            detailsPanel.innerHTML = html;
-
-            document.getElementById('upgrade-passive-btn')?.addEventListener('click', () => {
-                p.passiveSkillPoints--;
-                p.passiveSkills[skillId] = (p.passiveSkills[skillId] || 0) + 1;
-                updateSkillModal();
-                renderPassiveSkillList(selectedClassName);
-                showPassiveUpgradePanel(skillId);
-            });
-        }
-        
-        function renderEquippedSkills() {
-            const container = dom.skillModal.equippedSkills;
-            container.innerHTML = '<h3 class="text-xl font-bold mb-2 text-center">장착된 스킬</h3><div class="flex justify-center gap-2 flex-wrap"></div>';
-            const grid = container.querySelector('div');
-            const equipped = ['basic_attack', ...gameState.player.equippedSkills];
-            for(let i=0; i < 11; i++){
-                const skillId = equipped[i];
-                const slot = document.createElement('div');
-                slot.className = 'w-16 h-16 bg-gray-900 border border-gray-600 rounded-lg flex items-center justify-center cursor-pointer';
-                if(skillId){
-                    const skill = SKILLS[skillId];
-                    const sprite = spriteData.sprites.find(s => s.name === skill.icon);
-                    const SPRITE_SCALE_FACTOR = 4.0;
-                    const scaledWidth = spriteData.meta.size.w / SPRITE_SCALE_FACTOR;
-                    const scaledHeight = spriteData.meta.size.h / SPRITE_SCALE_FACTOR;
-                    const scaledX = sprite.x / SPRITE_SCALE_FACTOR;
-                    const scaledY = sprite.y / SPRITE_SCALE_FACTOR;
-                    slot.innerHTML = `<div class="w-12 h-12 overflow-hidden rounded"><div class="skill-sprite-icon" style="background-image: url('${SPRITE_IMAGE_URL}'); background-size: ${scaledWidth}px ${scaledHeight}px; background-position: -${scaledX}px -${scaledY}px;"></div></div>`;
-                    if (i > 0) {
-                        slot.onclick = () => {
-                            unequipSkillFromSlot(i - 1);
-                            updateSkillModal();
-                            document.querySelector('#skill-tree-tabs .text-yellow-300').click();
-                        };
-                    }
-                }
-                grid.appendChild(slot);
-            }
-        }
-
-        function updateMenuButtonsNotification() {
-            const charBtn = document.getElementById('char-menu-btn');
-            const skillBtn = document.getElementById('skill-menu-btn');
-            charBtn.classList.toggle('has-points', gameState.player && gameState.player.statPoints > 0);
-            skillBtn.classList.toggle('has-points', gameState.player && (gameState.player.skillPoints > 0 || gameState.player.passiveSkillPoints > 0));
-        }
-
-        function preloadImages(urls) {
-            const promises = urls.map(url => new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = resolve;
-                img.onerror = reject;
-                img.src = url;
-            }));
-            return Promise.all(promises);
-        }
-
-        function addClickSounds() {
-            document.querySelectorAll('.game-button, .menu-btn, .class-card, .skill-card, .stat-btn, .skill-node, #skill-tree-tabs button').forEach(el => {
-                el.addEventListener('click', () => playSound('click'));
-            });
-        }
-
-        dom.screens.title.querySelector('#start-game-btn').addEventListener('click', async () => {
-             await Tone.start();
-             setupSounds();
-             addClickSounds();
-             switchScreen('classSelection');
-             document.getElementById('bgm').play().catch(e => console.log("BGM auto-play failed."));
-        });
-        dom.screens.classSelection.addEventListener('click', (e) => { const card = e.target.closest('.class-card'); if (card) { showSkillSelection(card.dataset.class); } });
-        dom.skillSelection.confirmBtn.addEventListener('click', showPassiveSkillSelection);
-        dom.passiveSkillSelection.confirmBtn.addEventListener('click', startGame);
-        dom.screens.gameOver.querySelector('#restart-game-btn').addEventListener('click', () => location.reload());
-        dom.screens.gameClear.querySelector('#play-again-btn').addEventListener('click', () => location.reload());
-        dom.screens.stageClear.querySelector('#next-stage-btn').addEventListener('click', () => { gameState.currentStage++; if (gameState.currentStage >= STAGES.length) { switchScreen('gameClear'); } else { switchScreen('battle'); loadStage(gameState.currentStage); } });
-        document.getElementById('char-menu-btn').addEventListener('click', () => { dom.modals.character.classList.contains('hidden') ? openCharModal() : closeModal('character'); });
-        document.getElementById('skill-menu-btn').addEventListener('click', () => { dom.modals.skillTree.classList.contains('hidden') ? openSkillModal() : closeModal('skillTree'); });
-        dom.modals.character.querySelector('#close-char-modal').addEventListener('click', () => closeModal('character'));
-        dom.modals.skillTree.querySelector('#close-skill-modal').addEventListener('click', () => closeModal('skillTree'));
-        
-        async function initializeGame() {
-            const imageUrls = [
-                SPRITE_IMAGE_URL, MAGE_SPRITE_URL, ROGUE_SPRITE_URL, WARRIOR_SPRITE_URL,
-                'https://yqnyinreoamegbahoxzq.supabase.co/storage/v1/object/public/battle_images/file_00000000497c61fa963025bb3510d7bb_copy_1152x768.webp',
-                ...STAGES.map(stage => stage.img),
-                bossBg
-            ];
+        async function fetchRankings() {
             try {
-                await preloadImages(imageUrls);
-                switchScreen('title');
-            } catch (error) {
-                console.error("Image loading failed:", error);
-                document.getElementById('loading-screen').innerHTML = '<p>이미지를 불러오는 데 실패했습니다. 페이지를 새로고침 해주세요.</p>';
-            }
+                const { data, error } = await supabase.from('guestbook').select('name, score').order('score', { ascending: false }).limit(5);
+                if (error) throw error;
+                rankingList.innerHTML = '';
+                if (data.length === 0) {
+                    rankingList.innerHTML = '<p>아직 등록된 기록이 없습니다.</p>';
+                } else {
+                    data.forEach((entry, index) => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<span class="rank-name">${index + 1}. ${escapeHtml(entry.name)}</span> <span class="rank-score">${entry.score.toLocaleString()}</span>`;
+                        rankingList.appendChild(li);
+                    });
+                }
+            } catch (error) { console.error('랭킹 로딩 오류:', error); rankingList.innerHTML = `<p style="color: var(--error-color);">랭킹 로딩 실패: ${error.message}</p>`; }
         }
 
-        initializeGame();
-    </script>
+        async function fetchGuestbookEntries() {
+            try {
+                const { data, error, count } = await supabase.from('guestbook').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(guestbookLimit);
+                if (error) throw error;
+                
+                guestbookEntries.innerHTML = '';
+                if (data.length === 0) {
+                    guestbookEntries.innerHTML = '<p>첫 방명록을 남겨주세요.</p>';
+                } else {
+                    data.forEach(entry => {
+                        const div = document.createElement('div');
+                        div.className = 'guestbook-entry';
+                        div.innerHTML = `<p><strong>${escapeHtml(entry.name)}:</strong> ${escapeHtml(entry.message)}<span class="score">(${entry.score.toLocaleString()}점)</span></p>`;
+                        guestbookEntries.appendChild(div);
+                    });
+                }
+                if (count > guestbookLimit) {
+                    moreGuestbookBtn.classList.remove('hidden');
+                } else {
+                    moreGuestbookBtn.classList.add('hidden');
+                }
+            } catch (error) { console.error('방명록 로딩 오류:', error); guestbookEntries.innerHTML = `<p style="color: var(--error-color);">방명록 로딩 실패: ${error.message}</p>`; }
+        }
+
+        async function handleGuestbookSubmit(e) {
+            e.preventDefault();
+            if (!supabase) return;
+            const lastPostTime = localStorage.getItem('lastPostTime');
+            if (lastPostTime && Date.now() - lastPostTime < 30000) {
+                showError(`${Math.ceil((30000 - (Date.now() - lastPostTime)) / 1000)}초 후 등록 가능합니다.`);
+                return;
+            }
+            const name = guestbookName.value.trim();
+            const message = guestbookMessage.value.trim();
+            if (!name || !message) { showError('이름과 메시지를 입력해주세요.'); return; }
+            guestbookSubmit.disabled = true; guestbookSubmit.textContent = '...';
+            try {
+                const { error } = await supabase.from('guestbook').insert([{ name, message, score: finalGameScore }]);
+                if (error) throw error;
+                guestbookForm.reset();
+                localStorage.setItem('lastPostTime', Date.now());
+                guestbookLimit = 3;
+                loadRankingAndGuestbook();
+            } catch (error) { console.error('방명록 등록 오류:', error); showError(`등록 실패: ${error.message}`); } 
+            finally { guestbookSubmit.disabled = false; guestbookSubmit.textContent = '등록'; }
+        }
+        
+        function showError(message) { guestbookError.textContent = message; setTimeout(() => { guestbookError.textContent = ''; }, 3000); }
+        function escapeHtml(str) { return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+
+        // --- Event Listeners & Main Setup ---
+        function setupListeners() {
+            window.addEventListener('resize', setCanvasSize, { passive: true });
+            startScreen.addEventListener('click', startGame);
+            restartButton.addEventListener('click', restartGame);
+            
+            if (supabase) {
+                guestbookForm.addEventListener('submit', handleGuestbookSubmit);
+                moreGuestbookBtn.addEventListener('click', () => {
+                    guestbookLimit += 5;
+                    fetchGuestbookEntries();
+                });
+            }
+            const handleMoveStart=(x)=>{if(gameState!=='playing')return;const mid=canvas.getBoundingClientRect().left+canvas.width/2;keys.left=x<mid;keys.right=x>=mid;};
+            const handleMoveEnd=()=>{if(gameState==='playing'){keys.left=false;keys.right=false;}};
+            canvas.addEventListener('mousedown', e => handleMoveStart(e.clientX));
+            canvas.addEventListener('mouseup', handleMoveEnd);
+            canvas.addEventListener('mouseleave', handleMoveEnd);
+            canvas.addEventListener('mousemove', e => { if (e.buttons === 1) handleMoveStart(e.clientX); });
+            canvas.addEventListener('touchstart',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
+            canvas.addEventListener('touchmove',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
+            canvas.addEventListener('touchend',e=>{e.preventDefault();handleMoveEnd();},{passive:false});
+            document.addEventListener('keydown',e=>{if(gameState!=='playing')return;if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=true;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=true;});
+            document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=false;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=false;});
+        }
+
+        function init() {
+            setCanvasSize();
+            setupListeners();
+            spriteSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp';
+            spriteSheet.onload = () => { isSpriteSheetLoaded = true; };
+            backgroundSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/background1.webp';
+            backgroundSheet.onload = () => { isBackgroundSheetLoaded = true; };
+
+            const mainTitle = document.getElementById('main-title');
+            mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
+            anime({ targets: '#intro-character', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
+            anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
+            requestAnimationFrame(gameLoop);
+        }
+
+        init();
+    });
+</script>
+
 </body>
 </html>
+
