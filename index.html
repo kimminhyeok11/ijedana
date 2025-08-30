@@ -278,7 +278,52 @@
             availableBackgroundSprites = allBackgroundSpriteNames;
         }
         
-        function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
+        function generatePlatform(yPos){
+            let width = Math.random() * 80 + 80;
+            const x = Math.random() * (canvas.width - width);
+            let type = 'static';
+            let gimmick = 'none';
+            let dx = 0;
+            let dy = 0;
+            let verticalRange = 0;
+            let initialY = yPos;
+            let glitchTimer = 0;
+            let isVisible = true;
+
+            const rand = Math.random();
+            const gimmickRand = Math.random();
+
+            // 스테이지별 기믹 적용
+            if (backgroundState >= 4) { // 심연 이상
+                if (backgroundState === 4 && gimmickRand < 0.25) { // 심연: 페이징 & 짧은 발판
+                    gimmick = 'fading';
+                    width = Math.random() * 60 + 60;
+                } else if (backgroundState === 5 && gimmickRand < 0.3) { // 특이점: 빠른 이동
+                    type = 'moving';
+                    dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2 + 2.5);
+                } else if (backgroundState === 6 && gimmickRand < 0.35) { // 균열: 글리치
+                    gimmick = 'glitching';
+                    glitchTimer = Math.random() * 120 + 60; // 1~2초 사이
+                } else if (backgroundState >= 7 && gimmickRand < 0.4) { // 성운 이상: 상하 이동
+                    gimmick = 'vertical';
+                    dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1 + 0.5);
+                    verticalRange = Math.random() * 40 + 30;
+                }
+            }
+            
+            // 일반 발판 생성 로직
+            if (type === 'static' && gimmick === 'none') {
+                 if (score > 200 && rand < 0.20) {
+                    type = 'crumbling';
+                } else if (score > 50 && rand < 0.25) {
+                    type = 'moving';
+                    dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1);
+                }
+            }
+
+            platforms.push({ x, y: yPos, width, height: 20, type, gimmick, dx, dy, verticalRange, initialY, glitchTimer, isVisible, state: 'intact', alpha: 1 });
+        }
+
         
         function update(deltaTime){
             if(gameState!=='playing'||!player)return;
@@ -288,10 +333,11 @@
             if(keys.right){ player.dx=speed; player.direction = 'right'; }
             const currentJumpForce = JUMP_FORCE;
             player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
-            if(player.dy > 0){platforms.forEach(p => {if(player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
+            if(player.dy > 0){platforms.forEach(p => {if(p.isVisible && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
                 player.y = p.y - player.height; player.dy = currentJumpForce; 
                 if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
                 if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
+                if(p.gimmick === 'fading' && p.state === 'intact') { p.state = 'fading'; }
                 if(p.type === 'moving') player.x += p.dx * deltaTime;
                 handleCombo(p);
             }}); }
@@ -305,9 +351,27 @@
             score = baseScore + bonusScore;
             scoreDisplay.innerText = score;
 
-            platforms.forEach(p => {if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} if(p.state === 'shaking') p.alpha = Math.max(0, p.alpha - 0.02 * deltaTime);});
+            platforms.forEach(p => {
+                if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} 
+                if(p.state === 'shaking' || p.state === 'fading') { p.alpha = Math.max(0, p.alpha - 0.05 * deltaTime); if(p.alpha === 0) p.state = 'faded'; }
+                if(p.state === 'faded') { p.alpha = Math.min(1, p.alpha + 0.01 * deltaTime); if(p.alpha === 1) p.state = 'intact'; }
+
+                if (p.gimmick === 'vertical') {
+                    p.y += p.dy * deltaTime;
+                    if (p.y > p.initialY + p.verticalRange || p.y < p.initialY - p.verticalRange) {
+                        p.dy *= -1;
+                    }
+                }
+                if (p.gimmick === 'glitching') {
+                    p.glitchTimer -= deltaTime;
+                    if (p.glitchTimer <= 0) {
+                        p.isVisible = !p.isVisible;
+                        p.glitchTimer = p.isVisible ? Math.random() * 120 + 60 : Math.random() * 60 + 30;
+                    }
+                }
+            });
             if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
-            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50 && p.alpha > 0);
+            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
             backgroundElements = backgroundElements.filter(el => (el.y - cameraY * 0.5) < canvas.height + 50);
 
             player.frameCount++; 
@@ -317,11 +381,11 @@
             if(player.y > cameraY + canvas.height) endGame();
 
             let targetState = 0;
-            if (score > 50000) targetState = 5;
-            else if (score > 40000) targetState = 4;
-            else if (score > 30000) targetState = 3;
-            else if (score > 20000) targetState = 2;
-            else if (score > 10000) targetState = 1;
+            if (score > 850000) targetState = 5;
+            else if (score > 600000) targetState = 4;
+            else if (score > 400000) targetState = 3;
+            else if (score > 250000) targetState = 2;
+            else if (score > 100000) targetState = 1;
             
             if (backgroundState !== targetState) {
                 backgroundState = targetState;
@@ -330,10 +394,8 @@
                     shuffleArray(allBackgroundSpriteNames);
                     availableBackgroundSprites = allBackgroundSpriteNames;
                 }
-
                 const spriteName = availableBackgroundSprites.pop();
                 const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
-                
                 if(spriteInfo){
                      const newElementHeight = spriteInfo.h / 1.5;
                      backgroundElements.push({
@@ -393,7 +455,17 @@
 
             if(gameState!=='playing'||!player)return;
             ctx.save();ctx.translate(0,-cameraY);
-            platforms.forEach(p=>{ctx.globalAlpha=p.alpha;const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}else if(p.state==='shaking'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}ctx.fillStyle=grad;ctx.fillRect(p.x+(p.state==='shaking'?(Math.random()-0.5)*4:0),p.y,p.width,p.height);ctx.globalAlpha=1;});
+            platforms.forEach(p=>{
+                if (!p.isVisible) return;
+                ctx.globalAlpha=p.alpha;
+                const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);
+                if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}
+                else if(p.type==='crumbling' || p.gimmick === 'fading'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}
+                else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}
+                ctx.fillStyle=grad;
+                ctx.fillRect(p.x,p.y,p.width,p.height);
+                ctx.globalAlpha=1;
+            });
             
             ctx.fillStyle = 'rgba(250, 204, 21, 0.8)';
             particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / 60), 0, Math.PI * 2); ctx.fill(); });
@@ -425,22 +497,6 @@
             if (player.direction === 'left') { ctx.scale(-1, 1); }
             
             ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
-            
-            // 캐릭터 틴트 효과
-            if (backgroundState > 1) { 
-                let tintColor = '';
-                if (backgroundState === 2) tintColor = 'rgba(162, 82, 255, 0.15)'; // 제4세계
-                if (backgroundState === 3) tintColor = 'rgba(250, 204, 21, 0.15)';   // 천상계
-                if (backgroundState === 4) tintColor = 'rgba(80, 80, 220, 0.15)';   // 심연
-                if (backgroundState === 5) tintColor = 'rgba(255, 255, 224, 0.2)'; // 특이점
-
-                if (tintColor) {
-                    ctx.globalCompositeOperation = 'source-atop';
-                    ctx.fillStyle = tintColor;
-                    ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
-                }
-            }
-
             ctx.restore();
         }
 
