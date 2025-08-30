@@ -265,7 +265,20 @@
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
         
         function resetGame(){
-            keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;baseScore=0;bonusScore=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
+            keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;baseScore=0;bonusScore=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;
+            platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static', gimmick: 'none', isVisible: true});
+
+            // 안전한 초기 발판 생성
+            let lastX = canvas.width / 2;
+            for (let i = 1; i < 20; i++) {
+                const yPos = canvas.height - 40 - i * 85;
+                const width = 100;
+                const newX = lastX + (Math.random() * 200 - 100);
+                const clampedX = Math.max(0, Math.min(newX, canvas.width - width));
+                platforms.push({ x: clampedX, y: yPos, width, height: 20, type: 'static', gimmick: 'none', dx: 0, dy: 0, verticalRange: 0, initialY: yPos, glitchTimer: 0, isVisible: true, state: 'intact', alpha: 1 });
+                lastX = clampedX;
+            }
+
             stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
             moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
             gameState='playing';
@@ -293,37 +306,36 @@
             const rand = Math.random();
             const gimmickRand = Math.random();
 
-            // 스테이지별 기믹 적용
-            if (backgroundState >= 4) { // 심연 이상
-                if (backgroundState === 4 && gimmickRand < 0.25) { // 심연: 페이징 & 짧은 발판
-                    gimmick = 'fading';
-                    width = Math.random() * 60 + 60;
-                } else if (backgroundState === 5 && gimmickRand < 0.3) { // 특이점: 빠른 이동
-                    type = 'moving';
-                    dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2 + 2.5);
-                } else if (backgroundState === 6 && gimmickRand < 0.35) { // 균열: 글리치
-                    gimmick = 'glitching';
-                    glitchTimer = Math.random() * 120 + 60; // 1~2초 사이
-                } else if (backgroundState >= 7 && gimmickRand < 0.4) { // 성운 이상: 상하 이동
-                    gimmick = 'vertical';
-                    dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1 + 0.5);
-                    verticalRange = Math.random() * 40 + 30;
+            // 스테이지별 기믹 적용 (backgroundState는 점수에 따라 update에서 결정됨)
+            const currentStage = backgroundState;
+            if (currentStage >= 4) { // 심연 이상
+                const allGimmicks = [];
+                if (currentStage >= 4) allGimmicks.push('fading', 'short');
+                if (currentStage >= 5) allGimmicks.push('fast_moving');
+                if (currentStage >= 6) allGimmicks.push('glitching');
+                if (currentStage >= 7) allGimmicks.push('vertical');
+
+                if (gimmickRand < (currentStage - 3) * 0.15) { // 스테이지가 높을수록 기믹 확률 증가
+                    gimmick = allGimmicks[Math.floor(Math.random() * allGimmicks.length)];
+                }
+
+                switch(gimmick) {
+                    case 'fading': width = Math.random() * 60 + 60; break;
+                    case 'short': width = Math.random() * 60 + 60; break;
+                    case 'fast_moving': type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2 + 2.5); break;
+                    case 'glitching': glitchTimer = Math.random() * 120 + 60; break;
+                    case 'vertical': dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1 + 0.5); verticalRange = Math.random() * 40 + 30; break;
                 }
             }
             
-            // 일반 발판 생성 로직
+            // 일반 발판 생성 로직 (기믹이 없을 경우)
             if (type === 'static' && gimmick === 'none') {
-                 if (score > 200 && rand < 0.20) {
-                    type = 'crumbling';
-                } else if (score > 50 && rand < 0.25) {
-                    type = 'moving';
-                    dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1);
-                }
+                 if (score > 200 && rand < 0.20) type = 'crumbling';
+                 else if (score > 50 && rand < 0.25) { type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1); }
             }
 
             platforms.push({ x, y: yPos, width, height: 20, type, gimmick, dx, dy, verticalRange, initialY, glitchTimer, isVisible, state: 'intact', alpha: 1 });
         }
-
         
         function update(deltaTime){
             if(gameState!=='playing'||!player)return;
@@ -353,14 +365,12 @@
 
             platforms.forEach(p => {
                 if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} 
-                if(p.state === 'shaking' || p.state === 'fading') { p.alpha = Math.max(0, p.alpha - 0.05 * deltaTime); if(p.alpha === 0) p.state = 'faded'; }
-                if(p.state === 'faded') { p.alpha = Math.min(1, p.alpha + 0.01 * deltaTime); if(p.alpha === 1) p.state = 'intact'; }
+                if(p.state === 'shaking' || p.state === 'fading') { p.alpha = Math.max(0, p.alpha - 0.05 * deltaTime); if(p.alpha <= 0) p.state = 'faded'; }
+                if(p.state === 'faded') { p.alpha = Math.min(1, p.alpha + 0.01 * deltaTime); if(p.alpha >= 1) p.state = 'intact'; }
 
                 if (p.gimmick === 'vertical') {
                     p.y += p.dy * deltaTime;
-                    if (p.y > p.initialY + p.verticalRange || p.y < p.initialY - p.verticalRange) {
-                        p.dy *= -1;
-                    }
+                    if (p.y > p.initialY + p.verticalRange || p.y < p.initialY - p.verticalRange) { p.dy *= -1; }
                 }
                 if (p.gimmick === 'glitching') {
                     p.glitchTimer -= deltaTime;
@@ -381,35 +391,44 @@
             if(player.y > cameraY + canvas.height) endGame();
 
             let targetState = 0;
-            if (score > 850000) targetState = 5;
-            else if (score > 600000) targetState = 4;
-            else if (score > 400000) targetState = 3;
-            else if (score > 250000) targetState = 2;
-            else if (score > 100000) targetState = 1;
+            if (score > 1200000) targetState = 10;
+            else if (score > 850000) targetState = 9;
+            else if (score > 600000) targetState = 8;
+            else if (score > 400000) targetState = 7;
+            else if (score > 250000) targetState = 6;
+            else if (score > 150000) targetState = 5;
+            else if (score > 100000) targetState = 4;
+            else if (score > 30000) targetState = 3;
+            else if (score > 20000) targetState = 2;
+            else if (score > 10000) targetState = 1;
             
             if (backgroundState !== targetState) {
+                const oldState = backgroundState;
                 backgroundState = targetState;
-                if (availableBackgroundSprites.length === 0) {
-                    const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
-                    shuffleArray(allBackgroundSpriteNames);
-                    availableBackgroundSprites = allBackgroundSpriteNames;
-                }
-                const spriteName = availableBackgroundSprites.pop();
-                const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
-                if(spriteInfo){
-                     const newElementHeight = spriteInfo.h / 1.5;
-                     backgroundElements.push({
-                        spriteName: spriteInfo.name,
-                        x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
-                        y: cameraY * 0.5 - newElementHeight - (Math.random() * 200),
-                        width: spriteInfo.w / 1.5,
-                        height: newElementHeight
-                    });
+                // 배경 요소는 페이즈가 실제로 바뀔 때만 추가
+                if (backgroundState > oldState) {
+                    if (availableBackgroundSprites.length === 0) {
+                        const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
+                        shuffleArray(allBackgroundSpriteNames);
+                        availableBackgroundSprites = allBackgroundSpriteNames;
+                    }
+                    const spriteName = availableBackgroundSprites.pop();
+                    const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
+                    if(spriteInfo){
+                         const newElementHeight = spriteInfo.h / 1.5;
+                         backgroundElements.push({
+                            spriteName: spriteInfo.name,
+                            x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
+                            y: cameraY * 0.5 - newElementHeight - (Math.random() * 200),
+                            width: spriteInfo.w / 1.5,
+                            height: newElementHeight
+                        });
+                    }
                 }
             }
 
             const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
-            const targetBg = backgrounds[backgroundState];
+            const targetBg = backgrounds[Math.min(backgroundState, backgrounds.length - 1)]; // 배경 배열 초과 방지
             currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
             currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
 
@@ -432,10 +451,9 @@
             }
             stars.forEach(s => {
                 let starColor = `rgba(255, 255, 255, ${s.alpha})`;
-                if (backgroundState === 2) starColor = `rgba(200, 180, 255, ${s.alpha})`;
-                else if (backgroundState === 3) starColor = `rgba(255, 220, 150, ${s.alpha})`;
-                else if (backgroundState === 4) starColor = `rgba(180, 180, 255, ${s.alpha})`; 
-                else if (backgroundState === 5) starColor = `rgba(255, 215, 0, ${s.alpha})`;
+                if (backgroundState === 2 || backgroundState === 6) starColor = `rgba(200, 180, 255, ${s.alpha})`;
+                else if (backgroundState === 3 || backgroundState === 5 || backgroundState >= 9) starColor = `rgba(255, 220, 150, ${s.alpha})`;
+                else if (backgroundState === 4 || backgroundState === 7) starColor = `rgba(180, 180, 255, ${s.alpha})`; 
                 ctx.fillStyle = starColor;
                 ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
             });
