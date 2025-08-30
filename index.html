@@ -230,8 +230,8 @@
         };
 
         // --- Game State & Constants ---
-        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, highestY = 0, finalGameScore = 0;
-        let guestbookLimit = 3; let lastTime = 0; let lastMilestone = 0;
+        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, baseScore = 0, bonusScore = 0, highestY = 0, finalGameScore = 0;
+        let guestbookLimit = 3; let lastTime = 0; let lastMilestoneScore = 0;
         let comboCount = 0; let comboTimeout; let lastPlatform = null;
         const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
         
@@ -253,13 +253,14 @@
 
         // --- Initialization & Game Loop ---
         function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
+        function resetGame(){keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;baseScore=0;bonusScore=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static'});for(let i=1;i<15;i++)generatePlatform(canvas.height-i*100);
             stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
             moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
             gameState='playing';
             backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
             comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
-            backgroundElements = []; lastMilestone = 0;
+            backgroundElements = [];
+            lastMilestoneScore = 0;
         }
         function generatePlatform(yPos){const width=Math.random()*80+80;const x=Math.random()*(canvas.width-width);let type='static',dx=0;const rand=Math.random();if(score>200&&rand<0.20)type='crumbling';else if(score>50&&rand<0.25){type='moving';dx=(Math.random()>0.5?1:-1)*(Math.random()*1.5+1);}platforms.push({x,y:yPos,width,height:20,type,dx,state:'intact',alpha:1});}
         
@@ -280,16 +281,21 @@
             }}); }
             if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
             if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
-            if(player.y < highestY){highestY = player.y; score = Math.floor((canvas.height - 80 - highestY) / 10); scoreDisplay.innerText = score;}
             
-            const currentMilestone = Math.floor(score / 1000);
-            if (currentMilestone > 0 && currentMilestone > lastMilestone) {
-                lastMilestone = currentMilestone;
+            if(player.y < highestY){
+                highestY = player.y; 
+                baseScore = Math.floor((canvas.height - 80 - highestY) / 10);
+            }
+            score = baseScore + bonusScore;
+            scoreDisplay.innerText = score;
+            
+            if (score > lastMilestoneScore + 500) {
+                lastMilestoneScore += 500;
                 const spriteInfo = backgroundSpriteData.sprites[Math.floor(Math.random() * backgroundSpriteData.sprites.length)];
                 backgroundElements.push({
                     spriteName: spriteInfo.name,
-                    x: Math.random() * (canvas.width - spriteInfo.w / 3),
-                    y: player.y - canvas.height,
+                    x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
+                    y: player.y - canvas.height - (Math.random() * 200),
                     width: spriteInfo.w / 1.5,
                     height: spriteInfo.h / 1.5
                 });
@@ -308,7 +314,10 @@
 
             let targetState = 0;
             if (score > 2500) targetState = 3; else if (score > 1500) targetState = 2; else if (score > 500) targetState = 1;
-            if (backgroundState !== targetState) backgroundState = targetState;
+            if (backgroundState !== targetState) {
+                backgroundState = targetState;
+            }
+
             const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
             const targetBg = backgrounds[backgroundState];
             currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
@@ -397,8 +406,8 @@
             clearTimeout(comboTimeout);
             if (comboCount >= 2) {
                 const comboBonus = comboCount * 5;
-                score += comboBonus;
-                scoreDisplay.innerText = score;
+                bonusScore += comboBonus;
+                // score는 update 함수에서 최종 계산됩니다.
                 comboDisplay.innerText = `${comboCount} COMBO`;
                 comboDisplay.style.opacity = 1;
                 anime.remove(comboDisplay);
