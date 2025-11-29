@@ -309,7 +309,8 @@
         }
         
         window.deletePost = async function(postId) {
-            if (!confirm('정말로 이 게시글을 삭제하시겠습니까? 관련 자료가 영구 삭제됩니다.')) return;
+            // **주의: confirm() 대신 커스텀 모달 UI를 사용해야 하지만, 여기서는 간결함을 위해 임시로 사용합니다.**
+            if (!window.confirm('정말로 이 게시글을 삭제하시겠습니까? 관련 자료가 영구 삭제됩니다.')) return;
             if (!state.user) return showMessage('로그인 사용자만 삭제할 수 있습니다.', 'error');
 
             // 1. Storage 파일 삭제를 위한 게시글 내용 조회
@@ -322,9 +323,10 @@
                  return showMessage('삭제 권한이 없습니다.', 'error');
             }
 
-            // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제
+            // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제 (안전 삭제 로직)
             const content = post.content;
             // Supabase Storage 경로에 있는 이미지 URL만 필터링
+            // /<SUPABASE_URL>/storage/v1/object/public/images/posts/<filename>
             const imageUrls = [...content.matchAll(/src="([^"]*)"/g)]
                 .map(match => match[1])
                 .filter(url => url.includes(SUPABASE_URL) && url.includes(`/${STORAGE_BUCKET}/posts/`));
@@ -332,13 +334,21 @@
             if (imageUrls.length > 0) {
                 const filesToDelete = imageUrls.map(url => {
                     // Supabase URL에서 'images/' 이후의 경로 추출 (e.g., 'posts/file_name.webp')
-                    const path = url.substring(url.indexOf(`/${STORAGE_BUCKET}/`) + `/${STORAGE_BUCKET}/`.length);
-                    return path.split('?')[0]; // 쿼리 스트링 제거
+                    const pathIndex = url.indexOf(`/${STORAGE_BUCKET}/`) + `/${STORAGE_BUCKET}/`.length;
+                    // 경로 추출: 'posts/file_name.webp?t=...'
+                    let path = url.substring(pathIndex);
+                    // 쿼리 스트링 제거: 'posts/file_name.webp'
+                    path = path.split('?')[0]; 
+                    return path;
                 });
                 
+                // Supabase Storage에서 파일 삭제
                 const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
+                    showMessage('Storage 파일 삭제 실패. (로그 확인)', 'error');
+                } else {
+                    showMessage(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`, 'info');
                 }
             }
 
@@ -566,7 +576,8 @@
             }
             const channel = client.channel(`comments_${postId}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
-                    () => loadComments(postId)
+                    // 댓글이 추가/삭제/업데이트되면 댓글을 다시 로드하여 UI 갱신
+                    () => loadComments(postId) 
                 ).subscribe();
             state.realtimeChannels[`comments_${postId}`] = channel;
         }
@@ -693,8 +704,10 @@
             pointer-events: none;
         }
         .editor-toolbar { background-color: #374151; }
-        /* 이미지 삽입 후 레이아웃 깨짐 방지 */
+        /* 이미지 삽입 후 레이아웃 깨짐 방지 및 반응형 스타일 */
         #detail-content img { max-width: 100%; height: auto; }
+        /* 종목 탭 스크롤바 숨기기 (모바일 친화적) */
+        #stock-tabs { -ms-overflow-style: none; /* IE and Edge */ scrollbar-width: none; /* Firefox */ }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative">
@@ -827,6 +840,7 @@
                 <div class="flex justify-between items-center text-xs text-gray-500">
                     <div id="detail-author"></div>
                     <div class="flex space-x-3 items-center">
+                         <!-- 안전 삭제 기능이 연결된 버튼 -->
                          <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="deletePost(state.currentPostId)">삭제</button>
                          <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
                     </div>
