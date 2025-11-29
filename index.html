@@ -22,16 +22,20 @@
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         // ------------------------------------------------------------------
-        // 2. 전역 상태 및 상수
+        // 2. 전역 상태 및 상수 (messageTimer 제거)
         // ------------------------------------------------------------------
         const state = {
             user: null,
             profile: null,
             currentPostId: null,
+            postToEdit: null,
+            isEditing: false,
             currentStockName: '삼성전자', 
             stockTags: [], 
             realtimeChannels: {},
-            guestName: `나그네_${Math.floor(Math.random() * 1000)}`
+            guestName: `나그네_${Math.floor(Math.random() * 1000)}`,
+            postIdToDelete: null,
+            // messageTimer 제거됨
         };
 
         const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
@@ -43,7 +47,7 @@
         ];
         
         // ------------------------------------------------------------------
-        // 3. 유틸리티 함수
+        // 3. 유틸리티 함수 (showMessage 함수 제거)
         // ------------------------------------------------------------------
 
         function calculateLevel(postCount, commentCount) {
@@ -52,19 +56,14 @@
             return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
         }
 
-        function showMessage(text, type = 'info') {
-            const box = document.getElementById('message-box');
-            box.innerHTML = text;
-            box.className = `fixed bottom-4 right-4 z-[9999] px-4 py-2 rounded-xl shadow-xl text-xs font-bold transition-all duration-300 transform translate-y-0 opacity-100 ${type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`;
-            setTimeout(() => { box.classList.add('translate-y-10', 'opacity-0'); }, 3000);
-        }
-
         // --- 인증 관련 ---
         async function handleAuth(isSignUp) {
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             
-            if (!email || !password) return showMessage('이메일과 비밀번호를 입력해주세요.', 'error');
+            if (!email || !password) {
+                return console.error('이메일과 비밀번호를 입력해주세요.'); // showMessage 대체
+            }
 
             let error;
             if (isSignUp) {
@@ -74,10 +73,9 @@
             }
 
             if (error) {
-                showMessage(`인증 실패: ${error.message}`, 'error');
-                console.error("인증 실패 상세:", error); // 상세 로그 추가
+                console.error(`인증 실패: ${error.message}`); // showMessage 대체
             } else {
-                showMessage('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)', 'success');
+                console.log('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)'); // showMessage 대체
                 closeModal('authModal');
                 checkSession();
             }
@@ -85,7 +83,7 @@
         
         async function logout() {
             await client.auth.signOut();
-            showMessage('하산했습니다.', 'info');
+            console.log('하산했습니다.'); // showMessage 대체
             state.profile = null;
             state.user = null;
             updateHeaderUI();
@@ -164,7 +162,7 @@
                             // Supabase Storage 업로드
                             const { data, error } = await client.storage
                                 .from(STORAGE_BUCKET)
-                                .upload(filePath, blob, {
+                                .upload(filePath, blob, { // blob 사용 확인 완료
                                     cacheControl: '3600',
                                     upsert: false,
                                     contentType: 'image/webp',
@@ -176,6 +174,7 @@
                                 console.error('Check RLS Policy or Authentication Status (must be logged in).');
                                 reject(error);
                             } else {
+                                // getPublicUrl은 이 경로를 기반으로 절대 URL을 생성합니다. (경로 손실 문제 해결)
                                 const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
                                 resolve(publicUrl);
                             }
@@ -192,7 +191,7 @@
         window.handleImageUpload = async function() {
             // --- 디버깅 강화: 로그인 상태 확인 ---
             if (!state.user) {
-                showMessage('이미지 업로드는 로그인 사용자만 가능합니다. 현재 상태: 비로그인', 'error');
+                console.error('이미지 업로드는 로그인 사용자만 가능합니다. 현재 상태: 비로그인'); // showMessage 대체
                 return;
             }
             
@@ -200,7 +199,7 @@
             const file = fileInput.files[0];
             if (!file) return;
             
-            showMessage('이미지 변환 및 업로드 중...', 'info');
+            console.log('이미지 변환 및 업로드 중...'); // showMessage 대체
             try {
                 // Posts 이미지는 'posts' 폴더에 저장
                 const publicUrl = await convertAndUploadImage(file, 'posts');
@@ -208,19 +207,32 @@
                 // 에디터에 이미지 삽입 (반응형 스타일 적용)
                 const editor = document.getElementById('new-post-content');
                 const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200/333/fff?text=이미지+로드+실패'">`;
+                
+                // 에디터에 포커스를 맞추고 이미지 삽입을 시도합니다. 
+                editor.focus();
                 document.execCommand('insertHTML', false, imgTag);
                 
-                showMessage('이미지 삽입 완료.', 'success');
+                console.log('이미지 삽입 완료.'); // showMessage 대체
             } catch (error) {
                 console.error('최종 이미지 업로드 실패:', error);
-                showMessage(`이미지 업로드 중 오류 발생: ${error.message || '로그를 확인해주세요.'}`, 'error');
+                // 에러 메시지 상세화
+                console.error(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`); // showMessage 대체
             } finally {
                 fileInput.value = ''; // input 초기화
             }
         };
 
-        window.handleYouTubeEmbed = function() {
-            const url = prompt('임베드할 YouTube URL을 입력해주세요:');
+        // --- prompt() 대신 모달을 띄우는 함수 ---
+        window.openYouTubeModal = function() {
+            document.getElementById('youtube-url-input').value = '';
+            openModal('youtubeEmbedModal');
+        }
+
+        // --- 모달에서 호출되어 실제 임베드를 처리하는 함수 ---
+        window.handleYouTubeEmbedFromModal = function() {
+            const url = document.getElementById('youtube-url-input').value.trim();
+            closeModal('youtubeEmbedModal'); // 모달 닫기
+
             if (!url) return;
 
             // YouTube URL에서 동영상 ID 추출
@@ -230,7 +242,7 @@
             if (match && match[2].length === 11) {
                 videoId = match[2];
             } else {
-                showMessage('유효한 YouTube URL이 아닙니다.', 'error');
+                console.error('유효한 YouTube URL이 아닙니다.'); // showMessage 대체
                 return;
             }
 
@@ -247,86 +259,132 @@
             `;
             const editor = document.getElementById('new-post-content');
             document.execCommand('insertHTML', false, embedHtml);
-            showMessage('YouTube 동영상 삽입 완료.', 'success');
+            console.log('YouTube 동영상 삽입 완료.'); // showMessage 대체
         };
         
         // ------------------------------------------------------------------
         // 5. 게시글 CRUD 로직 (안전 삭제 포함)
         // ------------------------------------------------------------------
         
-        async function createPost() {
-            if (!state.user) return showMessage('로그인 후 이용 가능합니다.', 'error');
+        /**
+         * 게시글을 저장하거나 수정합니다.
+         * state.isEditing 상태에 따라 insert 또는 update를 수행합니다.
+         */
+        async function savePost() {
+            if (!state.user) {
+                return console.error('로그인 후 이용 가능합니다.'); // showMessage 대체
+            }
 
             const type = document.querySelector('input[name="post-type"]:checked').value;
             const title = document.getElementById('new-post-title').value;
             const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
 
-            if (!title || !contentHTML) return showMessage('제목과 내용을 입력해주세요.', 'error');
+            if (!title || !contentHTML) {
+                return console.error('제목과 내용을 입력해주세요.'); // showMessage 대체
+            }
 
             let stockName = null;
 
             if (type === 'stock') {
                 const inputVal = document.getElementById('stock-input').value.trim();
-                if (!inputVal) return showMessage('종목명을 입력하거나 선택해야 합니다.', 'error');
+                if (!inputVal) {
+                    return console.error('종목명을 입력하거나 선택해야 합니다.'); // showMessage 대체
+                }
                 
                 stockName = inputVal;
-                // 종목 태그가 없으면 자동 생성
-                const exists = state.stockTags.find(t => t.name === stockName);
-                if (!exists) {
-                    const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
-                    if (tagError) console.error('태그 생성 실패:', tagError);
-                    else {
-                        showMessage(`새로운 종목 [${stockName}]이 강호에 등록되었습니다!`, 'success');
-                        await fetchStockTags();
+                // 종목 태그가 없으면 자동 생성 (생성 모드에서만)
+                if (!state.isEditing) {
+                    const exists = state.stockTags.find(t => t.name === stockName);
+                    if (!exists) {
+                        const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
+                        if (tagError) console.error('태그 생성 실패:', tagError);
+                        else {
+                            console.log(`새로운 종목 [${stockName}]이 강호에 등록되었습니다!`); // showMessage 대체
+                            await fetchStockTags();
+                        }
                     }
                 }
             }
 
             const payload = {
                 title, content: contentHTML, type, 
-                user_id: state.user.id, 
                 stock_id: stockName,
                 mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
             };
 
-            const { error } = await client.from('posts').insert(payload);
+            let error;
+            let successMessage = '비급이 기록되었습니다.';
+            
+            if (state.isEditing) {
+                // 수정 모드: update
+                const { error: updateError } = await client.from('posts')
+                    .update(payload)
+                    .eq('id', state.currentPostId)
+                    .eq('user_id', state.user.id); // 본인 글만 수정 가능
+                error = updateError;
+                successMessage = '비급이 수정되었습니다.';
+            } else {
+                // 작성 모드: insert
+                payload.user_id = state.user.id;
+                const { error: insertError } = await client.from('posts').insert(payload);
+                error = insertError;
+            }
+
             if (error) {
                 console.error(error);
-                showMessage('비급 등록 실패.', 'error');
+                console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패.`); // showMessage 대체
             } else {
-                showMessage('비급이 기록되었습니다.', 'success');
+                console.log(successMessage); // showMessage 대체
                 closeModal('newPostModal');
+                
+                // 모달 닫기 후 상태 초기화 및 UI 리프레시
+                state.isEditing = false;
+                state.postToEdit = null;
                 document.getElementById('new-post-title').value = '';
                 document.getElementById('new-post-content').innerHTML = '';
                 
+                // 현재 뷰를 리프레시하거나 종목 게시판으로 이동
+                const currentView = document.querySelector('.app-view:not(.hidden)').id;
                 if (type === 'stock') {
                     state.currentStockName = stockName; 
                     navigate('stock-board');
                 } else {
-                    navigate(type === 'secret' ? 'secret-inn' : 'gangho-plaza');
+                    navigate(currentView); // 현재 뷰 유지 및 리프레시
                 }
             }
         }
         
+        // --- 수정됨: 삭제 확인 모달을 띄우는 함수 ---
+        window.showDeleteConfirm = function() {
+            if (!state.currentPostId) return;
+            // 삭제할 게시글의 제목을 확인 모달에 표시
+            const title = document.getElementById('detail-title').innerText;
+            document.getElementById('confirm-delete-title').innerText = title;
+            openModal('deleteConfirmModal');
+        }
+
+        // --- 수정됨: 실제 삭제 로직. DB 삭제 오류 시 상세 로그를 남기도록 강화 ---
         window.deletePost = async function(postId) {
-            // **주의: confirm() 대신 커스텀 모달 UI를 사용해야 하지만, 여기서는 간결함을 위해 임시로 사용합니다.**
-            if (!window.confirm('정말로 이 게시글을 삭제하시겠습니까? 관련 자료가 영구 삭제됩니다.')) return;
-            if (!state.user) return showMessage('로그인 사용자만 삭제할 수 있습니다.', 'error');
+            closeModal('deleteConfirmModal'); // 확인 모달 닫기
+            
+            if (!state.user) {
+                return console.error('로그인 사용자만 삭제할 수 있습니다.'); // showMessage 대체
+            }
 
             // 1. Storage 파일 삭제를 위한 게시글 내용 조회
             const { data: post, error: fetchError } = await client.from('posts').select('content, user_id').eq('id', postId).single();
             if (fetchError || !post) {
                 console.error("게시글 조회 오류:", fetchError);
-                return showMessage('게시글 정보를 찾을 수 없습니다.', 'error');
+                return console.error('게시글 정보를 찾을 수 없습니다.'); // showMessage 대체
             }
+            // RLS 정책이 있지만 클라이언트 단에서 한 번 더 확인하는 것이 좋습니다.
             if (post.user_id !== state.user.id) {
-                 return showMessage('삭제 권한이 없습니다.', 'error');
+                 return console.error('삭제 권한이 없습니다.'); // showMessage 대체
             }
 
             // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제 (안전 삭제 로직)
             const content = post.content;
             // Supabase Storage 경로에 있는 이미지 URL만 필터링
-            // /<SUPABASE_URL>/storage/v1/object/public/images/posts/<filename>
             const imageUrls = [...content.matchAll(/src="([^"]*)"/g)]
                 .map(match => match[1])
                 .filter(url => url.includes(SUPABASE_URL) && url.includes(`/${STORAGE_BUCKET}/posts/`));
@@ -346,9 +404,9 @@
                 const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
-                    showMessage('Storage 파일 삭제 실패. (로그 확인)', 'error');
+                    console.error('Storage 파일 삭제 실패. (로그 확인)'); // showMessage 대체
                 } else {
-                    showMessage(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`, 'info');
+                    console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`); // showMessage 대체
                 }
             }
 
@@ -356,17 +414,18 @@
             const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
 
             if (deleteError) {
-                console.error('게시글 DB 삭제 오류:', deleteError);
-                showMessage('게시글 삭제에 실패했습니다.', 'error');
+                // --- 수정됨: 상세 오류 메시지 로깅 ---
+                console.error('게시글 DB 삭제 오류 (RLS 가능성 높음):', deleteError);
+                console.error(`게시글 삭제 실패: ${deleteError.message}. (로그 확인)`); // showMessage 대체
             } else {
-                showMessage('게시글 및 관련 자료가 삭제되었습니다.', 'success');
+                console.log('게시글 및 관련 자료가 삭제되었습니다.'); // showMessage 대체
                 closeModal('postDetailModal');
                 // 현재 뷰 리프레시
                 const currentView = document.querySelector('.app-view:not(.hidden)').id;
                 navigate(currentView);
             }
         };
-
+        
         // ------------------------------------------------------------------
         // 6. 뷰 및 네비게이션
         // ------------------------------------------------------------------
@@ -407,27 +466,46 @@
              const stockTabs = document.getElementById('stock-tabs');
             stockTabs.innerHTML = '';
             // 현재 종목이 태그 목록에 없으면 추가 (사용자 입력으로 생성된 경우)
-            if (!state.stockTags.find(t => t.name === state.currentStockName)) {
-                state.stockTags.push({ name: state.currentStockName });
+            if (state.currentStockName && !state.stockTags.find(t => t.name === state.currentStockName)) {
+                // 중복 방지를 위해 임시로 태그 목록에 추가 후 렌더링
+                const tempTags = [...state.stockTags, { name: state.currentStockName }];
+                
+                tempTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    const isActive = state.currentStockName === tag.name;
+                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                        isActive 
+                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                    }`;
+                    btn.innerText = tag.name;
+                    btn.onclick = () => {
+                        state.currentStockName = tag.name;
+                        renderStockTabs();
+                        renderPosts('posts-list-stock', 'stock', tag.name);
+                        document.getElementById('current-stock-name').innerText = tag.name;
+                    };
+                    stockTabs.appendChild(btn);
+                });
+            } else {
+                 state.stockTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    const isActive = state.currentStockName === tag.name;
+                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                        isActive 
+                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                    }`;
+                    btn.innerText = tag.name;
+                    btn.onclick = () => {
+                        state.currentStockName = tag.name;
+                        renderStockTabs();
+                        renderPosts('posts-list-stock', 'stock', tag.name);
+                        document.getElementById('current-stock-name').innerText = tag.name;
+                    };
+                    stockTabs.appendChild(btn);
+                });
             }
-            
-            state.stockTags.forEach(tag => {
-                const btn = document.createElement('button');
-                const isActive = state.currentStockName === tag.name;
-                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
-                    isActive 
-                    ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
-                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
-                }`;
-                btn.innerText = tag.name;
-                btn.onclick = () => {
-                    state.currentStockName = tag.name;
-                    renderStockTabs();
-                    renderPosts('posts-list-stock', 'stock', tag.name);
-                    document.getElementById('current-stock-name').innerText = tag.name;
-                };
-                stockTabs.appendChild(btn);
-            });
              // 스크롤을 맨 왼쪽으로 이동
              stockTabs.scrollLeft = 0;
         }
@@ -492,6 +570,7 @@
 
         window.openPostDetail = async function(post) {
             state.currentPostId = post.id;
+            state.postToEdit = post; // 수정할 포스트 정보 저장
             const modal = document.getElementById('postDetailModal');
             document.getElementById('detail-title').innerText = post.title;
             
@@ -502,16 +581,57 @@
             document.getElementById('detail-author').innerText = author;
             
             const deleteBtn = document.getElementById('delete-post-btn');
+            const editBtn = document.getElementById('edit-post-btn'); // 추가됨
+
             if (state.user?.id === post.user_id) {
                 deleteBtn.classList.remove('hidden');
-                deleteBtn.onclick = () => deletePost(post.id);
+                editBtn.classList.remove('hidden'); // 수정 버튼 표시
+                
+                deleteBtn.onclick = () => showDeleteConfirm(); 
+                editBtn.onclick = () => openPostEditModal(post); // 수정 버튼 클릭 시 수정 모달 열기
             } else {
                 deleteBtn.classList.add('hidden');
+                editBtn.classList.add('hidden'); // 수정 버튼 숨김
             }
             
             loadComments(post.id);
             modal.classList.remove('hidden');
         }
+        
+        /**
+         * 게시글 수정 모달을 열고 데이터를 채웁니다.
+         */
+        window.openPostEditModal = function(post) {
+            if (!state.user || state.user.id !== post.user_id) {
+                return console.error('수정 권한이 없습니다.'); // showMessage 대체
+            }
+            closeModal('postDetailModal'); // 상세 모달 닫기
+            
+            state.isEditing = true;
+            state.currentPostId = post.id;
+            state.postToEdit = post;
+            
+            // UI 업데이트 (제목, 버튼 텍스트 변경)
+            document.getElementById('post-modal-title').innerText = '비급 수정';
+            document.getElementById('save-post-text').innerText = '수정 완료';
+
+            // 데이터 채우기
+            document.getElementById(`type-${post.type}`).checked = true;
+            togglePostTypeFields(post.type);
+            document.getElementById('new-post-title').value = post.title;
+            document.getElementById('new-post-content').innerHTML = post.content;
+            
+            if (post.type === 'stock') {
+                document.getElementById('stock-input').value = post.stock_id;
+            }
+            if (post.type === 'public') {
+                document.getElementById('mu-gong-select').value = post.mugong_id;
+            }
+
+            openModal('newPostModal');
+            document.getElementById('new-post-content').focus();
+        }
+
 
         // ------------------------------------------------------------------
         // 7. 댓글 로직
@@ -564,7 +684,7 @@
             const { error } = await client.from('comments').insert(payload);
             if (error) {
                 console.error(error);
-                showMessage('댓글 등록 실패.', 'error');
+                console.error('댓글 등록 실패.'); // showMessage 대체
             } else {
                 input.value = '';
             }
@@ -622,7 +742,7 @@
             const { error } = await client.from('chat_messages').insert(payload);
             if (error) {
                 console.error(error);
-                showMessage('채팅 전송 실패.', 'error');
+                console.error('채팅 전송 실패.'); // showMessage 대체
             } else {
                 input.value = '';
             }
@@ -643,6 +763,25 @@
         // ------------------------------------------------------------------
         // 9. 초기화 및 전역 함수 등록
         // ------------------------------------------------------------------
+        
+        /**
+         * 모달을 닫을 때 상태를 초기화하고 UI를 복원합니다.
+         */
+        window.resetPostModal = function() {
+            state.isEditing = false;
+            state.postToEdit = null;
+            state.currentPostId = null; // currentPostId 초기화 (댓글 로드에 영향 X)
+
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('save-post-text').innerText = '등록';
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-content').innerHTML = '';
+            // 라디오 버튼 비활성화 해제
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.disabled = false;
+            });
+            closeModal('newPostModal');
+        }
 
         function init() {
             checkSession();
@@ -655,13 +794,21 @@
 
         // 전역 함수 등록
         window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
-        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        // 모달 닫기 시 상태 초기화 함수 연결
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.add('hidden');
+            if (id === 'newPostModal') {
+                resetPostModal();
+            }
+        };
         window.navigate = navigate;
         window.handleAuth = handleAuth;
         window.logout = logout;
         window.sendChat = sendChat;
         window.addComment = addComment;
         window.deletePost = deletePost;
+        window.savePost = savePost;
+        window.showDeleteConfirm = showDeleteConfirm; 
         
         window.formatDoc = function(cmd, value = null) {
             document.execCommand(cmd, false, value);
@@ -670,10 +817,15 @@
 
         window.tryOpenWriteModal = function(type) {
             if (!state.user) {
-                showMessage('비급 기록은 로그인 사용자만 가능합니다.', 'error');
+                console.error('비급 기록은 로그인 사용자만 가능합니다.'); // showMessage 대체
                 openModal('authModal');
                 return;
             }
+            // 작성 모드로 초기화
+            state.isEditing = false; 
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('save-post-text').innerText = '등록';
+
             document.getElementById(`type-${type}`).checked = true;
             togglePostTypeFields(type);
             openModal('newPostModal');
@@ -687,8 +839,14 @@
         window.togglePostTypeFields = (type) => {
             document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
             document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+            // 수정 모드에서는 타입 변경을 막기 위해 Radio 버튼을 비활성화
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.disabled = state.isEditing;
+            });
         };
 
+        window.handleYouTubeEmbed = window.openYouTubeModal;
+        
         document.addEventListener('DOMContentLoaded', init);
     </script>
     <style>
@@ -706,14 +864,15 @@
         .editor-toolbar { background-color: #374151; }
         /* 이미지 삽입 후 레이아웃 깨짐 방지 및 반응형 스타일 */
         #detail-content img { max-width: 100%; height: auto; }
+        /* iframe 반응형 */
+        #detail-content iframe { max-width: 100%; height: auto; }
         /* 종목 탭 스크롤바 숨기기 (모바일 친화적) */
         #stock-tabs { -ms-overflow-style: none; /* IE and Edge */ scrollbar-width: none; /* Firefox */ }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative">
 
-    <!-- Message Box -->
-    <div id="message-box" class="fixed bottom-4 right-4 z-[100] translate-y-10 opacity-0 transition-all"></div>
+    <!-- Message Box (제거됨) -->
 
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-[#111118]/90 backdrop-blur-md border-b border-gray-800">
@@ -776,10 +935,10 @@
     <!-- Modals -->
     <!-- ------------------------------------------------------------------ -->
 
-    <!-- Write Modal (WYSIWYG 에디터 적용) -->
+    <!-- Write/Edit Modal (WYSIWYG 에디터 적용) -->
     <div id="newPostModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-md p-5 rounded-2xl border border-gray-600 shadow-2xl">
-            <h3 class="text-lg font-bold text-white mb-4">비급 작성</h3>
+            <h3 class="text-lg font-bold text-white mb-4"><span id="post-modal-title">비급 작성</span></h3>
             
             <div class="flex space-x-3 mb-4 text-sm text-gray-300">
                 <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1">강호광장</label>
@@ -814,8 +973,8 @@
                 </label>
                 <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
                 
-                <!-- YouTube 임베드 버튼 -->
-                <button onclick="handleYouTubeEmbed()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
+                <!-- YouTube 임베드 버튼 (수정됨: 모달 호출) -->
+                <button onclick="openYouTubeModal()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
                     ▶️ YouTube
                 </button>
             </div>
@@ -826,8 +985,9 @@
             </div>
 
             <div class="flex justify-end gap-2 mt-4">
+                <!-- closeModal에 resetPostModal 기능 연결 -->
                 <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <button onclick="createPost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500">등록</button>
+                <button onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500"><span id="save-post-text">등록</span></button>
             </div>
         </div>
     </div>
@@ -840,8 +1000,10 @@
                 <div class="flex justify-between items-center text-xs text-gray-500">
                     <div id="detail-author"></div>
                     <div class="flex space-x-3 items-center">
-                         <!-- 안전 삭제 기능이 연결된 버튼 -->
-                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="deletePost(state.currentPostId)">삭제</button>
+                         <!-- 수정 버튼 추가 -->
+                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs" onclick="openPostEditModal(state.postToEdit)">수정</button>
+                         <!-- 안전 삭제 기능이 연결된 버튼 (수정됨: showDeleteConfirm 호출) -->
+                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="showDeleteConfirm()">삭제</button>
                          <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
                     </div>
                 </div>
@@ -873,7 +1035,1097 @@
             <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
         </div>
     </div>
+    
+    <!-- Delete Confirmation Modal (window.confirm 대체) -->
+    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-xs p-6 rounded-2xl border border-red-600 shadow-2xl text-center">
+            <h3 class="text-lg font-bold text-red-400 mb-2">🚨 경고: 비급 영구 삭제</h3>
+            <p class="text-sm text-gray-300 mb-3">정말로 아래 비급을 삭제하시겠습니까?</p>
+            <p id="confirm-delete-title" class="text-base font-semibold text-yellow-400 truncate mb-5"></p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeModal('deleteConfirmModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <!-- confirm 버튼 클릭 시, deletePost 함수에 currentPostId를 전달하여 실행 -->
+                <button onclick="deletePost(state.currentPostId)" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">삭제 확인</button>
+            </div>
+        </div>
+    </div>
 
+    <!-- YouTube Embed Input Modal (prompt() 대체) -->
+    <div id="youtubeEmbedModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">▶️ YouTube 동영상 임베드</h3>
+            <input id="youtube-url-input" type="url" placeholder="YouTube URL (예: https://youtu.be/xxx)" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeModal('youtubeEmbedModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="handleYouTubeEmbedFromModal()" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">임베드</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 
+회원가입 시에 비밀번호를 두 번 적게 만들어서 오류 없이 비밀번호 설정을 할 수 있게 하고 현재 모달창으로 구현한 로그인 기능과 회원가입 기능에서 추가적으로 비밀번호 변경 같은 기능을 구현해야 돼. 그래서 전체적으로 로그인 로그 아웃 그리고 회원가입 이 부분에 대해서 새롭게 더 개선할 수 있도록 해줘. 그리고 보통 회원가입하면은 개인정보 방침이랑 이용약관 같은 게 거기에 나오지가 않나? 그래서 그거를 동의를 하고 회원가입을 하는 걸로 알고 있는데 이 부분도 우리 사이트에 맞게 맞춰서 넣어줘. 그리고 푸터에도 그런 법적인 부분을 볼 수 있는 페이지를 만들어서 연결시켜줘.<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>천금문 (千金門) - WebP 변환, 에디터, 안전 삭제 통합</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script>
+        // ------------------------------------------------------------------
+        // 1. Supabase 설정 (사용자 정보 적용됨)
+        // ------------------------------------------------------------------
+        const SUPABASE_URL = 'https://jdwlcnkcyglfxqbhkseb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkd2xjbmtjeWdsZnhxYmhrc2ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjQyMzksImV4cCI6MjA3OTk0MDIzOX0.EhigML9NvLJou2DRBm_iNXErmYByU__WZQ26NcdfTaI';
+        const STORAGE_BUCKET = 'images';
+
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ------------------------------------------------------------------
+        // 2. 전역 상태 및 상수 (messageTimer 제거)
+        // ------------------------------------------------------------------
+        const state = {
+            user: null,
+            profile: null,
+            currentPostId: null,
+            postToEdit: null,
+            isEditing: false,
+            currentStockName: '삼성전자', 
+            stockTags: [], 
+            realtimeChannels: {},
+            guestName: `나그네_${Math.floor(Math.random() * 1000)}`,
+            postIdToDelete: null,
+            // messageTimer 제거됨
+        };
+
+        const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
+        
+        const MU_GONG_TYPES = [
+            { id: 'sword', name: '질풍검법 (단기)', tag: '단기', color: 'text-red-500' },
+            { id: 'dao', name: '태극도법 (장기)', tag: '장기', color: 'text-blue-500' },
+            { id: 'auto', name: '오토진법 (자동)', tag: '자동', color: 'text-yellow-500' },
+        ];
+        
+        // ------------------------------------------------------------------
+        // 3. 유틸리티 함수 (showMessage 함수 제거)
+        // ------------------------------------------------------------------
+
+        function calculateLevel(postCount, commentCount) {
+            const score = (postCount || 0) + (commentCount || 0);
+            const idx = Math.min(Math.floor(score / 10), LEVEL_NAMES.length - 1);
+            return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
+        }
+
+        // --- 인증 관련 ---
+        async function handleAuth(isSignUp) {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!email || !password) {
+                return console.error('이메일과 비밀번호를 입력해주세요.'); // showMessage 대체
+            }
+
+            let error;
+            if (isSignUp) {
+                ({ error } = await client.auth.signUp({ email, password }));
+            } else {
+                ({ error } = await client.auth.signInWithPassword({ email, password }));
+            }
+
+            if (error) {
+                console.error(`인증 실패: ${error.message}`); // showMessage 대체
+            } else {
+                console.log('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)'); // showMessage 대체
+                closeModal('authModal');
+                checkSession();
+            }
+        }
+        
+        async function logout() {
+            await client.auth.signOut();
+            console.log('하산했습니다.'); // showMessage 대체
+            state.profile = null;
+            state.user = null;
+            updateHeaderUI();
+            navigate('gangho-plaza');
+        }
+
+        async function checkSession() {
+            const { data: { session } } = await client.auth.getSession();
+            updateAuthState(session);
+            // 인증 상태 변화 리스너는 한 번만 설정
+            client.auth.onAuthStateChange((_event, session) => updateAuthState(session));
+        }
+
+        async function updateAuthState(session) {
+            state.user = session ? session.user : null;
+            if (state.user) {
+                const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
+                if (data) state.profile = data;
+            } else {
+                state.profile = null;
+            }
+            updateHeaderUI();
+        }
+
+        function updateHeaderUI() {
+            const authContainer = document.getElementById('auth-buttons');
+            if (state.user) {
+                const level = calculateLevel(state.profile?.post_count, state.profile?.comment_count);
+                authContainer.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-400 hidden sm:inline">레벨: <span class="${level.color} font-bold">${level.name}</span></span>
+                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile?.nickname || '문도'}</span>님</span>
+                        <button onclick="logout()" class="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded hover:bg-red-900 transition">하산</button>
+                    </div>
+                `;
+            } else {
+                authContainer.innerHTML = `
+                    <button onclick="openModal('authModal')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
+                        입문 (로그인)
+                    </button>
+                `;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // 4. 이미지/미디어 처리 (WebP 변환 및 Storage)
+        // ------------------------------------------------------------------
+
+        /**
+         * 이미지 파일을 WebP로 변환하고 Supabase Storage에 업로드 후 URL을 반환
+         */
+        async function convertAndUploadImage(file, folderPath) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = async function() {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+
+                        // WebP 변환 (품질 80%)
+                        canvas.toBlob(async (blob) => {
+                            if (!blob) {
+                                // --- 디버깅 강화: WebP 변환 실패 시 로그 ---
+                                console.error('Error: WebP conversion failed. Blob is null. Check browser support.');
+                                reject(new Error('WebP 변환 실패: Blob 객체를 생성할 수 없습니다.'));
+                                return;
+                            }
+
+                            const webpFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.webp`;
+                            const filePath = `${folderPath}/${webpFileName}`;
+
+                            // Supabase Storage 업로드
+                            const { data, error } = await client.storage
+                                .from(STORAGE_BUCKET)
+                                .upload(filePath, blob, { // blob 사용 확인 완료
+                                    cacheControl: '3600',
+                                    upsert: false,
+                                    contentType: 'image/webp',
+                                });
+
+                            if (error) {
+                                // --- 디버깅 강화: Supabase 업로드 실패 시 로그 ---
+                                console.error('Supabase Storage Upload Error:', error);
+                                console.error('Check RLS Policy or Authentication Status (must be logged in).');
+                                reject(error);
+                            } else {
+                                // getPublicUrl은 이 경로를 기반으로 절대 URL을 생성합니다. (경로 손실 문제 해결)
+                                const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
+                                resolve(publicUrl);
+                            }
+                        }, 'image/webp', 0.8);
+                    };
+                    img.onerror = () => reject(new Error('이미지 로드 중 오류 발생'));
+                    img.src = event.target.result;
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        window.handleImageUpload = async function() {
+            // --- 디버깅 강화: 로그인 상태 확인 ---
+            if (!state.user) {
+                console.error('이미지 업로드는 로그인 사용자만 가능합니다. 현재 상태: 비로그인'); // showMessage 대체
+                return;
+            }
+            
+            const fileInput = document.getElementById('image-upload-input');
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            console.log('이미지 변환 및 업로드 중...'); // showMessage 대체
+            try {
+                // Posts 이미지는 'posts' 폴더에 저장
+                const publicUrl = await convertAndUploadImage(file, 'posts');
+                
+                // 에디터에 이미지 삽입 (반응형 스타일 적용)
+                const editor = document.getElementById('new-post-content');
+                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200/333/fff?text=이미지+로드+실패'">`;
+                
+                // 에디터에 포커스를 맞추고 이미지 삽입을 시도합니다. 
+                editor.focus();
+                document.execCommand('insertHTML', false, imgTag);
+                
+                console.log('이미지 삽입 완료.'); // showMessage 대체
+            } catch (error) {
+                console.error('최종 이미지 업로드 실패:', error);
+                // 에러 메시지 상세화
+                console.error(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`); // showMessage 대체
+            } finally {
+                fileInput.value = ''; // input 초기화
+            }
+        };
+
+        // --- prompt() 대신 모달을 띄우는 함수 ---
+        window.openYouTubeModal = function() {
+            document.getElementById('youtube-url-input').value = '';
+            openModal('youtubeEmbedModal');
+        }
+
+        // --- 모달에서 호출되어 실제 임베드를 처리하는 함수 ---
+        window.handleYouTubeEmbedFromModal = function() {
+            const url = document.getElementById('youtube-url-input').value.trim();
+            closeModal('youtubeEmbedModal'); // 모달 닫기
+
+            if (!url) return;
+
+            // YouTube URL에서 동영상 ID 추출
+            let videoId;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            if (match && match[2].length === 11) {
+                videoId = match[2];
+            } else {
+                console.error('유효한 YouTube URL이 아닙니다.'); // showMessage 대체
+                return;
+            }
+
+            const embedHtml = `
+                <div class="my-4" style="aspect-ratio: 16 / 9; max-width: 100%;">
+                    <iframe 
+                        src="https://www.youtube.com/embed/${videoId}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen 
+                        class="rounded-lg shadow-xl w-full h-full"
+                    ></iframe>
+                </div>
+            `;
+            const editor = document.getElementById('new-post-content');
+            document.execCommand('insertHTML', false, embedHtml);
+            console.log('YouTube 동영상 삽입 완료.'); // showMessage 대체
+        };
+        
+        // ------------------------------------------------------------------
+        // 5. 게시글 CRUD 로직 (안전 삭제 포함)
+        // ------------------------------------------------------------------
+        
+        /**
+         * 게시글을 저장하거나 수정합니다.
+         * state.isEditing 상태에 따라 insert 또는 update를 수행합니다.
+         */
+        async function savePost() {
+            if (!state.user) {
+                return console.error('로그인 후 이용 가능합니다.'); // showMessage 대체
+            }
+
+            const type = document.querySelector('input[name="post-type"]:checked').value;
+            const title = document.getElementById('new-post-title').value;
+            const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
+
+            if (!title || !contentHTML) {
+                return console.error('제목과 내용을 입력해주세요.'); // showMessage 대체
+            }
+
+            let stockName = null;
+
+            if (type === 'stock') {
+                const inputVal = document.getElementById('stock-input').value.trim();
+                if (!inputVal) {
+                    return console.error('종목명을 입력하거나 선택해야 합니다.'); // showMessage 대체
+                }
+                
+                stockName = inputVal;
+                // 종목 태그가 없으면 자동 생성 (생성 모드에서만)
+                if (!state.isEditing) {
+                    const exists = state.stockTags.find(t => t.name === stockName);
+                    if (!exists) {
+                        const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
+                        if (tagError) console.error('태그 생성 실패:', tagError);
+                        else {
+                            console.log(`새로운 종목 [${stockName}]이 강호에 등록되었습니다!`); // showMessage 대체
+                            await fetchStockTags();
+                        }
+                    }
+                }
+            }
+
+            const payload = {
+                title, content: contentHTML, type, 
+                stock_id: stockName,
+                mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
+            };
+
+            let error;
+            let successMessage = '비급이 기록되었습니다.';
+            
+            if (state.isEditing) {
+                // 수정 모드: update
+                const { error: updateError } = await client.from('posts')
+                    .update(payload)
+                    .eq('id', state.currentPostId)
+                    .eq('user_id', state.user.id); // 본인 글만 수정 가능
+                error = updateError;
+                successMessage = '비급이 수정되었습니다.';
+            } else {
+                // 작성 모드: insert
+                payload.user_id = state.user.id;
+                const { error: insertError } = await client.from('posts').insert(payload);
+                error = insertError;
+            }
+
+            if (error) {
+                console.error(error);
+                console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패.`); // showMessage 대체
+            } else {
+                console.log(successMessage); // showMessage 대체
+                closeModal('newPostModal');
+                
+                // 모달 닫기 후 상태 초기화 및 UI 리프레시
+                state.isEditing = false;
+                state.postToEdit = null;
+                document.getElementById('new-post-title').value = '';
+                document.getElementById('new-post-content').innerHTML = '';
+                
+                // 현재 뷰를 리프레시하거나 종목 게시판으로 이동
+                const currentView = document.querySelector('.app-view:not(.hidden)').id;
+                if (type === 'stock') {
+                    state.currentStockName = stockName; 
+                    navigate('stock-board');
+                } else {
+                    navigate(currentView); // 현재 뷰 유지 및 리프레시
+                }
+            }
+        }
+        
+        // --- 수정됨: 삭제 확인 모달을 띄우는 함수 ---
+        window.showDeleteConfirm = function() {
+            if (!state.currentPostId) return;
+            // 삭제할 게시글의 제목을 확인 모달에 표시
+            const title = document.getElementById('detail-title').innerText;
+            document.getElementById('confirm-delete-title').innerText = title;
+            openModal('deleteConfirmModal');
+        }
+
+        // --- 수정됨: 실제 삭제 로직. DB 삭제 오류 시 상세 로그를 남기도록 강화 ---
+        window.deletePost = async function(postId) {
+            closeModal('deleteConfirmModal'); // 확인 모달 닫기
+            
+            if (!state.user) {
+                return console.error('로그인 사용자만 삭제할 수 있습니다.'); // showMessage 대체
+            }
+
+            // 1. Storage 파일 삭제를 위한 게시글 내용 조회
+            const { data: post, error: fetchError } = await client.from('posts').select('content, user_id').eq('id', postId).single();
+            if (fetchError || !post) {
+                console.error("게시글 조회 오류:", fetchError);
+                return console.error('게시글 정보를 찾을 수 없습니다.'); // showMessage 대체
+            }
+            // RLS 정책이 있지만 클라이언트 단에서 한 번 더 확인하는 것이 좋습니다.
+            if (post.user_id !== state.user.id) {
+                 return console.error('삭제 권한이 없습니다.'); // showMessage 대체
+            }
+
+            // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제 (안전 삭제 로직)
+            const content = post.content;
+            // Supabase Storage 경로에 있는 이미지 URL만 필터링
+            const imageUrls = [...content.matchAll(/src="([^"]*)"/g)]
+                .map(match => match[1])
+                .filter(url => url.includes(SUPABASE_URL) && url.includes(`/${STORAGE_BUCKET}/posts/`));
+
+            if (imageUrls.length > 0) {
+                const filesToDelete = imageUrls.map(url => {
+                    // Supabase URL에서 'images/' 이후의 경로 추출 (e.g., 'posts/file_name.webp')
+                    const pathIndex = url.indexOf(`/${STORAGE_BUCKET}/`) + `/${STORAGE_BUCKET}/`.length;
+                    // 경로 추출: 'posts/file_name.webp?t=...'
+                    let path = url.substring(pathIndex);
+                    // 쿼리 스트링 제거: 'posts/file_name.webp'
+                    path = path.split('?')[0]; 
+                    return path;
+                });
+                
+                // Supabase Storage에서 파일 삭제
+                const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
+                if (storageError) {
+                    console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
+                    console.error('Storage 파일 삭제 실패. (로그 확인)'); // showMessage 대체
+                } else {
+                    console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`); // showMessage 대체
+                }
+            }
+
+            // 3. DB 게시글 삭제 (Comments는 RLS Cascade로 자동 삭제됨)
+            const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
+
+            if (deleteError) {
+                // --- 수정됨: 상세 오류 메시지 로깅 ---
+                console.error('게시글 DB 삭제 오류 (RLS 가능성 높음):', deleteError);
+                console.error(`게시글 삭제 실패: ${deleteError.message}. (로그 확인)`); // showMessage 대체
+            } else {
+                console.log('게시글 및 관련 자료가 삭제되었습니다.'); // showMessage 대체
+                closeModal('postDetailModal');
+                // 현재 뷰 리프레시
+                const currentView = document.querySelector('.app-view:not(.hidden)').id;
+                navigate(currentView);
+            }
+        };
+        
+        // ------------------------------------------------------------------
+        // 6. 뷰 및 네비게이션
+        // ------------------------------------------------------------------
+
+        function navigate(viewId) {
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-yellow-400', 'border-yellow-400');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+            const activeBtn = document.querySelector(`button[onclick="navigate('${viewId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.replace('text-gray-500', 'text-yellow-400');
+                activeBtn.classList.replace('border-transparent', 'border-yellow-400');
+            }
+
+            if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
+            if (viewId === 'stock-board') {
+                if(state.stockTags.length === 0) fetchStockTags();
+                else renderPosts('posts-list-stock', 'stock', state.currentStockName);
+            }
+            if (viewId === 'secret-inn') renderPosts('posts-list-secret', 'secret');
+            if (viewId === 'chat-hall') loadChat();
+        }
+
+        async function fetchStockTags() {
+            const { data } = await client.from('stock_tags').select('name').order('created_at', { ascending: true });
+            if (data) {
+                state.stockTags = data; 
+                renderStockTabs();
+                renderStockOptions();
+            }
+        }
+
+        function renderStockTabs() {
+             const stockTabs = document.getElementById('stock-tabs');
+            stockTabs.innerHTML = '';
+            // 현재 종목이 태그 목록에 없으면 추가 (사용자 입력으로 생성된 경우)
+            if (state.currentStockName && !state.stockTags.find(t => t.name === state.currentStockName)) {
+                // 중복 방지를 위해 임시로 태그 목록에 추가 후 렌더링
+                const tempTags = [...state.stockTags, { name: state.currentStockName }];
+                
+                tempTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    const isActive = state.currentStockName === tag.name;
+                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                        isActive 
+                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                    }`;
+                    btn.innerText = tag.name;
+                    btn.onclick = () => {
+                        state.currentStockName = tag.name;
+                        renderStockTabs();
+                        renderPosts('posts-list-stock', 'stock', tag.name);
+                        document.getElementById('current-stock-name').innerText = tag.name;
+                    };
+                    stockTabs.appendChild(btn);
+                });
+            } else {
+                 state.stockTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    const isActive = state.currentStockName === tag.name;
+                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                        isActive 
+                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                    }`;
+                    btn.innerText = tag.name;
+                    btn.onclick = () => {
+                        state.currentStockName = tag.name;
+                        renderStockTabs();
+                        renderPosts('posts-list-stock', 'stock', tag.name);
+                        document.getElementById('current-stock-name').innerText = tag.name;
+                    };
+                    stockTabs.appendChild(btn);
+                });
+            }
+             // 스크롤을 맨 왼쪽으로 이동
+             stockTabs.scrollLeft = 0;
+        }
+
+        function renderStockOptions() { 
+            const dataList = document.getElementById('stock-options');
+            dataList.innerHTML = '';
+            state.stockTags.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag.name;
+                dataList.appendChild(option);
+            });
+        }
+        
+        async function fetchPosts(type, stockName = null) {
+            let query = client.from('posts')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`) 
+                .eq('type', type)
+                .order('created_at', { ascending: false });
+
+            if (stockName) query = query.eq('stock_id', stockName);
+
+            const { data } = await query;
+            return data || [];
+        }
+
+        async function renderPosts(containerId, type, stockName = null) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="text-center text-gray-500 py-10">... 비급을 로딩 중 ...</div>';
+            
+            const posts = await fetchPosts(type, stockName);
+            container.innerHTML = '';
+
+            if (posts.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-10">아직 등록된 비급이 없습니다. 첫 기록을 남겨보세요.</div>';
+                return;
+            }
+
+            posts.forEach(post => {
+                const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+                const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+                const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
+
+                const postEl = document.createElement('div');
+                postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
+                postEl.onclick = () => openPostDetail(post);
+
+                postEl.innerHTML = `
+                    <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
+                    <div class="text-xs text-gray-400 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <span class="${level.color} font-medium">${level.name}</span>
+                            <span class="text-yellow-400">${author}</span>
+                            ${mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 ${mugong.color}">${mugong.tag}</span>` : ''}
+                        </div>
+                        <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
+                    </div>
+                `;
+                container.appendChild(postEl);
+            });
+        }
+
+        window.openPostDetail = async function(post) {
+            state.currentPostId = post.id;
+            state.postToEdit = post; // 수정할 포스트 정보 저장
+            const modal = document.getElementById('postDetailModal');
+            document.getElementById('detail-title').innerText = post.title;
+            
+            // HTML 내용을 삽입하여 이미지/비디오가 렌더링되도록 처리
+            document.getElementById('detail-content').innerHTML = post.content;
+            
+            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+            document.getElementById('detail-author').innerText = author;
+            
+            const deleteBtn = document.getElementById('delete-post-btn');
+            const editBtn = document.getElementById('edit-post-btn'); // 추가됨
+
+            if (state.user?.id === post.user_id) {
+                deleteBtn.classList.remove('hidden');
+                editBtn.classList.remove('hidden'); // 수정 버튼 표시
+                
+                deleteBtn.onclick = () => showDeleteConfirm(); 
+                editBtn.onclick = () => openPostEditModal(post); // 수정 버튼 클릭 시 수정 모달 열기
+            } else {
+                deleteBtn.classList.add('hidden');
+                editBtn.classList.add('hidden'); // 수정 버튼 숨김
+            }
+            
+            loadComments(post.id);
+            modal.classList.remove('hidden');
+        }
+        
+        /**
+         * 게시글 수정 모달을 열고 데이터를 채웁니다.
+         */
+        window.openPostEditModal = function(post) {
+            if (!state.user || state.user.id !== post.user_id) {
+                return console.error('수정 권한이 없습니다.'); // showMessage 대체
+            }
+            closeModal('postDetailModal'); // 상세 모달 닫기
+            
+            state.isEditing = true;
+            state.currentPostId = post.id;
+            state.postToEdit = post;
+            
+            // UI 업데이트 (제목, 버튼 텍스트 변경)
+            document.getElementById('post-modal-title').innerText = '비급 수정';
+            document.getElementById('save-post-text').innerText = '수정 완료';
+
+            // 데이터 채우기
+            document.getElementById(`type-${post.type}`).checked = true;
+            togglePostTypeFields(post.type);
+            document.getElementById('new-post-title').value = post.title;
+            document.getElementById('new-post-content').innerHTML = post.content;
+            
+            if (post.type === 'stock') {
+                document.getElementById('stock-input').value = post.stock_id;
+            }
+            if (post.type === 'public') {
+                document.getElementById('mu-gong-select').value = post.mugong_id;
+            }
+
+            openModal('newPostModal');
+            document.getElementById('new-post-content').focus();
+        }
+
+
+        // ------------------------------------------------------------------
+        // 7. 댓글 로직
+        // ------------------------------------------------------------------
+
+        async function loadComments(postId) {
+            const { data } = await client.from('comments')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`)
+                .eq('post_id', postId)
+                .order('created_at', { ascending: true });
+            renderComments(data || []);
+            setupRealtimeComments(postId);
+        }
+
+        function renderComments(comments) {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = '';
+            comments.forEach(comment => {
+                const author = comment.profiles?.nickname || comment.guest_nickname || '익명';
+                const level = comment.profiles ? calculateLevel(comment.profiles.post_count, comment.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+
+                const commentEl = document.createElement('div');
+                commentEl.className = 'p-2 rounded-lg bg-gray-700/50';
+                commentEl.innerHTML = `
+                    <p class="text-[10px] text-gray-400 mb-1">
+                        <span class="${level.color}">${level.name}</span>
+                        <span class="text-yellow-300 font-medium">${author}</span>
+                        <span class="float-right">${new Date(comment.created_at).toLocaleTimeString()}</span>
+                    </p>
+                    <p class="text-xs text-gray-200">${comment.content}</p>
+                `;
+                list.appendChild(commentEl);
+            });
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function addComment() {
+            const postId = state.currentPostId;
+            const input = document.getElementById('comment-input');
+            const content = input.value.trim();
+            if (!content || !postId) return;
+
+            const payload = {
+                post_id: postId,
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('comments').insert(payload);
+            if (error) {
+                console.error(error);
+                console.error('댓글 등록 실패.'); // showMessage 대체
+            } else {
+                input.value = '';
+            }
+        }
+
+        function setupRealtimeComments(postId) {
+            if (state.realtimeChannels[`comments_${postId}`]) {
+                client.removeChannel(state.realtimeChannels[`comments_${postId}`]);
+            }
+            const channel = client.channel(`comments_${postId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
+                    // 댓글이 추가/삭제/업데이트되면 댓글을 다시 로드하여 UI 갱신
+                    () => loadComments(postId) 
+                ).subscribe();
+            state.realtimeChannels[`comments_${postId}`] = channel;
+        }
+
+        // ------------------------------------------------------------------
+        // 8. 채팅 로직 (기존 로직 유지)
+        // ------------------------------------------------------------------
+
+        async function loadChat() {
+            const { data } = await client.from('chat_messages')
+                .select(`*, profiles:user_id (nickname)`)
+                .order('created_at', { ascending: false })
+                .limit(50);
+            renderChat(data.reverse() || []);
+            setupRealtimeChat();
+        }
+
+        function renderChat(messages) {
+            const chatList = document.getElementById('chat-list');
+            chatList.innerHTML = '';
+            messages.forEach(msg => {
+                const author = msg.profiles?.nickname || msg.guest_nickname || '익명 문도';
+                const msgEl = document.createElement('div');
+                msgEl.className = 'text-xs mb-1';
+                msgEl.innerHTML = `<span class="text-yellow-400 font-medium">${author}:</span> <span class="text-gray-300">${msg.content}</span>`;
+                chatList.appendChild(msgEl);
+            });
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            if (!content) return;
+
+            const payload = {
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('chat_messages').insert(payload);
+            if (error) {
+                console.error(error);
+                console.error('채팅 전송 실패.'); // showMessage 대체
+            } else {
+                input.value = '';
+            }
+        }
+        
+        function setupRealtimeChat() {
+             if (state.realtimeChannels['chat']) {
+                client.removeChannel(state.realtimeChannels['chat']);
+            }
+            const channel = client.channel('chat')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, 
+                    () => loadChat()
+                ).subscribe();
+            state.realtimeChannels['chat'] = channel;
+        }
+
+
+        // ------------------------------------------------------------------
+        // 9. 초기화 및 전역 함수 등록
+        // ------------------------------------------------------------------
+        
+        /**
+         * 모달을 닫을 때 상태를 초기화하고 UI를 복원합니다.
+         */
+        window.resetPostModal = function() {
+            state.isEditing = false;
+            state.postToEdit = null;
+            state.currentPostId = null; // currentPostId 초기화 (댓글 로드에 영향 X)
+
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('save-post-text').innerText = '등록';
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-content').innerHTML = '';
+            // 라디오 버튼 비활성화 해제
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.disabled = false;
+            });
+            closeModal('newPostModal');
+        }
+
+        function init() {
+            checkSession();
+            const mugongSel = document.getElementById('mu-gong-select');
+            MU_GONG_TYPES.forEach(m => mugongSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+
+            fetchStockTags();
+            navigate('gangho-plaza');
+        }
+
+        // 전역 함수 등록
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        // 모달 닫기 시 상태 초기화 함수 연결
+        window.closeModal = (id) => {
+            document.getElementById(id).classList.add('hidden');
+            if (id === 'newPostModal') {
+                resetPostModal();
+            }
+        };
+        window.navigate = navigate;
+        window.handleAuth = handleAuth;
+        window.logout = logout;
+        window.sendChat = sendChat;
+        window.addComment = addComment;
+        window.deletePost = deletePost;
+        window.savePost = savePost;
+        window.showDeleteConfirm = showDeleteConfirm; 
+        
+        window.formatDoc = function(cmd, value = null) {
+            document.execCommand(cmd, false, value);
+            document.getElementById('new-post-content').focus();
+        };
+
+        window.tryOpenWriteModal = function(type) {
+            if (!state.user) {
+                console.error('비급 기록은 로그인 사용자만 가능합니다.'); // showMessage 대체
+                openModal('authModal');
+                return;
+            }
+            // 작성 모드로 초기화
+            state.isEditing = false; 
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('save-post-text').innerText = '등록';
+
+            document.getElementById(`type-${type}`).checked = true;
+            togglePostTypeFields(type);
+            openModal('newPostModal');
+            
+            if (type === 'stock') {
+                document.getElementById('stock-input').value = state.currentStockName;
+            }
+             document.getElementById('new-post-content').focus(); // 에디터 포커스
+        };
+
+        window.togglePostTypeFields = (type) => {
+            document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
+            document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+            // 수정 모드에서는 타입 변경을 막기 위해 Radio 버튼을 비활성화
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.disabled = state.isEditing;
+            });
+        };
+
+        window.handleYouTubeEmbed = window.openYouTubeModal;
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <style>
+        body { background-color: #111118; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .scroll-hidden::-webkit-scrollbar { display: none; }
+        /* 에디터 스타일 */
+        #new-post-content { min-height: 150px; padding: 12px; border: 1px solid #374151; background-color: #1f2937; border-radius: 0 0 8px 8px; }
+        #new-post-content:focus { outline: none; }
+        #new-post-content[contenteditable]:empty:before {
+            content: attr(placeholder);
+            color: #6b7280;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .editor-toolbar { background-color: #374151; }
+        /* 이미지 삽입 후 레이아웃 깨짐 방지 및 반응형 스타일 */
+        #detail-content img { max-width: 100%; height: auto; }
+        /* iframe 반응형 */
+        #detail-content iframe { max-width: 100%; height: auto; }
+        /* 종목 탭 스크롤바 숨기기 (모바일 친화적) */
+        #stock-tabs { -ms-overflow-style: none; /* IE and Edge */ scrollbar-width: none; /* Firefox */ }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Message Box (제거됨) -->
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-[#111118]/90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+            <h1 class="text-xl font-bold italic text-yellow-500 tracking-tighter cursor-pointer" onclick="navigate('gangho-plaza')">千金門</h1>
+            <div id="auth-buttons"></div>
+        </div>
+        <nav class="flex justify-around border-b border-gray-800 bg-[#151520]">
+            <button onclick="navigate('gangho-plaza')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 text-yellow-400 border-yellow-400 transition-colors">강호광장</button>
+            <button onclick="navigate('stock-board')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">종목비급</button>
+            <button onclick="navigate('chat-hall')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">무림채팅</button>
+            <button onclick="navigate('secret-inn')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">암천객잔</button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-md mx-auto w-full pb-20 p-4">
+
+        <!-- 1. 강호광장 (Public Posts) -->
+        <div id="gangho-plaza" class="app-view">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">강호 광장 (무공 토론)</h2>
+            <div class="space-y-4" id="posts-list-public"></div>
+        </div>
+
+        <!-- 2. 종목비급 (Stock Posts) -->
+        <div id="stock-board" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">종목 비급 (<span id="current-stock-name">삼성전자</span>)</h2>
+            
+            <!-- Stock Tabs -->
+            <div id="stock-tabs" class="flex overflow-x-auto space-x-2 pb-3 scroll-hidden"></div>
+            
+            <div class="space-y-4 mt-4" id="posts-list-stock"></div>
+        </div>
+
+        <!-- 3. 무림 채팅 (Chat) -->
+        <div id="chat-hall" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">무림 채팅 (실시간 잡담)</h2>
+            <div id="chat-list" class="bg-[#1f2937] p-3 rounded-lg h-[60vh] overflow-y-auto scroll-hidden mb-4 border border-gray-700">
+                <!-- Chat Messages will be rendered here -->
+            </div>
+            <div class="flex gap-2">
+                <input id="chat-input" type="text" placeholder="채팅 입력..." onkeydown="if(event.key==='Enter') sendChat()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                <button onclick="sendChat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-500">전송</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">* 비로그인 시 임시 닉네임으로 참여합니다.</p>
+        </div>
+
+        <!-- 4. 암천객잔 (Secret Posts) -->
+        <div id="secret-inn" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글)</h2>
+            <div class="space-y-4" id="posts-list-secret"></div>
+        </div>
+
+        <!-- Floating Write Button -->
+        <button onclick="tryOpenWriteModal('public')" class="fixed bottom-6 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
+            +
+        </button>
+    </main>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Modals -->
+    <!-- ------------------------------------------------------------------ -->
+
+    <!-- Write/Edit Modal (WYSIWYG 에디터 적용) -->
+    <div id="newPostModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md p-5 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4"><span id="post-modal-title">비급 작성</span></h3>
+            
+            <div class="flex space-x-3 mb-4 text-sm text-gray-300">
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1">강호광장</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-stock" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-secret" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
+            </div>
+
+            <div id="stock-area" class="mb-3 hidden">
+                <label class="text-xs text-gray-400 mb-1 block">종목명</label>
+                <input type="text" id="stock-input" list="stock-options" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm placeholder-gray-500" placeholder="예: 엔비디아, 비트코인...">
+                <datalist id="stock-options"></datalist>
+                <p class="text-[10px] text-green-500 mt-1">* 목록에 없는 종목을 입력하면 새로운 문파(탭)가 창설됩니다.</p>
+            </div>
+
+            <div id="mu-gong-area" class="mb-3 hidden">
+                <label class="text-xs text-gray-400 mb-1 block">사용 무공</label>
+                <select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select>
+            </div>
+
+            <input id="new-post-title" type="text" placeholder="제목" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-t-lg mb-0 text-sm">
+            
+            <!-- Rich Text Editor Toolbar -->
+            <div class="editor-toolbar flex flex-wrap gap-2 p-2 rounded-b-none border-b border-gray-700">
+                <button onclick="formatDoc('bold')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 font-bold">B</button>
+                <button onclick="formatDoc('italic')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 italic">I</button>
+                <button onclick="formatDoc('underline')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 underline">U</button>
+                <button onclick="formatDoc('insertUnorderedList')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500">UL</button>
+                
+                <!-- 이미지 업로드 버튼 -->
+                <label for="image-upload-input" class="text-white px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 cursor-pointer flex items-center">
+                    🖼️ 이미지 (WebP)
+                </label>
+                <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
+                
+                <!-- YouTube 임베드 버튼 (수정됨: 모달 호출) -->
+                <button onclick="openYouTubeModal()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
+                    ▶️ YouTube
+                </button>
+            </div>
+
+            <!-- Content Editable Area (placeholder 속성 적용) -->
+            <div id="new-post-content" contenteditable="true" placeholder="내용을 입력하세요..." 
+                class="w-full text-sm text-gray-200 overflow-y-auto">
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <!-- closeModal에 resetPostModal 기능 연결 -->
+                <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500"><span id="save-post-text">등록</span></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Post Detail Modal -->
+    <div id="postDetailModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[80vh] flex flex-col p-0 rounded-2xl border border-gray-600 shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-gray-800 flex-shrink-0">
+                <h3 id="detail-title" class="text-lg font-bold text-white mb-2"></h3>
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                    <div id="detail-author"></div>
+                    <div class="flex space-x-3 items-center">
+                         <!-- 수정 버튼 추가 -->
+                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs" onclick="openPostEditModal(state.postToEdit)">수정</button>
+                         <!-- 안전 삭제 기능이 연결된 버튼 (수정됨: showDeleteConfirm 호출) -->
+                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="showDeleteConfirm()">삭제</button>
+                         <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                </div>
+            </div>
+            <!-- HTML 내용이 렌더링될 곳 -->
+            <div class="flex-grow overflow-y-auto p-5 scroll-hidden">
+                <div id="detail-content" class="text-sm text-gray-300 post-content-style"></div>
+            </div>
+            <div class="p-3 bg-[#151520] border-t border-gray-800 flex-shrink-0">
+                <div id="comments-list" class="max-h-32 overflow-y-auto mb-3 space-y-2 scroll-hidden"></div>
+                <div class="flex gap-2">
+                    <input id="comment-input" type="text" placeholder="댓글 입력..." onkeydown="if(event.key==='Enter') addComment()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white">
+                    <button onclick="addComment()" class="bg-gray-700 text-white px-3 py-2 text-xs rounded-lg font-bold hover:bg-gray-600">전송</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-5 text-center">문파 입문 (Authentication)</h3>
+            <input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm">
+            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
+            <div class="flex gap-3">
+                <button onclick="handleAuth(false)" class="flex-1 px-4 py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition">로그인</button>
+                <button onclick="handleAuth(true)" class="flex-1 px-4 py-3 text-sm bg-green-600 rounded-lg text-white font-bold hover:bg-green-500 transition">회원가입</button>
+            </div>
+            <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal (window.confirm 대체) -->
+    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-xs p-6 rounded-2xl border border-red-600 shadow-2xl text-center">
+            <h3 class="text-lg font-bold text-red-400 mb-2">🚨 경고: 비급 영구 삭제</h3>
+            <p class="text-sm text-gray-300 mb-3">정말로 아래 비급을 삭제하시겠습니까?</p>
+            <p id="confirm-delete-title" class="text-base font-semibold text-yellow-400 truncate mb-5"></p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeModal('deleteConfirmModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <!-- confirm 버튼 클릭 시, deletePost 함수에 currentPostId를 전달하여 실행 -->
+                <button onclick="deletePost(state.currentPostId)" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">삭제 확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube Embed Input Modal (prompt() 대체) -->
+    <div id="youtubeEmbedModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">▶️ YouTube 동영상 임베드</h3>
+            <input id="youtube-url-input" type="url" placeholder="YouTube URL (예: https://youtu.be/xxx)" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeModal('youtubeEmbedModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="handleYouTubeEmbedFromModal()" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">임베드</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
