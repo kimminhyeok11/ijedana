@@ -75,7 +75,7 @@
 
             if (error) {
                 showMessage(`인증 실패: ${error.message}`, 'error');
-                console.error(error);
+                console.error("인증 실패 상세:", error); // 상세 로그 추가
             } else {
                 showMessage('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)', 'success');
                 closeModal('authModal');
@@ -95,6 +95,7 @@
         async function checkSession() {
             const { data: { session } } = await client.auth.getSession();
             updateAuthState(session);
+            // 인증 상태 변화 리스너는 한 번만 설정
             client.auth.onAuthStateChange((_event, session) => updateAuthState(session));
         }
 
@@ -103,7 +104,6 @@
             if (state.user) {
                 const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
                 if (data) state.profile = data;
-                // 프로필 생성 트리거는 DB SQL에 있음 (handle_new_user)
             } else {
                 state.profile = null;
             }
@@ -152,7 +152,9 @@
                         // WebP 변환 (품질 80%)
                         canvas.toBlob(async (blob) => {
                             if (!blob) {
-                                reject(new Error('WebP 변환 실패'));
+                                // --- 디버깅 강화: WebP 변환 실패 시 로그 ---
+                                console.error('Error: WebP conversion failed. Blob is null. Check browser support.');
+                                reject(new Error('WebP 변환 실패: Blob 객체를 생성할 수 없습니다.'));
                                 return;
                             }
 
@@ -169,6 +171,9 @@
                                 });
 
                             if (error) {
+                                // --- 디버깅 강화: Supabase 업로드 실패 시 로그 ---
+                                console.error('Supabase Storage Upload Error:', error);
+                                console.error('Check RLS Policy or Authentication Status (must be logged in).');
                                 reject(error);
                             } else {
                                 const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
@@ -185,8 +190,9 @@
         }
         
         window.handleImageUpload = async function() {
+            // --- 디버깅 강화: 로그인 상태 확인 ---
             if (!state.user) {
-                showMessage('이미지 업로드는 로그인 사용자만 가능합니다.', 'error');
+                showMessage('이미지 업로드는 로그인 사용자만 가능합니다. 현재 상태: 비로그인', 'error');
                 return;
             }
             
@@ -206,8 +212,8 @@
                 
                 showMessage('이미지 삽입 완료.', 'success');
             } catch (error) {
-                console.error('이미지 업로드 실패:', error);
-                showMessage('이미지 업로드 중 오류 발생.', 'error');
+                console.error('최종 이미지 업로드 실패:', error);
+                showMessage(`이미지 업로드 중 오류 발생: ${error.message || '로그를 확인해주세요.'}`, 'error');
             } finally {
                 fileInput.value = ''; // input 초기화
             }
@@ -687,6 +693,8 @@
             pointer-events: none;
         }
         .editor-toolbar { background-color: #374151; }
+        /* 이미지 삽입 후 레이아웃 깨짐 방지 */
+        #detail-content img { max-width: 100%; height: auto; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative">
