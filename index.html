@@ -2,715 +2,855 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>에테르의 마지막 별</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>천금문 (千金門) - WebP 변환, 에디터, 안전 삭제 통합</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Supabase JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        :root {
-            --primary-accent: #a252ff; --secondary-accent: #4f46e5; --text-light: #e5e7eb;
-            --text-dark: #9ca3af; --bg-dark-1: #111827; --bg-dark-2: rgba(31, 41, 55, 0.5);
-            --border-color: rgba(255, 255, 255, 0.1); --error-color: #f87171;
-            --combo-color: #facc15;
-        }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: var(--bg-dark-1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; }
-        #game-wrapper { position: relative; width: 100%; height: 100%; max-width: 500px; margin: 0 auto; display: flex; justify-content: center; align-items: center; background-color: var(--bg-dark-1); overflow: hidden; }
-        canvas { width: 100%; height: 100%; cursor: pointer; -webkit-tap-highlight-color: transparent; image-rendering: pixelated; }
-        #score-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: white; font-size: 2rem; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); z-index: 10; display: none; }
-        
-        #combo-display {
-            position: absolute;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: var(--combo-color);
-            font-size: 1.8rem;
-            font-weight: 900;
-            text-shadow: 0 0 10px rgba(250, 204, 21, 0.7);
-            z-index: 10;
-            opacity: 0;
-            pointer-events: none;
-        }
-        
-        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(17, 24, 39, 0.8); backdrop-filter: blur(8px); color: var(--text-light); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 20; opacity: 1; visibility: visible; transition: opacity 0.5s, visibility 0.5s; padding: 20px; box-sizing: border-box; }
-        .overlay.hidden { opacity: 0; visibility: hidden; }
-        .overlay h2 { font-size: 2.5rem; margin: 0 0 10px 0; font-weight: 700; }
-        .is-hidden { opacity: 0; }
-        
-        #intro-character {
-            width: 84px;
-            height: 141px;
-            background-image: url('https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp');
-            background-size: 410px 614px;
-            background-position: -51px -68px;
-            margin-bottom: 20px;
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-15px); }
-            100% { transform: translateY(0px); }
-        }
-
-        .story-blurb {
-            font-size: 0.9rem;
-            color: var(--text-dark);
-            margin-top: -5px;
-            margin-bottom: 25px;
-            max-width: 280px;
-        }
-
-        #instructions { background-color: var(--bg-dark-2); padding: 15px 25px; border-radius: 12px; border: 1px solid var(--border-color); }
-        .control-info { display: flex; align-items: center; justify-content: center; gap: 15px; }
-        .control-info:not(:last-child) { margin-bottom: 15px; }
-        .control-info span { font-size: 1.5rem; }
-        .control-info p { margin: 0; font-size: 0.9rem; color: var(--text-dark); }
-        
-        .touch-indicator { position: absolute; top: 50%; transform: translateY(-50%); font-size: 3rem; color: rgba(255, 255, 255, 0.2); z-index: 5; pointer-events: none; opacity: 0; transition: opacity 0.3s; user-select: none; }
-        .touch-indicator.visible { opacity: 1; }
-        #touch-left { left: 20px; }
-        #touch-right { right: 20px; }
-
-        #gameOverScreen { justify-content: flex-start; padding-top: 2vh; overflow-y: auto; }
-        #finalScore { font-size: 2.5rem; font-weight: 700; color: var(--combo-color); }
-        #finalScoreLabel { font-size: 1rem; color: var(--text-dark); margin-bottom: 5px; }
-
-        .content-wrapper { display: flex; flex-direction: column; width: 100%; max-width: 380px; gap: 15px; }
-        .content-box { width: 100%; background-color: var(--bg-dark-2); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; box-sizing: border-box; text-align: left; }
-        .content-box h3 { font-size: 1rem; font-weight: 600; margin: 0 0 10px 0; color: var(--text-light); }
-        
-        #ranking-list { list-style: none; padding: 0; margin: 0; }
-        #ranking-list li { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0; font-size: 0.9rem; }
-        .rank-name { color: var(--text-light); }
-        .rank-score { font-weight: 600; color: var(--combo-color); }
-
-        #guestbook-entries { max-height: 120px; overflow-y: auto; }
-        .guestbook-entry { padding: 8px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
-        .guestbook-entry:last-child { border-bottom: none; }
-        .guestbook-entry p { margin: 0; line-height: 1.5; word-wrap: break-word; }
-        .guestbook-entry strong { color: var(--primary-accent); font-weight: 600; }
-        .guestbook-entry .score { font-size: 0.75rem; color: var(--text-dark); margin-left: 5px; }
-        
-        #more-guestbook-btn { background: none; border: 1px solid var(--border-color); color: var(--text-dark); width: 100%; padding: 8px; border-radius: 8px; margin-top: 10px; cursor: pointer; font-size: 0.85rem; }
-        #more-guestbook-btn:hover { background-color: var(--border-color); }
-        #more-guestbook-btn.hidden { display: none; }
-
-        #guestbook-form { margin-top: 15px; }
-        .input-group { display: flex; flex-wrap: wrap; gap: 8px; }
-        #guestbook-name { flex: 1 1 80px; }
-        #guestbook-message { flex: 1 1 120px; }
-        #guestbook-form input { background-color: var(--bg-dark-1); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; color: var(--text-light); font-size: 0.9rem; min-width: 0; }
-        #guestbook-submit { background: linear-gradient(45deg, var(--secondary-accent), var(--primary-accent)); border: none; border-radius: 8px; padding: 10px 15px; color: white; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
-        #guestbook-submit:disabled { background: #374151; cursor: not-allowed; }
-        #guestbook-error { color: var(--error-color); font-size: 0.8rem; height: 1em; text-align: left; margin-top: 5px; }
-
-        .button-group { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; gap: 8px; margin-top: 12px; }
-        .btn-style { padding: 12px; width: 100%; background-color: transparent; color: var(--text-light); text-decoration: none; border-radius: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); font-size: 0.9rem; box-sizing: border-box; transition: background-color 0.2s; text-align: center; }
-        .btn-style:hover { background-color: var(--border-color); }
-    </style>
-</head>
-<body>
-<div id="game-wrapper">
-    <canvas id="gameCanvas"></canvas>
-    <div id="score-display">0</div>
-    <div id="combo-display"></div>
-    <div id="touch-left" class="touch-indicator">&lt;</div>
-    <div id="touch-right" class="touch-indicator">&gt;</div>
     
-    <div id="startScreen" class="overlay">
-        <div id="intro-character"></div>
-        <h2 id="main-title">에테르의 마지막 별</h2>
-        <p class="story-blurb">길 잃은 마지막 별이 고향으로 돌아갈 수 있도록 도와주세요.</p>
-        <div id="instructions">
-            <div class="control-info"><span>🖥️</span><p>A / D or ← / →</p></div>
-            <div class="control-info"><span>📱</span><p>Touch Left / Right</p></div>
-        </div>
-    </div>
+    <script>
+        // ------------------------------------------------------------------
+        // 1. Supabase 설정 (사용자 정보 적용됨)
+        // ------------------------------------------------------------------
+        const SUPABASE_URL = 'https://jdwlcnkcyglfxqbhkseb.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkd2xjbmtjeWdsZnhxYmhrc2ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjQyMzksImV4cCI6MjA3OTk0MDIzOX0.EhigML9NvLJou2DRBm_iNXErmYByU__WZQ26NcdfTaI';
+        const STORAGE_BUCKET = 'images';
 
-    <div id="gameOverScreen" class="overlay hidden">
-        <p id="finalScoreLabel" class="is-hidden">최종 점수</p>
-        <p id="finalScore" class="is-hidden">0</p>
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        <div class="content-wrapper is-hidden">
-            <div id="ranking-container" class="content-box">
-                <h3>명예의 전당</h3>
-                <ol id="ranking-list"><p>랭킹을 불러오는 중...</p></ol>
-            </div>
-
-            <div id="guestbook-container" class="content-box">
-                <h3>방명록</h3>
-                <div id="guestbook-entries"><p>방명록을 불러오는 중...</p></div>
-                <button id="more-guestbook-btn" class="hidden">더보기</button>
-                <form id="guestbook-form">
-                    <div class="input-group">
-                        <input type="text" id="guestbook-name" placeholder="이름" maxlength="20" required>
-                        <input type="text" id="guestbook-message" placeholder="한마디" maxlength="150" required>
-                        <button type="submit" id="guestbook-submit">등록</button>
-                    </div>
-                    <div id="guestbook-error"></div>
-                </form>
-            </div>
-        </div>
-
-        <div class="button-group is-hidden">
-            <button id="restartButton" class="btn-style">다시 시작</button>
-            <a href="https://www.threads.net/@ilovemom_2026" target="_blank" class="btn-style">개발자 Threads 방문</a>
-        </div>
-    </div>
-</div>
-
-<script>
-    window.addEventListener('DOMContentLoaded', () => {
-        // --- Supabase 설정 ---
-        const SUPABASE_URL = 'https://fzfnjtlzovbpbglvkroh.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6Zm5qdGx6b3ZicGJnbHZrcm9oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4OTcyMjEsImV4cCI6MjA3MTQ3MzIyMX0.yg43GbdVBPAzaghmERNGxRu9dte3bcpWTWjrOa0p55I';
-        let supabase = null;
-        try {
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            } else {
-                console.error("Supabase 라이브러리가 로드되지 않았습니다.");
-            }
-        } catch (e) {
-            console.error("Supabase 초기화 오류:", e);
-        }
-
-        // --- DOM Elements ---
-        const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.getElementById('score-display'); const startScreen = document.getElementById('startScreen');
-        const gameOverScreen = document.getElementById('gameOverScreen'); const finalScoreEl = document.getElementById('finalScore');
-        const restartButton = document.getElementById('restartButton'); const rankingList = document.getElementById('ranking-list');
-        const guestbookEntries = document.getElementById('guestbook-entries'); const guestbookForm = document.getElementById('guestbook-form');
-        const guestbookName = document.getElementById('guestbook-name'); const guestbookMessage = document.getElementById('guestbook-message');
-        const guestbookSubmit = document.getElementById('guestbook-submit'); const guestbookError = document.getElementById('guestbook-error');
-        const moreGuestbookBtn = document.getElementById('more-guestbook-btn');
-        const touchLeft = document.getElementById('touch-left'); const touchRight = document.getElementById('touch-right');
-        const comboDisplay = document.getElementById('combo-display');
-
-        // --- Sprite Sheet 설정 ---
-        const spriteSheet = new Image();
-        const backgroundSheet = new Image(); // 배경 스프라이트 시트
-        let isSpriteSheetLoaded = false;
-        let isBackgroundSheetLoaded = false; // 배경 스프라이트 로드 상태
-
-        const spriteData = {
-            sprites: [
-                { "name": "sprite_1", "x": 128, "y": 169, "w": 209, "h": 352 },
-                { "name": "sprite_2", "x": 414, "y": 170, "w": 210, "h": 355 },
-                { "name": "sprite_3", "x": 688, "y": 170, "w": 208, "h": 353 },
-                { "name": "sprite_4", "x": 128, "y": 605, "w": 225, "h": 355 },
-                { "name": "sprite_5", "x": 400, "y": 605, "w": 225, "h": 347 },
-                { "name": "sprite_6", "x": 688, "y": 605, "w": 208, "h": 355 },
-                { "name": "sprite_7", "x": 147, "y": 1049, "w": 206, "h": 357 },
-                { "name": "sprite_8", "x": 702, "y": 1049, "w": 200, "h": 343 },
-                { "name": "sprite_9", "x": 429, "y": 1050, "w": 196, "h": 355 }
-            ]
-        };
-        const backgroundSpriteData = {
-            sprites: [
-                { "name": "sprite_2", "x": 689, "y": 94, "w": 321, "h": 434 },
-                { "name": "sprite_3", "x": 357, "y": 107, "w": 320, "h": 418 },
-                { "name": "sprite_4", "x": 55, "y": 132, "w": 265, "h": 381 },
-                { "name": "sprite_5", "x": 424, "y": 571, "w": 170, "h": 414 },
-                { "name": "sprite_6", "x": 660, "y": 572, "w": 303, "h": 412 },
-                { "name": "sprite_7", "x": 41, "y": 584, "w": 308, "h": 397 },
-                { "name": "sprite_9", "x": 396, "y": 1036, "w": 234, "h": 400 },
-                { "name": "sprite_10", "x": 704, "y": 1047, "w": 296, "h": 390 },
-                { "name": "sprite_11", "x": 43, "y": 1080, "w": 302, "h": 188 }
-            ]
+        // ------------------------------------------------------------------
+        // 2. 전역 상태 및 상수
+        // ------------------------------------------------------------------
+        const state = {
+            user: null,
+            profile: null,
+            currentPostId: null,
+            currentStockName: '삼성전자', 
+            stockTags: [], 
+            realtimeChannels: {},
+            guestName: `나그네_${Math.floor(Math.random() * 1000)}`
         };
 
-        const spriteMap = spriteData.sprites.reduce((acc, sprite) => { acc[sprite.name] = sprite; return acc; }, {});
-        const animations = {
-            idle: { frames: ["sprite_1", "sprite_2", "sprite_3"], speed: 15 },
-            running: { frames: ["sprite_4", "sprite_5", "sprite_6", "sprite_7"], speed: 8 },
-            jumping: { frames: ["sprite_8", "sprite_9"], speed: 1 }
-        };
-
-        // --- Game State & Constants ---
-        let gameState = 'start', player = null, platforms = [], stars = [], moon = null, particles = [], backgroundElements = [], cameraY = 0, score = 0, baseScore = 0, bonusScore = 0, highestY = 0, finalGameScore = 0;
-        let guestbookLimit = 3; let lastTime = 0;
-        let availableBackgroundSprites = [];
-        let comboCount = 0; let comboTimeout; let lastPlatform = null;
-        const keys = { left: false, right: false }; const GRAVITY = 0.91, JUMP_FORCE = -19.5;
+        const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
         
-        // --- 배경화면 상태 ---
-        let backgroundState = 0;
-        const hexToRgb = (hex) => { const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null; };
-        const backgrounds = [
-            { top: hexToRgb('#0f0c29'), bottom: hexToRgb('#24243e') }, // 0: 지구
-            { top: hexToRgb('#000033'), bottom: hexToRgb('#000000') }, // 1: 우주
-            { top: hexToRgb('#4a00e0'), bottom: hexToRgb('#8e2de2') }, // 2: 제4세계
-            { top: hexToRgb('#ffaf7b'), bottom: hexToRgb('#d76d77') },  // 3: 천상계
-            { top: hexToRgb('#101030'), bottom: hexToRgb('#301040') },  // 4: 심연 (Abyss)
-            { top: hexToRgb('#FFFFE0'), bottom: hexToRgb('#FFFFFF') }   // 5: 특이점 (Singularity)
+        const MU_GONG_TYPES = [
+            { id: 'sword', name: '질풍검법 (단기)', tag: '단기', color: 'text-red-500' },
+            { id: 'dao', name: '태극도법 (장기)', tag: '장기', color: 'text-blue-500' },
+            { id: 'auto', name: '오토진법 (자동)', tag: '자동', color: 'text-yellow-500' },
         ];
-        let currentBgTop = backgrounds[0].top;
-        let currentBgBottom = backgrounds[0].bottom;
+        
+        // ------------------------------------------------------------------
+        // 3. 유틸리티 함수
+        // ------------------------------------------------------------------
 
-        // --- Audio ---
-        let isAudioReady = false; let jumpSound, gameOverSound, crumbleSound;
-        function initAudio() { if(isAudioReady) return; Tone.start().then(() => { jumpSound = new Tone.Synth({oscillator:{type:'triangle'},envelope:{attack:0.005,decay:0.1,sustain:0.05,release:0.1}}).toDestination(); gameOverSound = new Tone.Synth({oscillator:{type:'sine'},envelope:{attack:0.1,decay:0.5,sustain:0.1,release:0.5}}).toDestination(); crumbleSound = new Tone.NoiseSynth({noise:{type:'brown'},envelope:{attack:0.01,decay:0.15,sustain:0,release:0.1}}).toDestination(); isAudioReady = true; }); }
+        function calculateLevel(postCount, commentCount) {
+            const score = (postCount || 0) + (commentCount || 0);
+            const idx = Math.min(Math.floor(score / 10), LEVEL_NAMES.length - 1);
+            return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
+        }
 
-        // --- Initialization & Game Loop ---
-        function shuffleArray(array) {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+        function showMessage(text, type = 'info') {
+            const box = document.getElementById('message-box');
+            box.innerHTML = text;
+            box.className = `fixed bottom-4 right-4 z-[9999] px-4 py-2 rounded-xl shadow-xl text-xs font-bold transition-all duration-300 transform translate-y-0 opacity-100 ${type === 'error' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`;
+            setTimeout(() => { box.classList.add('translate-y-10', 'opacity-0'); }, 3000);
+        }
+
+        // --- 인증 관련 ---
+        async function handleAuth(isSignUp) {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!email || !password) return showMessage('이메일과 비밀번호를 입력해주세요.', 'error');
+
+            let error;
+            if (isSignUp) {
+                ({ error } = await client.auth.signUp({ email, password }));
+            } else {
+                ({ error } = await client.auth.signInWithPassword({ email, password }));
+            }
+
+            if (error) {
+                showMessage(`인증 실패: ${error.message}`, 'error');
+                console.error(error);
+            } else {
+                showMessage('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)', 'success');
+                closeModal('authModal');
+                checkSession();
+            }
+        }
+        
+        async function logout() {
+            await client.auth.signOut();
+            showMessage('하산했습니다.', 'info');
+            state.profile = null;
+            state.user = null;
+            updateHeaderUI();
+            navigate('gangho-plaza');
+        }
+
+        async function checkSession() {
+            const { data: { session } } = await client.auth.getSession();
+            updateAuthState(session);
+            client.auth.onAuthStateChange((_event, session) => updateAuthState(session));
+        }
+
+        async function updateAuthState(session) {
+            state.user = session ? session.user : null;
+            if (state.user) {
+                const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
+                if (data) state.profile = data;
+                // 프로필 생성 트리거는 DB SQL에 있음 (handle_new_user)
+            } else {
+                state.profile = null;
+            }
+            updateHeaderUI();
+        }
+
+        function updateHeaderUI() {
+            const authContainer = document.getElementById('auth-buttons');
+            if (state.user) {
+                const level = calculateLevel(state.profile?.post_count, state.profile?.comment_count);
+                authContainer.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-400 hidden sm:inline">레벨: <span class="${level.color} font-bold">${level.name}</span></span>
+                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile?.nickname || '문도'}</span>님</span>
+                        <button onclick="logout()" class="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded hover:bg-red-900 transition">하산</button>
+                    </div>
+                `;
+            } else {
+                authContainer.innerHTML = `
+                    <button onclick="openModal('authModal')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
+                        입문 (로그인)
+                    </button>
+                `;
             }
         }
 
-        function setCanvasSize(){const rect=document.getElementById('game-wrapper').getBoundingClientRect();canvas.width=rect.width;canvas.height=rect.height;}
-        
-        function resetGame(){
-            keys.left=false;keys.right=false;scoreDisplay.style.display='block';player={x:canvas.width/2-25,y:canvas.height-95,width:50,height:85,dx:0,dy:0,direction:'right',animationState:'idle',frameCount:0,animationFrame:0};platforms=[];cameraY=0;score=0;baseScore=0;bonusScore=0;finalGameScore=0;highestY=player.y;scoreDisplay.innerText=0;
-            platforms.push({x:0,y:canvas.height-40,width:canvas.width,height:40,type:'static', gimmick: 'none', isVisible: true});
+        // ------------------------------------------------------------------
+        // 4. 이미지/미디어 처리 (WebP 변환 및 Storage)
+        // ------------------------------------------------------------------
 
-            // 안전한 초기 발판 생성
-            let lastX = canvas.width / 2;
-            for (let i = 1; i < 20; i++) {
-                const yPos = canvas.height - 40 - i * 85;
-                const width = 100;
-                const newX = lastX + (Math.random() * 200 - 100);
-                const clampedX = Math.max(0, Math.min(newX, canvas.width - width));
-                platforms.push({ x: clampedX, y: yPos, width, height: 20, type: 'static', gimmick: 'none', dx: 0, dy: 0, verticalRange: 0, initialY: yPos, glitchTimer: 0, isVisible: true, state: 'intact', alpha: 1 });
-                lastX = clampedX;
-            }
+        /**
+         * 이미지 파일을 WebP로 변환하고 Supabase Storage에 업로드 후 URL을 반환
+         */
+        async function convertAndUploadImage(file, folderPath) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = async function() {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
 
-            stars = []; for(let i=0; i<150; i++){ const alpha = Math.random()*0.7+0.3; stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height*2, radius:Math.random()*1.5+0.5, alpha:alpha, baseAlpha:alpha, twinkleSpeed:Math.random()*0.005+0.001 }); }
-            moon = { x: canvas.width * 0.8, y: 150, radius: 40 };
-            gameState='playing';
-            backgroundState = 0; currentBgTop = backgrounds[0].top; currentBgBottom = backgrounds[0].bottom;
-            comboCount = 0; comboDisplay.style.opacity = 0; clearTimeout(comboTimeout); lastPlatform = null; particles = [];
-            backgroundElements = [];
-            
-            const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
-            shuffleArray(allBackgroundSpriteNames);
-            availableBackgroundSprites = allBackgroundSpriteNames;
-        }
-        
-        function generatePlatform(yPos){
-            let width = Math.random() * 80 + 80;
-            const x = Math.random() * (canvas.width - width);
-            let type = 'static';
-            let gimmick = 'none';
-            let dx = 0;
-            let dy = 0;
-            let verticalRange = 0;
-            let initialY = yPos;
-            let glitchTimer = 0;
-            let isVisible = true;
+                        // WebP 변환 (품질 80%)
+                        canvas.toBlob(async (blob) => {
+                            if (!blob) {
+                                reject(new Error('WebP 변환 실패'));
+                                return;
+                            }
 
-            const rand = Math.random();
-            const gimmickRand = Math.random();
+                            const webpFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.webp`;
+                            const filePath = `${folderPath}/${webpFileName}`;
 
-            // 스테이지별 기믹 적용 (backgroundState는 점수에 따라 update에서 결정됨)
-            const currentStage = backgroundState;
-            if (currentStage >= 4) { // 심연 이상
-                const allGimmicks = [];
-                if (currentStage >= 4) allGimmicks.push('fading', 'short');
-                if (currentStage >= 5) allGimmicks.push('fast_moving');
-                if (currentStage >= 6) allGimmicks.push('glitching');
-                if (currentStage >= 7) allGimmicks.push('vertical');
+                            // Supabase Storage 업로드
+                            const { data, error } = await client.storage
+                                .from(STORAGE_BUCKET)
+                                .upload(filePath, blob, {
+                                    cacheControl: '3600',
+                                    upsert: false,
+                                    contentType: 'image/webp',
+                                });
 
-                if (gimmickRand < (currentStage - 3) * 0.15) { // 스테이지가 높을수록 기믹 확률 증가
-                    gimmick = allGimmicks[Math.floor(Math.random() * allGimmicks.length)];
-                }
-
-                switch(gimmick) {
-                    case 'fading': width = Math.random() * 60 + 60; break;
-                    case 'short': width = Math.random() * 60 + 60; break;
-                    case 'fast_moving': type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 2 + 2.5); break;
-                    case 'glitching': glitchTimer = Math.random() * 120 + 60; break;
-                    case 'vertical': dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1 + 0.5); verticalRange = Math.random() * 40 + 30; break;
-                }
-            }
-            
-            // 일반 발판 생성 로직 (기믹이 없을 경우)
-            if (type === 'static' && gimmick === 'none') {
-                 if (score > 200 && rand < 0.20) type = 'crumbling';
-                 else if (score > 50 && rand < 0.25) { type = 'moving'; dx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 1.5 + 1); }
-            }
-
-            platforms.push({ x, y: yPos, width, height: 20, type, gimmick, dx, dy, verticalRange, initialY, glitchTimer, isVisible, state: 'intact', alpha: 1 });
-        }
-        
-        function update(deltaTime){
-            if(gameState!=='playing'||!player)return;
-            const speed = Math.min(9 + score * 0.007, 16); 
-            player.dx=0;
-            if(keys.left){ player.dx=-speed; player.direction = 'left'; }
-            if(keys.right){ player.dx=speed; player.direction = 'right'; }
-            const currentJumpForce = JUMP_FORCE;
-            player.dy += GRAVITY * deltaTime; player.x += player.dx * deltaTime; player.y += player.dy * deltaTime;
-            if(player.dy > 0){platforms.forEach(p => {if(p.isVisible && player.x < p.x + p.width && player.x + player.width > p.x && player.y + player.height > p.y && player.y + player.height < p.y + p.height + 20) {
-                player.y = p.y - player.height; player.dy = currentJumpForce; 
-                if(isAudioReady) jumpSound.triggerAttackRelease("C5","0.05"); 
-                if(p.type === 'crumbling' && p.state === 'intact'){p.state = 'shaking'; if(isAudioReady) crumbleSound.triggerAttackRelease("0.1");} 
-                if(p.gimmick === 'fading' && p.state === 'intact') { p.state = 'fading'; }
-                if(p.type === 'moving') player.x += p.dx * deltaTime;
-                handleCombo(p);
-            }}); }
-            if(player.x < -player.width) player.x = canvas.width; if(player.x > canvas.width) player.x = -player.width;
-            if(player.y < cameraY + canvas.height / 2.5) cameraY = player.y - canvas.height / 2.5;
-            
-            if(player.y < highestY){
-                highestY = player.y; 
-                baseScore = Math.floor((canvas.height - 80 - highestY) / 10);
-            }
-            score = baseScore + bonusScore;
-            scoreDisplay.innerText = score;
-
-            platforms.forEach(p => {
-                if(p.type === 'moving'){p.x += p.dx * deltaTime; if(p.x < 0 || p.x + p.width > canvas.width) p.dx *= -1;} 
-                if(p.state === 'shaking' || p.state === 'fading') { p.alpha = Math.max(0, p.alpha - 0.05 * deltaTime); if(p.alpha <= 0) p.state = 'faded'; }
-                if(p.state === 'faded') { p.alpha = Math.min(1, p.alpha + 0.01 * deltaTime); if(p.alpha >= 1) p.state = 'intact'; }
-
-                if (p.gimmick === 'vertical') {
-                    p.y += p.dy * deltaTime;
-                    if (p.y > p.initialY + p.verticalRange || p.y < p.initialY - p.verticalRange) { p.dy *= -1; }
-                }
-                if (p.gimmick === 'glitching') {
-                    p.glitchTimer -= deltaTime;
-                    if (p.glitchTimer <= 0) {
-                        p.isVisible = !p.isVisible;
-                        p.glitchTimer = p.isVisible ? Math.random() * 120 + 60 : Math.random() * 60 + 30;
-                    }
-                }
+                            if (error) {
+                                reject(error);
+                            } else {
+                                const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
+                                resolve(publicUrl);
+                            }
+                        }, 'image/webp', 0.8);
+                    };
+                    img.onerror = () => reject(new Error('이미지 로드 중 오류 발생'));
+                    img.src = event.target.result;
+                };
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
             });
-            if(platforms.length > 0 && platforms[platforms.length - 1].y > cameraY - 100){generatePlatform(platforms[platforms.length - 1].y - (Math.random() * 60 + 80));}
-            platforms = platforms.filter(p => p.y < cameraY + canvas.height + 50);
-            backgroundElements = backgroundElements.filter(el => (el.y - cameraY * 0.5) < canvas.height + 50);
-
-            player.frameCount++; 
-            const currentAnimData = animations[player.animationState];
-            if(player.frameCount % currentAnimData.speed === 0) { player.animationFrame = (player.animationFrame + 1) % currentAnimData.frames.length; }
-            if(player.dy < 0) player.animationState = 'jumping'; else if(keys.left || keys.right) player.animationState = 'running'; else player.animationState = 'idle';
-            if(player.y > cameraY + canvas.height) endGame();
-
-            let targetState = 0;
-            if (score > 1200000) targetState = 10;
-            else if (score > 850000) targetState = 9;
-            else if (score > 600000) targetState = 8;
-            else if (score > 400000) targetState = 7;
-            else if (score > 250000) targetState = 6;
-            else if (score > 150000) targetState = 5;
-            else if (score > 100000) targetState = 4;
-            else if (score > 30000) targetState = 3;
-            else if (score > 20000) targetState = 2;
-            else if (score > 10000) targetState = 1;
-            
-            if (backgroundState !== targetState) {
-                const oldState = backgroundState;
-                backgroundState = targetState;
-                // 배경 요소는 페이즈가 실제로 바뀔 때만 추가
-                if (backgroundState > oldState) {
-                    if (availableBackgroundSprites.length === 0) {
-                        const allBackgroundSpriteNames = backgroundSpriteData.sprites.map(s => s.name);
-                        shuffleArray(allBackgroundSpriteNames);
-                        availableBackgroundSprites = allBackgroundSpriteNames;
-                    }
-                    const spriteName = availableBackgroundSprites.pop();
-                    const spriteInfo = backgroundSpriteData.sprites.find(s => s.name === spriteName);
-                    if(spriteInfo){
-                         const newElementHeight = spriteInfo.h / 1.5;
-                         backgroundElements.push({
-                            spriteName: spriteInfo.name,
-                            x: Math.random() * (canvas.width - (spriteInfo.w / 1.5)),
-                            y: cameraY * 0.5 - newElementHeight - (Math.random() * 200),
-                            width: spriteInfo.w / 1.5,
-                            height: newElementHeight
-                        });
-                    }
-                }
-            }
-
-            const lerp = (start, end, amt) => (1 - amt) * start + amt * end;
-            const targetBg = backgrounds[Math.min(backgroundState, backgrounds.length - 1)]; // 배경 배열 초과 방지
-            currentBgTop.r = lerp(currentBgTop.r, targetBg.top.r, 0.01 * deltaTime); currentBgTop.g = lerp(currentBgTop.g, targetBg.top.g, 0.01 * deltaTime); currentBgTop.b = lerp(currentBgTop.b, targetBg.top.b, 0.01 * deltaTime);
-            currentBgBottom.r = lerp(currentBgBottom.r, targetBg.bottom.r, 0.01 * deltaTime); currentBgBottom.g = lerp(currentBgBottom.g, targetBg.bottom.g, 0.01 * deltaTime); currentBgBottom.b = lerp(currentBgBottom.b, targetBg.bottom.b, 0.01 * deltaTime);
-
-            stars.forEach(s => { s.alpha = s.baseAlpha + Math.sin(Date.now() * s.twinkleSpeed) * (s.baseAlpha / 2); });
-            particles.forEach((p, i) => { p.x += p.dx * deltaTime; p.y += p.dy * deltaTime; p.life -= deltaTime; if(p.life <= 0) particles.splice(i, 1); });
         }
         
-        function draw(){
-            const rgbToString = (rgb) => `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            bgGrad.addColorStop(0, rgbToString(currentBgTop)); bgGrad.addColorStop(1, rgbToString(currentBgBottom));
-            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.save();
-            ctx.translate(0, -cameraY * 0.8);
-            if (backgroundState === 0 && moon) {
-                ctx.fillStyle = 'rgba(240, 240, 255, 0.8)'; ctx.shadowColor = 'white'; ctx.shadowBlur = 20;
-                ctx.beginPath(); ctx.arc(moon.x, moon.y, moon.radius, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 0;
-            }
-            stars.forEach(s => {
-                let starColor = `rgba(255, 255, 255, ${s.alpha})`;
-                if (backgroundState === 2 || backgroundState === 6) starColor = `rgba(200, 180, 255, ${s.alpha})`;
-                else if (backgroundState === 3 || backgroundState === 5 || backgroundState >= 9) starColor = `rgba(255, 220, 150, ${s.alpha})`;
-                else if (backgroundState === 4 || backgroundState === 7) starColor = `rgba(180, 180, 255, ${s.alpha})`; 
-                ctx.fillStyle = starColor;
-                ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2); ctx.fill();
-            });
-            ctx.restore();
-            
-            ctx.save();
-            ctx.translate(0, -cameraY * 0.5);
-            if (isBackgroundSheetLoaded) {
-                backgroundElements.forEach(el => {
-                    const sprite = backgroundSpriteData.sprites.find(s => s.name === el.spriteName);
-                    if (sprite) {
-                        ctx.drawImage(backgroundSheet, sprite.x, sprite.y, sprite.w, sprite.h, el.x, el.y, el.width, el.height);
-                    }
-                });
-            }
-            ctx.restore();
-
-            if(gameState!=='playing'||!player)return;
-            ctx.save();ctx.translate(0,-cameraY);
-            platforms.forEach(p=>{
-                if (!p.isVisible) return;
-                ctx.globalAlpha=p.alpha;
-                const grad=ctx.createLinearGradient(p.x,p.y,p.x,p.y+p.height);
-                if(p.type==='moving'){grad.addColorStop(0,'#ff8c42');grad.addColorStop(1,'#ff5e57');}
-                else if(p.type==='crumbling' || p.gimmick === 'fading'){grad.addColorStop(0,'#b0a090');grad.addColorStop(1,'#8a7a6a');}
-                else{grad.addColorStop(0,'#6c5b7b');grad.addColorStop(1,'#355c7d');}
-                ctx.fillStyle=grad;
-                ctx.fillRect(p.x,p.y,p.width,p.height);
-                ctx.globalAlpha=1;
-            });
-            
-            ctx.fillStyle = 'rgba(250, 204, 21, 0.8)';
-            particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (p.life / 60), 0, Math.PI * 2); ctx.fill(); });
-
-            drawPlayer();
-            ctx.restore();
-        }
-        
-        function gameLoop(currentTime){
-            if(!lastTime) lastTime = currentTime;
-            const deltaTime = (currentTime - lastTime) / (1000 / 60);
-            lastTime = currentTime;
-            update(deltaTime);
-            draw();
-            requestAnimationFrame(gameLoop);
-        }
-
-        function drawPlayer() {
-            if (!player || !isSpriteSheetLoaded) return;
-            const currentAnim = animations[player.animationState];
-            let frameIndex = player.animationFrame;
-            if (player.animationState === 'jumping') { frameIndex = player.dy < 0 ? 0 : 1; }
-            const spriteName = currentAnim.frames[frameIndex];
-            const sprite = spriteMap[spriteName];
-            if (!sprite) return;
-            ctx.save();
-            const cX = player.x + player.width / 2; const cY = player.y + player.height / 2;
-            ctx.translate(cX, cY);
-            if (player.direction === 'left') { ctx.scale(-1, 1); }
-            
-            ctx.drawImage(spriteSheet, sprite.x, sprite.y, sprite.w, sprite.h, -player.width / 2, -player.height / 2, player.width, player.height);
-            ctx.restore();
-        }
-
-        // --- 콤보 & 파티클 함수 ---
-        function handleCombo(platform) {
-            if (platform === lastPlatform) return; 
-            lastPlatform = platform;
-            comboCount++;
-            clearTimeout(comboTimeout);
-            if (comboCount >= 2) {
-                const comboBonus = comboCount * 5;
-                bonusScore += comboBonus;
-                comboDisplay.innerText = `${comboCount} COMBO`;
-                comboDisplay.style.opacity = 1;
-                anime.remove(comboDisplay);
-                anime({ targets: comboDisplay, scale: [1.5, 1], translateY: [-20, 0], duration: 400, easing: 'easeOutElastic(1, .8)' });
-                createParticles();
-            }
-            comboTimeout = setTimeout(() => {
-                anime({ targets: comboDisplay, opacity: 0, duration: 500, easing: 'easeOutExpo', complete: () => { comboCount = 0; lastPlatform = null; } });
-            }, 1500);
-        }
-        function createParticles() {
-            const pX = player.x + player.width / 2;
-            const pY = player.y + player.height / 2;
-            for (let i = 0; i < 10; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = Math.random() * 3 + 1;
-                particles.push({
-                    x: pX, y: pY,
-                    dx: Math.cos(angle) * speed,
-                    dy: Math.sin(angle) * speed,
-                    size: Math.random() * 3 + 2,
-                    life: 60
-                });
-            }
-        }
-
-        // --- State Transition ---
-        function startGame() { 
-            initAudio(); 
-            startScreen.classList.add('hidden'); 
-            touchLeft.classList.add('visible');
-            touchRight.classList.add('visible');
-            setTimeout(resetGame, 500); 
-        }
-        function endGame() {
-            gameState = 'gameOver'; finalGameScore = score;
-            if(isAudioReady) gameOverSound.triggerAttackRelease("C2", "0.5");
-            scoreDisplay.style.display = 'none'; 
-            gameOverScreen.classList.remove('hidden');
-            touchLeft.classList.remove('visible');
-            touchRight.classList.remove('visible');
-            clearTimeout(comboTimeout); comboCount = 0; comboDisplay.style.opacity = 0; lastPlatform = null;
-            
-            const scoreObj = { value: 0 };
-            anime({ targets: scoreObj, value: finalGameScore, round: 1, duration: 1200, easing: 'easeOutCubic', update: () => { finalScoreEl.innerText = scoreObj.value.toLocaleString(); } });
-            
-            const tl = anime.timeline({ easing: 'easeOutExpo', duration: 750 });
-            tl.add({ targets: ['#finalScoreLabel', '#finalScore'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) })
-              .add({ targets: ['.content-wrapper', '.button-group'], translateY: [20, 0], opacity: [0, 1], delay: anime.stagger(100) }, '-=500');
-
-            loadRankingAndGuestbook();
-        }
-        function restartGame() {
-            gameOverScreen.classList.add('hidden');
-            document.querySelectorAll('#gameOverScreen .content-wrapper, #gameOverScreen .button-group, #finalScoreLabel, #finalScore').forEach(el => { el.style.opacity = 0; });
-            setTimeout(() => {
-                guestbookLimit = 3; 
-                startGame();
-            }, 500);
-        }
-        
-        // --- Supabase Functions ---
-        async function loadRankingAndGuestbook() {
-            if (!supabase) {
-                const errorMsg = `<p style="color: var(--error-color);">서버에 연결할 수 없습니다.</p>`;
-                rankingList.innerHTML = errorMsg;
-                guestbookEntries.innerHTML = errorMsg;
+        window.handleImageUpload = async function() {
+            if (!state.user) {
+                showMessage('이미지 업로드는 로그인 사용자만 가능합니다.', 'error');
                 return;
             }
-            fetchRankings();
-            fetchGuestbookEntries();
-        }
-
-        async function fetchRankings() {
+            
+            const fileInput = document.getElementById('image-upload-input');
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            showMessage('이미지 변환 및 업로드 중...', 'info');
             try {
-                const { data, error } = await supabase.from('guestbook').select('name, score').order('score', { ascending: false }).limit(5);
-                if (error) throw error;
-                rankingList.innerHTML = '';
-                if (data.length === 0) {
-                    rankingList.innerHTML = '<p>아직 등록된 기록이 없습니다.</p>';
-                } else {
-                    data.forEach((entry, index) => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `<span class="rank-name">${index + 1}. ${escapeHtml(entry.name)}</span> <span class="rank-score">${entry.score.toLocaleString()}</span>`;
-                        rankingList.appendChild(li);
-                    });
-                }
-            } catch (error) { console.error('랭킹 로딩 오류:', error); rankingList.innerHTML = `<p style="color: var(--error-color);">랭킹 로딩 실패: ${error.message}</p>`; }
-        }
-
-        async function fetchGuestbookEntries() {
-            try {
-                const { data, error, count } = await supabase.from('guestbook').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(guestbookLimit);
-                if (error) throw error;
+                // Posts 이미지는 'posts' 폴더에 저장
+                const publicUrl = await convertAndUploadImage(file, 'posts');
                 
-                guestbookEntries.innerHTML = '';
-                if (data.length === 0) {
-                    guestbookEntries.innerHTML = '<p>첫 방명록을 남겨주세요.</p>';
-                } else {
-                    data.forEach(entry => {
-                        const div = document.createElement('div');
-                        div.className = 'guestbook-entry';
-                        div.innerHTML = `<p><strong>${escapeHtml(entry.name)}:</strong> ${escapeHtml(entry.message)}<span class="score">(${entry.score.toLocaleString()}점)</span></p>`;
-                        guestbookEntries.appendChild(div);
-                    });
-                }
-                if (count > guestbookLimit) {
-                    moreGuestbookBtn.classList.remove('hidden');
-                } else {
-                    moreGuestbookBtn.classList.add('hidden');
-                }
-            } catch (error) { console.error('방명록 로딩 오류:', error); guestbookEntries.innerHTML = `<p style="color: var(--error-color);">방명록 로딩 실패: ${error.message}</p>`; }
-        }
+                // 에디터에 이미지 삽입 (반응형 스타일 적용)
+                const editor = document.getElementById('new-post-content');
+                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200/333/fff?text=이미지+로드+실패'">`;
+                document.execCommand('insertHTML', false, imgTag);
+                
+                showMessage('이미지 삽입 완료.', 'success');
+            } catch (error) {
+                console.error('이미지 업로드 실패:', error);
+                showMessage('이미지 업로드 중 오류 발생.', 'error');
+            } finally {
+                fileInput.value = ''; // input 초기화
+            }
+        };
 
-        async function handleGuestbookSubmit(e) {
-            e.preventDefault();
-            if (!supabase) return;
-            const lastPostTime = localStorage.getItem('lastPostTime');
-            if (lastPostTime && Date.now() - lastPostTime < 30000) {
-                showError(`${Math.ceil((30000 - (Date.now() - lastPostTime)) / 1000)}초 후 등록 가능합니다.`);
+        window.handleYouTubeEmbed = function() {
+            const url = prompt('임베드할 YouTube URL을 입력해주세요:');
+            if (!url) return;
+
+            // YouTube URL에서 동영상 ID 추출
+            let videoId;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            if (match && match[2].length === 11) {
+                videoId = match[2];
+            } else {
+                showMessage('유효한 YouTube URL이 아닙니다.', 'error');
                 return;
             }
-            const name = guestbookName.value.trim();
-            const message = guestbookMessage.value.trim();
-            if (!name || !message) { showError('이름과 메시지를 입력해주세요.'); return; }
-            guestbookSubmit.disabled = true; guestbookSubmit.textContent = '...';
-            try {
-                const { error } = await supabase.from('guestbook').insert([{ name, message, score: finalGameScore }]);
-                if (error) throw error;
-                guestbookForm.reset();
-                localStorage.setItem('lastPostTime', Date.now());
-                guestbookLimit = 3;
-                loadRankingAndGuestbook();
-            } catch (error) { console.error('방명록 등록 오류:', error); showError(`등록 실패: ${error.message}`); } 
-            finally { guestbookSubmit.disabled = false; guestbookSubmit.textContent = '등록'; }
+
+            const embedHtml = `
+                <div class="my-4" style="aspect-ratio: 16 / 9; max-width: 100%;">
+                    <iframe 
+                        src="https://www.youtube.com/embed/${videoId}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen 
+                        class="rounded-lg shadow-xl w-full h-full"
+                    ></iframe>
+                </div>
+            `;
+            const editor = document.getElementById('new-post-content');
+            document.execCommand('insertHTML', false, embedHtml);
+            showMessage('YouTube 동영상 삽입 완료.', 'success');
+        };
+        
+        // ------------------------------------------------------------------
+        // 5. 게시글 CRUD 로직 (안전 삭제 포함)
+        // ------------------------------------------------------------------
+        
+        async function createPost() {
+            if (!state.user) return showMessage('로그인 후 이용 가능합니다.', 'error');
+
+            const type = document.querySelector('input[name="post-type"]:checked').value;
+            const title = document.getElementById('new-post-title').value;
+            const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
+
+            if (!title || !contentHTML) return showMessage('제목과 내용을 입력해주세요.', 'error');
+
+            let stockName = null;
+
+            if (type === 'stock') {
+                const inputVal = document.getElementById('stock-input').value.trim();
+                if (!inputVal) return showMessage('종목명을 입력하거나 선택해야 합니다.', 'error');
+                
+                stockName = inputVal;
+                // 종목 태그가 없으면 자동 생성
+                const exists = state.stockTags.find(t => t.name === stockName);
+                if (!exists) {
+                    const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
+                    if (tagError) console.error('태그 생성 실패:', tagError);
+                    else {
+                        showMessage(`새로운 종목 [${stockName}]이 강호에 등록되었습니다!`, 'success');
+                        await fetchStockTags();
+                    }
+                }
+            }
+
+            const payload = {
+                title, content: contentHTML, type, 
+                user_id: state.user.id, 
+                stock_id: stockName,
+                mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
+            };
+
+            const { error } = await client.from('posts').insert(payload);
+            if (error) {
+                console.error(error);
+                showMessage('비급 등록 실패.', 'error');
+            } else {
+                showMessage('비급이 기록되었습니다.', 'success');
+                closeModal('newPostModal');
+                document.getElementById('new-post-title').value = '';
+                document.getElementById('new-post-content').innerHTML = '';
+                
+                if (type === 'stock') {
+                    state.currentStockName = stockName; 
+                    navigate('stock-board');
+                } else {
+                    navigate(type === 'secret' ? 'secret-inn' : 'gangho-plaza');
+                }
+            }
         }
         
-        function showError(message) { guestbookError.textContent = message; setTimeout(() => { guestbookError.textContent = ''; }, 3000); }
-        function escapeHtml(str) { return str.replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m])); }
+        window.deletePost = async function(postId) {
+            if (!confirm('정말로 이 게시글을 삭제하시겠습니까? 관련 자료가 영구 삭제됩니다.')) return;
+            if (!state.user) return showMessage('로그인 사용자만 삭제할 수 있습니다.', 'error');
 
-        // --- Event Listeners & Main Setup ---
-        function setupListeners() {
-            window.addEventListener('resize', setCanvasSize, { passive: true });
-            startScreen.addEventListener('click', startGame);
-            restartButton.addEventListener('click', restartGame);
-            
-            if (supabase) {
-                guestbookForm.addEventListener('submit', handleGuestbookSubmit);
-                moreGuestbookBtn.addEventListener('click', () => {
-                    guestbookLimit += 5;
-                    fetchGuestbookEntries();
-                });
+            // 1. Storage 파일 삭제를 위한 게시글 내용 조회
+            const { data: post, error: fetchError } = await client.from('posts').select('content, user_id').eq('id', postId).single();
+            if (fetchError || !post) {
+                console.error("게시글 조회 오류:", fetchError);
+                return showMessage('게시글 정보를 찾을 수 없습니다.', 'error');
             }
-            const handleMoveStart=(x)=>{if(gameState!=='playing')return;const mid=canvas.getBoundingClientRect().left+canvas.width/2;keys.left=x<mid;keys.right=x>=mid;};
-            const handleMoveEnd=()=>{if(gameState==='playing'){keys.left=false;keys.right=false;}};
-            canvas.addEventListener('mousedown', e => handleMoveStart(e.clientX));
-            canvas.addEventListener('mouseup', handleMoveEnd);
-            canvas.addEventListener('mouseleave', handleMoveEnd);
-            canvas.addEventListener('mousemove', e => { if (e.buttons === 1) handleMoveStart(e.clientX); });
-            canvas.addEventListener('touchstart',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
-            canvas.addEventListener('touchmove',e=>{e.preventDefault();handleMoveStart(e.touches[0].clientX);},{passive:false});
-            canvas.addEventListener('touchend',e=>{e.preventDefault();handleMoveEnd();},{passive:false});
-            document.addEventListener('keydown',e=>{if(gameState!=='playing')return;if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=true;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=true;});
-            document.addEventListener('keyup',e=>{if(e.code==='ArrowLeft'||e.code==='KeyA')keys.left=false;if(e.code==='ArrowRight'||e.code==='KeyD')keys.right=false;});
+            if (post.user_id !== state.user.id) {
+                 return showMessage('삭제 권한이 없습니다.', 'error');
+            }
+
+            // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제
+            const content = post.content;
+            // Supabase Storage 경로에 있는 이미지 URL만 필터링
+            const imageUrls = [...content.matchAll(/src="([^"]*)"/g)]
+                .map(match => match[1])
+                .filter(url => url.includes(SUPABASE_URL) && url.includes(`/${STORAGE_BUCKET}/posts/`));
+
+            if (imageUrls.length > 0) {
+                const filesToDelete = imageUrls.map(url => {
+                    // Supabase URL에서 'images/' 이후의 경로 추출 (e.g., 'posts/file_name.webp')
+                    const path = url.substring(url.indexOf(`/${STORAGE_BUCKET}/`) + `/${STORAGE_BUCKET}/`.length);
+                    return path.split('?')[0]; // 쿼리 스트링 제거
+                });
+                
+                const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
+                if (storageError) {
+                    console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
+                }
+            }
+
+            // 3. DB 게시글 삭제 (Comments는 RLS Cascade로 자동 삭제됨)
+            const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
+
+            if (deleteError) {
+                console.error('게시글 DB 삭제 오류:', deleteError);
+                showMessage('게시글 삭제에 실패했습니다.', 'error');
+            } else {
+                showMessage('게시글 및 관련 자료가 삭제되었습니다.', 'success');
+                closeModal('postDetailModal');
+                // 현재 뷰 리프레시
+                const currentView = document.querySelector('.app-view:not(.hidden)').id;
+                navigate(currentView);
+            }
+        };
+
+        // ------------------------------------------------------------------
+        // 6. 뷰 및 네비게이션
+        // ------------------------------------------------------------------
+
+        function navigate(viewId) {
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-yellow-400', 'border-yellow-400');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+            const activeBtn = document.querySelector(`button[onclick="navigate('${viewId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.replace('text-gray-500', 'text-yellow-400');
+                activeBtn.classList.replace('border-transparent', 'border-yellow-400');
+            }
+
+            if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
+            if (viewId === 'stock-board') {
+                if(state.stockTags.length === 0) fetchStockTags();
+                else renderPosts('posts-list-stock', 'stock', state.currentStockName);
+            }
+            if (viewId === 'secret-inn') renderPosts('posts-list-secret', 'secret');
+            if (viewId === 'chat-hall') loadChat();
         }
+
+        async function fetchStockTags() {
+            const { data } = await client.from('stock_tags').select('name').order('created_at', { ascending: true });
+            if (data) {
+                state.stockTags = data; 
+                renderStockTabs();
+                renderStockOptions();
+            }
+        }
+
+        function renderStockTabs() {
+             const stockTabs = document.getElementById('stock-tabs');
+            stockTabs.innerHTML = '';
+            // 현재 종목이 태그 목록에 없으면 추가 (사용자 입력으로 생성된 경우)
+            if (!state.stockTags.find(t => t.name === state.currentStockName)) {
+                state.stockTags.push({ name: state.currentStockName });
+            }
+            
+            state.stockTags.forEach(tag => {
+                const btn = document.createElement('button');
+                const isActive = state.currentStockName === tag.name;
+                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                    isActive 
+                    ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                }`;
+                btn.innerText = tag.name;
+                btn.onclick = () => {
+                    state.currentStockName = tag.name;
+                    renderStockTabs();
+                    renderPosts('posts-list-stock', 'stock', tag.name);
+                    document.getElementById('current-stock-name').innerText = tag.name;
+                };
+                stockTabs.appendChild(btn);
+            });
+             // 스크롤을 맨 왼쪽으로 이동
+             stockTabs.scrollLeft = 0;
+        }
+
+        function renderStockOptions() { 
+            const dataList = document.getElementById('stock-options');
+            dataList.innerHTML = '';
+            state.stockTags.forEach(tag => {
+                const option = document.createElement('option');
+                option.value = tag.name;
+                dataList.appendChild(option);
+            });
+        }
+        
+        async function fetchPosts(type, stockName = null) {
+            let query = client.from('posts')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`) 
+                .eq('type', type)
+                .order('created_at', { ascending: false });
+
+            if (stockName) query = query.eq('stock_id', stockName);
+
+            const { data } = await query;
+            return data || [];
+        }
+
+        async function renderPosts(containerId, type, stockName = null) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="text-center text-gray-500 py-10">... 비급을 로딩 중 ...</div>';
+            
+            const posts = await fetchPosts(type, stockName);
+            container.innerHTML = '';
+
+            if (posts.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-10">아직 등록된 비급이 없습니다. 첫 기록을 남겨보세요.</div>';
+                return;
+            }
+
+            posts.forEach(post => {
+                const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+                const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+                const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
+
+                const postEl = document.createElement('div');
+                postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
+                postEl.onclick = () => openPostDetail(post);
+
+                postEl.innerHTML = `
+                    <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
+                    <div class="text-xs text-gray-400 flex justify-between items-center">
+                        <div class="flex items-center space-x-2">
+                            <span class="${level.color} font-medium">${level.name}</span>
+                            <span class="text-yellow-400">${author}</span>
+                            ${mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 ${mugong.color}">${mugong.tag}</span>` : ''}
+                        </div>
+                        <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
+                    </div>
+                `;
+                container.appendChild(postEl);
+            });
+        }
+
+        window.openPostDetail = async function(post) {
+            state.currentPostId = post.id;
+            const modal = document.getElementById('postDetailModal');
+            document.getElementById('detail-title').innerText = post.title;
+            
+            // HTML 내용을 삽입하여 이미지/비디오가 렌더링되도록 처리
+            document.getElementById('detail-content').innerHTML = post.content;
+            
+            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+            document.getElementById('detail-author').innerText = author;
+            
+            const deleteBtn = document.getElementById('delete-post-btn');
+            if (state.user?.id === post.user_id) {
+                deleteBtn.classList.remove('hidden');
+                deleteBtn.onclick = () => deletePost(post.id);
+            } else {
+                deleteBtn.classList.add('hidden');
+            }
+            
+            loadComments(post.id);
+            modal.classList.remove('hidden');
+        }
+
+        // ------------------------------------------------------------------
+        // 7. 댓글 로직
+        // ------------------------------------------------------------------
+
+        async function loadComments(postId) {
+            const { data } = await client.from('comments')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`)
+                .eq('post_id', postId)
+                .order('created_at', { ascending: true });
+            renderComments(data || []);
+            setupRealtimeComments(postId);
+        }
+
+        function renderComments(comments) {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = '';
+            comments.forEach(comment => {
+                const author = comment.profiles?.nickname || comment.guest_nickname || '익명';
+                const level = comment.profiles ? calculateLevel(comment.profiles.post_count, comment.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+
+                const commentEl = document.createElement('div');
+                commentEl.className = 'p-2 rounded-lg bg-gray-700/50';
+                commentEl.innerHTML = `
+                    <p class="text-[10px] text-gray-400 mb-1">
+                        <span class="${level.color}">${level.name}</span>
+                        <span class="text-yellow-300 font-medium">${author}</span>
+                        <span class="float-right">${new Date(comment.created_at).toLocaleTimeString()}</span>
+                    </p>
+                    <p class="text-xs text-gray-200">${comment.content}</p>
+                `;
+                list.appendChild(commentEl);
+            });
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function addComment() {
+            const postId = state.currentPostId;
+            const input = document.getElementById('comment-input');
+            const content = input.value.trim();
+            if (!content || !postId) return;
+
+            const payload = {
+                post_id: postId,
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('comments').insert(payload);
+            if (error) {
+                console.error(error);
+                showMessage('댓글 등록 실패.', 'error');
+            } else {
+                input.value = '';
+            }
+        }
+
+        function setupRealtimeComments(postId) {
+            if (state.realtimeChannels[`comments_${postId}`]) {
+                client.removeChannel(state.realtimeChannels[`comments_${postId}`]);
+            }
+            const channel = client.channel(`comments_${postId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
+                    () => loadComments(postId)
+                ).subscribe();
+            state.realtimeChannels[`comments_${postId}`] = channel;
+        }
+
+        // ------------------------------------------------------------------
+        // 8. 채팅 로직 (기존 로직 유지)
+        // ------------------------------------------------------------------
+
+        async function loadChat() {
+            const { data } = await client.from('chat_messages')
+                .select(`*, profiles:user_id (nickname)`)
+                .order('created_at', { ascending: false })
+                .limit(50);
+            renderChat(data.reverse() || []);
+            setupRealtimeChat();
+        }
+
+        function renderChat(messages) {
+            const chatList = document.getElementById('chat-list');
+            chatList.innerHTML = '';
+            messages.forEach(msg => {
+                const author = msg.profiles?.nickname || msg.guest_nickname || '익명 문도';
+                const msgEl = document.createElement('div');
+                msgEl.className = 'text-xs mb-1';
+                msgEl.innerHTML = `<span class="text-yellow-400 font-medium">${author}:</span> <span class="text-gray-300">${msg.content}</span>`;
+                chatList.appendChild(msgEl);
+            });
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            if (!content) return;
+
+            const payload = {
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('chat_messages').insert(payload);
+            if (error) {
+                console.error(error);
+                showMessage('채팅 전송 실패.', 'error');
+            } else {
+                input.value = '';
+            }
+        }
+        
+        function setupRealtimeChat() {
+             if (state.realtimeChannels['chat']) {
+                client.removeChannel(state.realtimeChannels['chat']);
+            }
+            const channel = client.channel('chat')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, 
+                    () => loadChat()
+                ).subscribe();
+            state.realtimeChannels['chat'] = channel;
+        }
+
+
+        // ------------------------------------------------------------------
+        // 9. 초기화 및 전역 함수 등록
+        // ------------------------------------------------------------------
 
         function init() {
-            setCanvasSize();
-            setupListeners();
-            spriteSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/jump.webp';
-            spriteSheet.onload = () => { isSpriteSheetLoaded = true; };
-            backgroundSheet.src = 'https://fzfnjtlzovbpbglvkroh.supabase.co/storage/v1/object/public/images/background1.webp';
-            backgroundSheet.onload = () => { isBackgroundSheetLoaded = true; };
+            checkSession();
+            const mugongSel = document.getElementById('mu-gong-select');
+            MU_GONG_TYPES.forEach(m => mugongSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
 
-            const mainTitle = document.getElementById('main-title');
-            mainTitle.innerHTML = mainTitle.textContent.replace(/\S/g, "<span class='title-char'>$&</span>");
-            anime({ targets: '#intro-character', translateY: [-20, 0], opacity: [0, 1], easing: 'easeOutExpo', duration: 1000 });
-            anime({ targets: '.title-char', translateY: ["1.1em", 0], translateZ: 0, duration: 750, delay: (el, i) => 50 * i, easing: 'easeOutExpo' });
-            requestAnimationFrame(gameLoop);
+            fetchStockTags();
+            navigate('gangho-plaza');
         }
 
-        init();
-    });
-</script>
+        // 전역 함수 등록
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        window.navigate = navigate;
+        window.handleAuth = handleAuth;
+        window.logout = logout;
+        window.sendChat = sendChat;
+        window.addComment = addComment;
+        window.deletePost = deletePost;
+        
+        window.formatDoc = function(cmd, value = null) {
+            document.execCommand(cmd, false, value);
+            document.getElementById('new-post-content').focus();
+        };
+
+        window.tryOpenWriteModal = function(type) {
+            if (!state.user) {
+                showMessage('비급 기록은 로그인 사용자만 가능합니다.', 'error');
+                openModal('authModal');
+                return;
+            }
+            document.getElementById(`type-${type}`).checked = true;
+            togglePostTypeFields(type);
+            openModal('newPostModal');
+            
+            if (type === 'stock') {
+                document.getElementById('stock-input').value = state.currentStockName;
+            }
+             document.getElementById('new-post-content').focus(); // 에디터 포커스
+        };
+
+        window.togglePostTypeFields = (type) => {
+            document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
+            document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+        };
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <style>
+        body { background-color: #111118; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .scroll-hidden::-webkit-scrollbar { display: none; }
+        /* 에디터 스타일 */
+        #new-post-content { min-height: 150px; padding: 12px; border: 1px solid #374151; background-color: #1f2937; border-radius: 0 0 8px 8px; }
+        #new-post-content:focus { outline: none; }
+        #new-post-content[contenteditable]:empty:before {
+            content: attr(placeholder);
+            color: #6b7280;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .editor-toolbar { background-color: #374151; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Message Box -->
+    <div id="message-box" class="fixed bottom-4 right-4 z-[100] translate-y-10 opacity-0 transition-all"></div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-[#111118]/90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+            <h1 class="text-xl font-bold italic text-yellow-500 tracking-tighter cursor-pointer" onclick="navigate('gangho-plaza')">千金門</h1>
+            <div id="auth-buttons"></div>
+        </div>
+        <nav class="flex justify-around border-b border-gray-800 bg-[#151520]">
+            <button onclick="navigate('gangho-plaza')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 text-yellow-400 border-yellow-400 transition-colors">강호광장</button>
+            <button onclick="navigate('stock-board')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">종목비급</button>
+            <button onclick="navigate('chat-hall')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">무림채팅</button>
+            <button onclick="navigate('secret-inn')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">암천객잔</button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-md mx-auto w-full pb-20 p-4">
+
+        <!-- 1. 강호광장 (Public Posts) -->
+        <div id="gangho-plaza" class="app-view">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">강호 광장 (무공 토론)</h2>
+            <div class="space-y-4" id="posts-list-public"></div>
+        </div>
+
+        <!-- 2. 종목비급 (Stock Posts) -->
+        <div id="stock-board" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">종목 비급 (<span id="current-stock-name">삼성전자</span>)</h2>
+            
+            <!-- Stock Tabs -->
+            <div id="stock-tabs" class="flex overflow-x-auto space-x-2 pb-3 scroll-hidden"></div>
+            
+            <div class="space-y-4 mt-4" id="posts-list-stock"></div>
+        </div>
+
+        <!-- 3. 무림 채팅 (Chat) -->
+        <div id="chat-hall" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">무림 채팅 (실시간 잡담)</h2>
+            <div id="chat-list" class="bg-[#1f2937] p-3 rounded-lg h-[60vh] overflow-y-auto scroll-hidden mb-4 border border-gray-700">
+                <!-- Chat Messages will be rendered here -->
+            </div>
+            <div class="flex gap-2">
+                <input id="chat-input" type="text" placeholder="채팅 입력..." onkeydown="if(event.key==='Enter') sendChat()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                <button onclick="sendChat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-500">전송</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">* 비로그인 시 임시 닉네임으로 참여합니다.</p>
+        </div>
+
+        <!-- 4. 암천객잔 (Secret Posts) -->
+        <div id="secret-inn" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글)</h2>
+            <div class="space-y-4" id="posts-list-secret"></div>
+        </div>
+
+        <!-- Floating Write Button -->
+        <button onclick="tryOpenWriteModal('public')" class="fixed bottom-6 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
+            +
+        </button>
+    </main>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- Modals -->
+    <!-- ------------------------------------------------------------------ -->
+
+    <!-- Write Modal (WYSIWYG 에디터 적용) -->
+    <div id="newPostModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md p-5 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">비급 작성</h3>
+            
+            <div class="flex space-x-3 mb-4 text-sm text-gray-300">
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1">강호광장</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-stock" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-secret" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
+            </div>
+
+            <div id="stock-area" class="mb-3 hidden">
+                <label class="text-xs text-gray-400 mb-1 block">종목명</label>
+                <input type="text" id="stock-input" list="stock-options" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm placeholder-gray-500" placeholder="예: 엔비디아, 비트코인...">
+                <datalist id="stock-options"></datalist>
+                <p class="text-[10px] text-green-500 mt-1">* 목록에 없는 종목을 입력하면 새로운 문파(탭)가 창설됩니다.</p>
+            </div>
+
+            <div id="mu-gong-area" class="mb-3 hidden">
+                <label class="text-xs text-gray-400 mb-1 block">사용 무공</label>
+                <select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select>
+            </div>
+
+            <input id="new-post-title" type="text" placeholder="제목" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-t-lg mb-0 text-sm">
+            
+            <!-- Rich Text Editor Toolbar -->
+            <div class="editor-toolbar flex flex-wrap gap-2 p-2 rounded-b-none border-b border-gray-700">
+                <button onclick="formatDoc('bold')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 font-bold">B</button>
+                <button onclick="formatDoc('italic')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 italic">I</button>
+                <button onclick="formatDoc('underline')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 underline">U</button>
+                <button onclick="formatDoc('insertUnorderedList')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500">UL</button>
+                
+                <!-- 이미지 업로드 버튼 -->
+                <label for="image-upload-input" class="text-white px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 cursor-pointer flex items-center">
+                    🖼️ 이미지 (WebP)
+                </label>
+                <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
+                
+                <!-- YouTube 임베드 버튼 -->
+                <button onclick="handleYouTubeEmbed()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
+                    ▶️ YouTube
+                </button>
+            </div>
+
+            <!-- Content Editable Area (placeholder 속성 적용) -->
+            <div id="new-post-content" contenteditable="true" placeholder="내용을 입력하세요..." 
+                class="w-full text-sm text-gray-200 overflow-y-auto">
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="createPost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500">등록</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Post Detail Modal -->
+    <div id="postDetailModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[80vh] flex flex-col p-0 rounded-2xl border border-gray-600 shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-gray-800 flex-shrink-0">
+                <h3 id="detail-title" class="text-lg font-bold text-white mb-2"></h3>
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                    <div id="detail-author"></div>
+                    <div class="flex space-x-3 items-center">
+                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="deletePost(state.currentPostId)">삭제</button>
+                         <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                </div>
+            </div>
+            <!-- HTML 내용이 렌더링될 곳 -->
+            <div class="flex-grow overflow-y-auto p-5 scroll-hidden">
+                <div id="detail-content" class="text-sm text-gray-300 post-content-style"></div>
+            </div>
+            <div class="p-3 bg-[#151520] border-t border-gray-800 flex-shrink-0">
+                <div id="comments-list" class="max-h-32 overflow-y-auto mb-3 space-y-2 scroll-hidden"></div>
+                <div class="flex gap-2">
+                    <input id="comment-input" type="text" placeholder="댓글 입력..." onkeydown="if(event.key==='Enter') addComment()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white">
+                    <button onclick="addComment()" class="bg-gray-700 text-white px-3 py-2 text-xs rounded-lg font-bold hover:bg-gray-600">전송</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Auth Modal -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-5 text-center">문파 입문 (Authentication)</h3>
+            <input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm">
+            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
+            <div class="flex gap-3">
+                <button onclick="handleAuth(false)" class="flex-1 px-4 py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition">로그인</button>
+                <button onclick="handleAuth(true)" class="flex-1 px-4 py-3 text-sm bg-green-600 rounded-lg text-white font-bold hover:bg-green-500 transition">회원가입</button>
+            </div>
+            <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
+        </div>
+    </div>
 
 </body>
 </html>
