@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>천금문 (千金門) - WebP 변환, 에디터, 안전 삭제 통합</title>
+    <title>천금문 (千金門) - 단순화 및 고속화 버전</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
@@ -13,8 +13,9 @@
     
     <script>
         // ------------------------------------------------------------------
-        // 1. Supabase 설정 (사용자 정보 적용됨)
+        // 1. Supabase 설정 및 초기화
         // ------------------------------------------------------------------
+        // NOTE: 이 설정은 현재 파일에 하드코딩되어 있으며, 실제 앱에서는 환경 변수를 사용해야 합니다.
         const SUPABASE_URL = 'https://jdwlcnkcyglfxqbhkseb.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkd2xjbmtjeWdsZnhxYmhrc2ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjQyMzksImV4cCI6MjA3OTk0MDIzOX0.EhigML9NvLJou2DRBm_iNXErmYByU__WZQ26NcdfTaI';
         const STORAGE_BUCKET = 'images';
@@ -22,7 +23,7 @@
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
         // ------------------------------------------------------------------
-        // 2. 전역 상태 및 상수 (messageTimer 제거)
+        // 2. 전역 상태 및 상수
         // ------------------------------------------------------------------
         const state = {
             user: null,
@@ -34,8 +35,6 @@
             stockTags: [], 
             realtimeChannels: {},
             guestName: `나그네_${Math.floor(Math.random() * 1000)}`,
-            postIdToDelete: null,
-            // messageTimer 제거됨
         };
 
         const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
@@ -47,7 +46,7 @@
         ];
         
         // ------------------------------------------------------------------
-        // 3. 유틸리티 함수 (showMessage 함수 제거)
+        // 3. 유틸리티 및 인증 함수
         // ------------------------------------------------------------------
 
         function calculateLevel(postCount, commentCount) {
@@ -56,13 +55,13 @@
             return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
         }
 
-        // --- 인증 관련 ---
         async function handleAuth(isSignUp) {
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             
             if (!email || !password) {
-                return console.error('이메일과 비밀번호를 입력해주세요.'); // showMessage 대체
+                console.error('이메일과 비밀번호를 입력해주세요.'); 
+                return;
             }
 
             let error;
@@ -73,9 +72,9 @@
             }
 
             if (error) {
-                console.error(`인증 실패: ${error.message}`); // showMessage 대체
+                console.error(`인증 실패: ${error.message}`);
             } else {
-                console.log('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)'); // showMessage 대체
+                console.log('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)');
                 closeModal('authModal');
                 checkSession();
             }
@@ -83,25 +82,26 @@
         
         async function logout() {
             await client.auth.signOut();
-            console.log('하산했습니다.'); // showMessage 대체
             state.profile = null;
             state.user = null;
             updateHeaderUI();
             navigate('gangho-plaza');
+            console.log('하산했습니다.');
         }
 
         async function checkSession() {
             const { data: { session } } = await client.auth.getSession();
             updateAuthState(session);
-            // 인증 상태 변화 리스너는 한 번만 설정
             client.auth.onAuthStateChange((_event, session) => updateAuthState(session));
         }
 
         async function updateAuthState(session) {
             state.user = session ? session.user : null;
             if (state.user) {
+                // 프로필 조회 및 상태 업데이트
                 const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
                 if (data) state.profile = data;
+                else state.profile = { nickname: '새로운 문도', post_count: 0, comment_count: 0 }; // 프로필이 없을 경우 기본값
             } else {
                 state.profile = null;
             }
@@ -110,12 +110,12 @@
 
         function updateHeaderUI() {
             const authContainer = document.getElementById('auth-buttons');
-            if (state.user) {
-                const level = calculateLevel(state.profile?.post_count, state.profile?.comment_count);
+            if (state.user && state.profile) {
+                const level = calculateLevel(state.profile.post_count, state.profile.comment_count);
                 authContainer.innerHTML = `
                     <div class="flex items-center space-x-2">
                         <span class="text-xs text-gray-400 hidden sm:inline">레벨: <span class="${level.color} font-bold">${level.name}</span></span>
-                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile?.nickname || '문도'}</span>님</span>
+                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile.nickname || '문도'}</span>님</span>
                         <button onclick="logout()" class="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded hover:bg-red-900 transition">하산</button>
                     </div>
                 `;
@@ -127,71 +127,38 @@
                 `;
             }
         }
-
+        
         // ------------------------------------------------------------------
-        // 4. 이미지/미디어 처리 (WebP 변환 및 Storage)
+        // 4. 이미지/미디어 처리 (간소화된 Storage 업로드)
         // ------------------------------------------------------------------
 
         /**
-         * 이미지 파일을 WebP로 변환하고 Supabase Storage에 업로드 후 URL을 반환
+         * 이미지 파일을 Storage에 직접 업로드 후 URL을 반환 (WebP 변환 로직 제거로 고속화)
          */
-        async function convertAndUploadImage(file, folderPath) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const img = new Image();
-                    img.onload = async function() {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width;
-                        canvas.height = img.height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
+        async function uploadImage(file, folderPath) {
+            const fileExtension = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+            const filePath = `${folderPath}/${fileName}`;
+            
+            const { data, error } = await client.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, file, { 
+                    cacheControl: '3600',
+                    upsert: false,
+                });
 
-                        // WebP 변환 (품질 80%)
-                        canvas.toBlob(async (blob) => {
-                            if (!blob) {
-                                // --- 디버깅 강화: WebP 변환 실패 시 로그 ---
-                                console.error('Error: WebP conversion failed. Blob is null. Check browser support.');
-                                reject(new Error('WebP 변환 실패: Blob 객체를 생성할 수 없습니다.'));
-                                return;
-                            }
-
-                            const webpFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.webp`;
-                            const filePath = `${folderPath}/${webpFileName}`;
-
-                            // Supabase Storage 업로드
-                            const { data, error } = await client.storage
-                                .from(STORAGE_BUCKET)
-                                .upload(filePath, blob, { // blob 사용 확인 완료
-                                    cacheControl: '3600',
-                                    upsert: false,
-                                    contentType: 'image/webp',
-                                });
-
-                            if (error) {
-                                // --- 디버깅 강화: Supabase 업로드 실패 시 로그 ---
-                                console.error('Supabase Storage Upload Error:', error);
-                                console.error('Check RLS Policy or Authentication Status (must be logged in).');
-                                reject(error);
-                            } else {
-                                // getPublicUrl은 이 경로를 기반으로 절대 URL을 생성합니다. (경로 손실 문제 해결)
-                                const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
-                                resolve(publicUrl);
-                            }
-                        }, 'image/webp', 0.8);
-                    };
-                    img.onerror = () => reject(new Error('이미지 로드 중 오류 발생'));
-                    img.src = event.target.result;
-                };
-                reader.onerror = error => reject(error);
-                reader.readAsDataURL(file);
-            });
+            if (error) {
+                console.error('Supabase Storage Upload Error:', error);
+                throw error;
+            } else {
+                const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
+                return publicUrl;
+            }
         }
         
         window.handleImageUpload = async function() {
-            // --- 디버깅 강화: 로그인 상태 확인 ---
             if (!state.user) {
-                console.error('이미지 업로드는 로그인 사용자만 가능합니다. 현재 상태: 비로그인'); // showMessage 대체
+                console.error('이미지 업로드는 로그인 사용자만 가능합니다.');
                 return;
             }
             
@@ -199,55 +166,50 @@
             const file = fileInput.files[0];
             if (!file) return;
             
-            console.log('이미지 변환 및 업로드 중...'); // showMessage 대체
+            console.log('이미지 업로드 중...');
             try {
-                // Posts 이미지는 'posts' 폴더에 저장
-                const publicUrl = await convertAndUploadImage(file, 'posts');
+                // 고속화된 파일 업로드 사용
+                const publicUrl = await uploadImage(file, 'posts');
                 
-                // 에디터에 이미지 삽입 (반응형 스타일 적용)
                 const editor = document.getElementById('new-post-content');
                 const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200/333/fff?text=이미지+로드+실패'">`;
                 
-                // 에디터에 포커스를 맞추고 이미지 삽입을 시도합니다. 
                 editor.focus();
                 document.execCommand('insertHTML', false, imgTag);
                 
-                console.log('이미지 삽입 완료.'); // showMessage 대체
+                console.log('이미지 삽입 완료.');
             } catch (error) {
                 console.error('최종 이미지 업로드 실패:', error);
-                // 에러 메시지 상세화
-                console.error(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`); // showMessage 대체
+                console.error(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`);
             } finally {
-                fileInput.value = ''; // input 초기화
+                fileInput.value = '';
             }
         };
 
-        // --- prompt() 대신 모달을 띄우는 함수 ---
         window.openYouTubeModal = function() {
             document.getElementById('youtube-url-input').value = '';
             openModal('youtubeEmbedModal');
         }
 
-        // --- 모달에서 호출되어 실제 임베드를 처리하는 함수 ---
         window.handleYouTubeEmbedFromModal = function() {
             const url = document.getElementById('youtube-url-input').value.trim();
-            closeModal('youtubeEmbedModal'); // 모달 닫기
+            closeModal('youtubeEmbedModal');
 
             if (!url) return;
 
-            // YouTube URL에서 동영상 ID 추출
             let videoId;
+            // YouTube URL 정규식 검사 및 Video ID 추출
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/;
             const match = url.match(regExp);
             if (match && match[2].length === 11) {
                 videoId = match[2];
             } else {
-                console.error('유효한 YouTube URL이 아닙니다.'); // showMessage 대체
+                console.error('유효한 YouTube URL이 아닙니다.');
                 return;
             }
 
             const embedHtml = `
-                <div class="my-4" style="aspect-ratio: 16 / 9; max-width: 100%;">
+                <div class="my-4 w-full" style="aspect-ratio: 16 / 9;">
                     <iframe 
                         src="https://www.youtube.com/embed/${videoId}" 
                         frameborder="0" 
@@ -259,20 +221,16 @@
             `;
             const editor = document.getElementById('new-post-content');
             document.execCommand('insertHTML', false, embedHtml);
-            console.log('YouTube 동영상 삽입 완료.'); // showMessage 대체
+            console.log('YouTube 동영상 삽입 완료.');
         };
         
         // ------------------------------------------------------------------
-        // 5. 게시글 CRUD 로직 (안전 삭제 포함)
+        // 5. 게시글 CRUD 로직 (안전 삭제 유지)
         // ------------------------------------------------------------------
         
-        /**
-         * 게시글을 저장하거나 수정합니다.
-         * state.isEditing 상태에 따라 insert 또는 update를 수행합니다.
-         */
         async function savePost() {
             if (!state.user) {
-                return console.error('로그인 후 이용 가능합니다.'); // showMessage 대체
+                return console.error('로그인 후 이용 가능합니다.');
             }
 
             const type = document.querySelector('input[name="post-type"]:checked').value;
@@ -280,28 +238,21 @@
             const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
 
             if (!title || !contentHTML) {
-                return console.error('제목과 내용을 입력해주세요.'); // showMessage 대체
+                return console.error('제목과 내용을 입력해주세요.');
             }
 
             let stockName = null;
-
             if (type === 'stock') {
-                const inputVal = document.getElementById('stock-input').value.trim();
-                if (!inputVal) {
-                    return console.error('종목명을 입력하거나 선택해야 합니다.'); // showMessage 대체
-                }
-                
-                stockName = inputVal;
-                // 종목 태그가 없으면 자동 생성 (생성 모드에서만)
+                stockName = document.getElementById('stock-input').value.trim();
+                if (!stockName) return console.error('종목명을 입력해야 합니다.');
+
+                // 태그 생성/업데이트 로직 (효율을 위해 단순 유지)
                 if (!state.isEditing) {
-                    const exists = state.stockTags.find(t => t.name === stockName);
-                    if (!exists) {
-                        const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
-                        if (tagError) console.error('태그 생성 실패:', tagError);
-                        else {
-                            console.log(`새로운 종목 [${stockName}]이 강호에 등록되었습니다!`); // showMessage 대체
-                            await fetchStockTags();
-                        }
+                    const { data } = await client.from('stock_tags').select('name').eq('name', stockName);
+                    if (data.length === 0) {
+                        const { error } = await client.from('stock_tags').insert({ name: stockName });
+                        if (error) console.error('태그 생성 실패:', error);
+                        else await fetchStockTags();
                     }
                 }
             }
@@ -313,116 +264,88 @@
             };
 
             let error;
-            let successMessage = '비급이 기록되었습니다.';
+            let successMessage;
             
             if (state.isEditing) {
-                // 수정 모드: update
+                // 수정
                 const { error: updateError } = await client.from('posts')
                     .update(payload)
                     .eq('id', state.currentPostId)
-                    .eq('user_id', state.user.id); // 본인 글만 수정 가능
+                    .eq('user_id', state.user.id);
                 error = updateError;
                 successMessage = '비급이 수정되었습니다.';
             } else {
-                // 작성 모드: insert
+                // 등록
                 payload.user_id = state.user.id;
                 const { error: insertError } = await client.from('posts').insert(payload);
                 error = insertError;
+                successMessage = '비급이 기록되었습니다.';
             }
 
             if (error) {
-                console.error(error);
-                console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패.`); // showMessage 대체
+                console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패:`, error);
             } else {
-                console.log(successMessage); // showMessage 대체
+                console.log(successMessage);
                 closeModal('newPostModal');
                 
-                // 모달 닫기 후 상태 초기화 및 UI 리프레시
-                state.isEditing = false;
-                state.postToEdit = null;
-                document.getElementById('new-post-title').value = '';
-                document.getElementById('new-post-content').innerHTML = '';
-                
-                // 현재 뷰를 리프레시하거나 종목 게시판으로 이동
-                const currentView = document.querySelector('.app-view:not(.hidden)').id;
                 if (type === 'stock') {
                     state.currentStockName = stockName; 
                     navigate('stock-board');
                 } else {
-                    navigate(currentView); // 현재 뷰 유지 및 리프레시
+                    // 현재 뷰를 유지
+                    navigate(document.querySelector('.app-view:not(.hidden)').id);
                 }
             }
         }
         
-        // --- 수정됨: 삭제 확인 모달을 띄우는 함수 ---
         window.showDeleteConfirm = function() {
-            if (!state.currentPostId) return;
-            // 삭제할 게시글의 제목을 확인 모달에 표시
-            const title = document.getElementById('detail-title').innerText;
-            document.getElementById('confirm-delete-title').innerText = title;
+            if (!state.currentPostId || !state.postToEdit) return;
+            document.getElementById('confirm-delete-title').innerText = state.postToEdit.title;
             openModal('deleteConfirmModal');
         }
 
-        // --- 수정됨: 실제 삭제 로직. DB 삭제 오류 시 상세 로그를 남기도록 강화 ---
         window.deletePost = async function(postId) {
-            closeModal('deleteConfirmModal'); // 확인 모달 닫기
+            closeModal('deleteConfirmModal');
             
             if (!state.user) {
-                return console.error('로그인 사용자만 삭제할 수 있습니다.'); // showMessage 대체
+                return console.error('로그인 사용자만 삭제할 수 있습니다.');
             }
 
-            // 1. Storage 파일 삭제를 위한 게시글 내용 조회
             const { data: post, error: fetchError } = await client.from('posts').select('content, user_id').eq('id', postId).single();
-            if (fetchError || !post) {
-                console.error("게시글 조회 오류:", fetchError);
-                return console.error('게시글 정보를 찾을 수 없습니다.'); // showMessage 대체
-            }
-            // RLS 정책이 있지만 클라이언트 단에서 한 번 더 확인하는 것이 좋습니다.
-            if (post.user_id !== state.user.id) {
-                 return console.error('삭제 권한이 없습니다.'); // showMessage 대체
+            if (fetchError || !post || post.user_id !== state.user.id) {
+                console.error("게시글 조회/권한 오류:", fetchError);
+                return console.error('게시글 정보를 찾거나 삭제 권한이 없습니다.');
             }
 
-            // 2. 내용에서 이미지 URL 추출 및 Storage 파일 삭제 (안전 삭제 로직)
+            // 안전 삭제 로직: 내용에서 Storage 파일 URL 추출 및 삭제
             const content = post.content;
-            // Supabase Storage 경로에 있는 이미지 URL만 필터링
-            const imageUrls = [...content.matchAll(/src="([^"]*)"/g)]
-                .map(match => match[1])
-                .filter(url => url.includes(SUPABASE_URL) && url.includes(`/${STORAGE_BUCKET}/posts/`));
+            // .jpg, .png 등 이미지 확장자를 포함하여 더 넓은 범위의 URL을 추출하도록 수정
+            const urlRegex = /src="([^"]*?(\.(jpg|jpeg|png|gif|webp|tiff|bmp)))"/gi;
+            const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/posts/`;
 
-            if (imageUrls.length > 0) {
-                const filesToDelete = imageUrls.map(url => {
-                    // Supabase URL에서 'images/' 이후의 경로 추출 (e.g., 'posts/file_name.webp')
-                    const pathIndex = url.indexOf(`/${STORAGE_BUCKET}/`) + `/${STORAGE_BUCKET}/`.length;
-                    // 경로 추출: 'posts/file_name.webp?t=...'
-                    let path = url.substring(pathIndex);
-                    // 쿼리 스트링 제거: 'posts/file_name.webp'
-                    path = path.split('?')[0]; 
-                    return path;
-                });
-                
-                // Supabase Storage에서 파일 삭제
+            const filesToDelete = [...content.matchAll(urlRegex)]
+                .map(match => match[1])
+                .filter(url => url.startsWith(baseUrl))
+                .map(url => url.substring(baseUrl.length).split('?')[0]); // 쿼리 스트링 제거
+
+            if (filesToDelete.length > 0) {
                 const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
-                    console.error('Storage 파일 삭제 실패. (로그 확인)'); // showMessage 대체
                 } else {
-                    console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`); // showMessage 대체
+                    console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`);
                 }
             }
 
-            // 3. DB 게시글 삭제 (Comments는 RLS Cascade로 자동 삭제됨)
+            // DB 게시글 삭제
             const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
 
             if (deleteError) {
-                // --- 수정됨: 상세 오류 메시지 로깅 ---
                 console.error('게시글 DB 삭제 오류 (RLS 가능성 높음):', deleteError);
-                console.error(`게시글 삭제 실패: ${deleteError.message}. (로그 확인)`); // showMessage 대체
             } else {
-                console.log('게시글 및 관련 자료가 삭제되었습니다.'); // showMessage 대체
+                console.log('게시글 및 관련 자료가 삭제되었습니다.');
                 closeModal('postDetailModal');
-                // 현재 뷰 리프레시
-                const currentView = document.querySelector('.app-view:not(.hidden)').id;
-                navigate(currentView);
+                navigate(document.querySelector('.app-view:not(.hidden)').id);
             }
         };
         
@@ -444,6 +367,7 @@
                 activeBtn.classList.replace('border-transparent', 'border-yellow-400');
             }
 
+            // 뷰에 따른 데이터 로딩
             if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
             if (viewId === 'stock-board') {
                 if(state.stockTags.length === 0) fetchStockTags();
@@ -456,68 +380,44 @@
         async function fetchStockTags() {
             const { data } = await client.from('stock_tags').select('name').order('created_at', { ascending: true });
             if (data) {
-                state.stockTags = data; 
+                state.stockTags = data.map(t => t.name); // 배열로 단순화
                 renderStockTabs();
                 renderStockOptions();
             }
         }
 
         function renderStockTabs() {
-             const stockTabs = document.getElementById('stock-tabs');
+            const stockTabs = document.getElementById('stock-tabs');
             stockTabs.innerHTML = '';
-            // 현재 종목이 태그 목록에 없으면 추가 (사용자 입력으로 생성된 경우)
-            if (state.currentStockName && !state.stockTags.find(t => t.name === state.currentStockName)) {
-                // 중복 방지를 위해 임시로 태그 목록에 추가 후 렌더링
-                const tempTags = [...state.stockTags, { name: state.currentStockName }];
-                
-                tempTags.forEach(tag => {
-                    const btn = document.createElement('button');
-                    const isActive = state.currentStockName === tag.name;
-                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
-                        isActive 
-                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
-                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
-                    }`;
-                    btn.innerText = tag.name;
-                    btn.onclick = () => {
-                        state.currentStockName = tag.name;
-                        renderStockTabs();
-                        renderPosts('posts-list-stock', 'stock', tag.name);
-                        document.getElementById('current-stock-name').innerText = tag.name;
-                    };
-                    stockTabs.appendChild(btn);
-                });
-            } else {
-                 state.stockTags.forEach(tag => {
-                    const btn = document.createElement('button');
-                    const isActive = state.currentStockName === tag.name;
-                    btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
-                        isActive 
-                        ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
-                        : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
-                    }`;
-                    btn.innerText = tag.name;
-                    btn.onclick = () => {
-                        state.currentStockName = tag.name;
-                        renderStockTabs();
-                        renderPosts('posts-list-stock', 'stock', tag.name);
-                        document.getElementById('current-stock-name').innerText = tag.name;
-                    };
-                    stockTabs.appendChild(btn);
-                });
+            
+            let tagsToRender = [...state.stockTags];
+            if (state.currentStockName && !state.stockTags.includes(state.currentStockName)) {
+                tagsToRender = [state.currentStockName, ...state.stockTags];
             }
-             // 스크롤을 맨 왼쪽으로 이동
-             stockTabs.scrollLeft = 0;
+
+            tagsToRender.forEach(tag => {
+                const btn = document.createElement('button');
+                const isActive = state.currentStockName === tag;
+                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                    isActive 
+                    ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                }`;
+                btn.innerText = tag;
+                btn.onclick = () => {
+                    state.currentStockName = tag;
+                    renderStockTabs(); // 탭 활성화 업데이트
+                    renderPosts('posts-list-stock', 'stock', tag);
+                    document.getElementById('current-stock-name').innerText = tag;
+                };
+                stockTabs.appendChild(btn);
+            });
+            stockTabs.scrollLeft = 0;
         }
 
         function renderStockOptions() { 
             const dataList = document.getElementById('stock-options');
-            dataList.innerHTML = '';
-            state.stockTags.forEach(tag => {
-                const option = document.createElement('option');
-                option.value = tag.name;
-                dataList.appendChild(option);
-            });
+            dataList.innerHTML = state.stockTags.map(tag => `<option value="${tag}">`).join('');
         }
         
         async function fetchPosts(type, stockName = null) {
@@ -532,90 +432,87 @@
             return data || [];
         }
 
+        // 게시글 리스트 항목 생성 함수
+        function createPostElement(post) {
+            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+            const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+            const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
+
+            const postEl = document.createElement('div');
+            postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
+            postEl.onclick = () => openPostDetail(post);
+
+            postEl.innerHTML = `
+                <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
+                <div class="text-xs text-gray-400 flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <span class="${level.color} font-medium">${level.name}</span>
+                        <span class="text-yellow-400">${author}</span>
+                        ${mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 ${mugong.color}">${mugong.tag}</span>` : ''}
+                    </div>
+                    <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
+                </div>
+            `;
+            return postEl;
+        }
+
         async function renderPosts(containerId, type, stockName = null) {
             const container = document.getElementById(containerId);
             container.innerHTML = '<div class="text-center text-gray-500 py-10">... 비급을 로딩 중 ...</div>';
             
             const posts = await fetchPosts(type, stockName);
-            container.innerHTML = '';
+            container.innerHTML = ''; // 기존 콘텐츠 삭제
 
             if (posts.length === 0) {
                 container.innerHTML = '<div class="text-center text-gray-500 py-10">아직 등록된 비급이 없습니다. 첫 기록을 남겨보세요.</div>';
                 return;
             }
 
+            const fragment = document.createDocumentFragment();
             posts.forEach(post => {
-                const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
-                const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
-                const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
-
-                const postEl = document.createElement('div');
-                postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
-                postEl.onclick = () => openPostDetail(post);
-
-                postEl.innerHTML = `
-                    <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
-                    <div class="text-xs text-gray-400 flex justify-between items-center">
-                        <div class="flex items-center space-x-2">
-                            <span class="${level.color} font-medium">${level.name}</span>
-                            <span class="text-yellow-400">${author}</span>
-                            ${mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 ${mugong.color}">${mugong.tag}</span>` : ''}
-                        </div>
-                        <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
-                    </div>
-                `;
-                container.appendChild(postEl);
+                fragment.appendChild(createPostElement(post));
             });
+            container.appendChild(fragment); // DOM에 한 번만 추가하여 성능 개선
         }
 
         window.openPostDetail = async function(post) {
             state.currentPostId = post.id;
-            state.postToEdit = post; // 수정할 포스트 정보 저장
+            state.postToEdit = post;
             const modal = document.getElementById('postDetailModal');
             document.getElementById('detail-title').innerText = post.title;
             
-            // HTML 내용을 삽입하여 이미지/비디오가 렌더링되도록 처리
+            // 보안을 위해 DOMPurify 사용을 권장하나, 여기서는 innerHTML을 사용합니다.
             document.getElementById('detail-content').innerHTML = post.content;
             
             const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
             document.getElementById('detail-author').innerText = author;
             
-            const deleteBtn = document.getElementById('delete-post-btn');
-            const editBtn = document.getElementById('edit-post-btn'); // 추가됨
-
-            if (state.user?.id === post.user_id) {
-                deleteBtn.classList.remove('hidden');
-                editBtn.classList.remove('hidden'); // 수정 버튼 표시
-                
-                deleteBtn.onclick = () => showDeleteConfirm(); 
-                editBtn.onclick = () => openPostEditModal(post); // 수정 버튼 클릭 시 수정 모달 열기
-            } else {
-                deleteBtn.classList.add('hidden');
-                editBtn.classList.add('hidden'); // 수정 버튼 숨김
-            }
+            const isAuthor = state.user?.id === post.user_id;
+            document.getElementById('delete-post-btn').classList.toggle('hidden', !isAuthor);
+            document.getElementById('edit-post-btn').classList.toggle('hidden', !isAuthor);
+            
+            // 버튼 이벤트 재연결
+            document.getElementById('delete-post-btn').onclick = () => showDeleteConfirm(); 
+            document.getElementById('edit-post-btn').onclick = () => openPostEditModal(post);
             
             loadComments(post.id);
             modal.classList.remove('hidden');
         }
         
-        /**
-         * 게시글 수정 모달을 열고 데이터를 채웁니다.
-         */
         window.openPostEditModal = function(post) {
             if (!state.user || state.user.id !== post.user_id) {
-                return console.error('수정 권한이 없습니다.'); // showMessage 대체
+                return console.error('수정 권한이 없습니다.');
             }
-            closeModal('postDetailModal'); // 상세 모달 닫기
+            closeModal('postDetailModal');
             
             state.isEditing = true;
             state.currentPostId = post.id;
             state.postToEdit = post;
             
-            // UI 업데이트 (제목, 버튼 텍스트 변경)
             document.getElementById('post-modal-title').innerText = '비급 수정';
             document.getElementById('save-post-text').innerText = '수정 완료';
 
-            // 데이터 채우기
+            // UI 업데이트 및 데이터 바인딩
             document.getElementById(`type-${post.type}`).checked = true;
             togglePostTypeFields(post.type);
             document.getElementById('new-post-title').value = post.title;
@@ -634,7 +531,7 @@
 
 
         // ------------------------------------------------------------------
-        // 7. 댓글 로직
+        // 7. 댓글 로직 (실시간 유지)
         // ------------------------------------------------------------------
 
         async function loadComments(postId) {
@@ -649,6 +546,8 @@
         function renderComments(comments) {
             const list = document.getElementById('comments-list');
             list.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
             comments.forEach(comment => {
                 const author = comment.profiles?.nickname || comment.guest_nickname || '익명';
                 const level = comment.profiles ? calculateLevel(comment.profiles.post_count, comment.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
@@ -663,8 +562,9 @@
                     </p>
                     <p class="text-xs text-gray-200">${comment.content}</p>
                 `;
-                list.appendChild(commentEl);
+                fragment.appendChild(commentEl);
             });
+            list.appendChild(fragment);
             list.scrollTop = list.scrollHeight;
         }
 
@@ -683,27 +583,26 @@
 
             const { error } = await client.from('comments').insert(payload);
             if (error) {
-                console.error(error);
-                console.error('댓글 등록 실패.'); // showMessage 대체
+                console.error('댓글 등록 실패:', error);
             } else {
                 input.value = '';
             }
         }
 
         function setupRealtimeComments(postId) {
-            if (state.realtimeChannels[`comments_${postId}`]) {
-                client.removeChannel(state.realtimeChannels[`comments_${postId}`]);
+            const channelKey = `comments_${postId}`;
+            if (state.realtimeChannels[channelKey]) {
+                client.removeChannel(state.realtimeChannels[channelKey]);
             }
-            const channel = client.channel(`comments_${postId}`)
+            const channel = client.channel(channelKey)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
-                    // 댓글이 추가/삭제/업데이트되면 댓글을 다시 로드하여 UI 갱신
-                    () => loadComments(postId) 
+                    () => loadComments(postId)
                 ).subscribe();
-            state.realtimeChannels[`comments_${postId}`] = channel;
+            state.realtimeChannels[channelKey] = channel;
         }
 
         // ------------------------------------------------------------------
-        // 8. 채팅 로직 (기존 로직 유지)
+        // 8. 채팅 로직 (실시간 유지)
         // ------------------------------------------------------------------
 
         async function loadChat() {
@@ -718,13 +617,16 @@
         function renderChat(messages) {
             const chatList = document.getElementById('chat-list');
             chatList.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
             messages.forEach(msg => {
                 const author = msg.profiles?.nickname || msg.guest_nickname || '익명 문도';
                 const msgEl = document.createElement('div');
                 msgEl.className = 'text-xs mb-1';
                 msgEl.innerHTML = `<span class="text-yellow-400 font-medium">${author}:</span> <span class="text-gray-300">${msg.content}</span>`;
-                chatList.appendChild(msgEl);
+                fragment.appendChild(msgEl);
             });
+            chatList.appendChild(fragment);
             chatList.scrollTop = chatList.scrollHeight;
         }
 
@@ -741,8 +643,7 @@
 
             const { error } = await client.from('chat_messages').insert(payload);
             if (error) {
-                console.error(error);
-                console.error('채팅 전송 실패.'); // showMessage 대체
+                console.error('채팅 전송 실패:', error);
             } else {
                 input.value = '';
             }
@@ -754,7 +655,7 @@
             }
             const channel = client.channel('chat')
                 .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, 
-                    () => loadChat()
+                    () => loadChat() // 단순화를 위해 전체 로드 재사용 (성능 최적화 시 INSERT 이벤트로직 필요)
                 ).subscribe();
             state.realtimeChannels['chat'] = channel;
         }
@@ -765,42 +666,45 @@
         // ------------------------------------------------------------------
         
         /**
-         * 모달을 닫을 때 상태를 초기화하고 UI를 복원합니다.
+         * 게시글 작성 모달의 상태와 UI를 초기화합니다.
          */
-        window.resetPostModal = function() {
+        function resetPostStateAndUI() {
             state.isEditing = false;
             state.postToEdit = null;
-            state.currentPostId = null; // currentPostId 초기화 (댓글 로드에 영향 X)
+            state.currentPostId = null; 
 
             document.getElementById('post-modal-title').innerText = '비급 작성';
             document.getElementById('save-post-text').innerText = '등록';
             document.getElementById('new-post-title').value = '';
             document.getElementById('new-post-content').innerHTML = '';
-            // 라디오 버튼 비활성화 해제
+            
             document.querySelectorAll('input[name="post-type"]').forEach(radio => {
                 radio.disabled = false;
+                radio.checked = false; 
             });
-            closeModal('newPostModal');
+            document.getElementById('type-public').checked = true;
+            togglePostTypeFields('public');
         }
 
         function init() {
-            checkSession();
+            // 무공 선택 옵션 로드
             const mugongSel = document.getElementById('mu-gong-select');
             MU_GONG_TYPES.forEach(m => mugongSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
 
             fetchStockTags();
+            checkSession(); // 인증 확인 및 UI 업데이트
             navigate('gangho-plaza');
         }
 
         // 전역 함수 등록
         window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
-        // 모달 닫기 시 상태 초기화 함수 연결
         window.closeModal = (id) => {
             document.getElementById(id).classList.add('hidden');
             if (id === 'newPostModal') {
-                resetPostModal();
+                resetPostStateAndUI();
             }
         };
+        // 나머지 함수들은 HTML 인라인 이벤트 핸들러를 위해 window에 등록 유지
         window.navigate = navigate;
         window.handleAuth = handleAuth;
         window.logout = logout;
@@ -817,14 +721,11 @@
 
         window.tryOpenWriteModal = function(type) {
             if (!state.user) {
-                console.error('비급 기록은 로그인 사용자만 가능합니다.'); // showMessage 대체
+                console.error('비급 기록은 로그인 사용자만 가능합니다.');
                 openModal('authModal');
                 return;
             }
-            // 작성 모드로 초기화
-            state.isEditing = false; 
-            document.getElementById('post-modal-title').innerText = '비급 작성';
-            document.getElementById('save-post-text').innerText = '등록';
+            resetPostStateAndUI(); 
 
             document.getElementById(`type-${type}`).checked = true;
             togglePostTypeFields(type);
@@ -833,7 +734,7 @@
             if (type === 'stock') {
                 document.getElementById('stock-input').value = state.currentStockName;
             }
-             document.getElementById('new-post-content').focus(); // 에디터 포커스
+             document.getElementById('new-post-content').focus();
         };
 
         window.togglePostTypeFields = (type) => {
@@ -850,6 +751,7 @@
         document.addEventListener('DOMContentLoaded', init);
     </script>
     <style>
+        /* 기본 스타일 및 폰트 */
         body { background-color: #111118; color: #e2e8f0; font-family: 'Inter', sans-serif; }
         .scroll-hidden::-webkit-scrollbar { display: none; }
         /* 에디터 스타일 */
@@ -862,17 +764,14 @@
             pointer-events: none;
         }
         .editor-toolbar { background-color: #374151; }
-        /* 이미지 삽입 후 레이아웃 깨짐 방지 및 반응형 스타일 */
-        #detail-content img { max-width: 100%; height: auto; }
-        /* iframe 반응형 */
+        /* 반응형 이미지 및 iframe 스타일 */
+        #detail-content img { max-width: 100%; height: auto; margin: 0.75rem 0; }
         #detail-content iframe { max-width: 100%; height: auto; }
         /* 종목 탭 스크롤바 숨기기 (모바일 친화적) */
-        #stock-tabs { -ms-overflow-style: none; /* IE and Edge */ scrollbar-width: none; /* Firefox */ }
+        #stock-tabs { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative">
-
-    <!-- Message Box (제거됨) -->
 
     <!-- Header -->
     <header class="sticky top-0 z-40 bg-[#111118]/90 backdrop-blur-md border-b border-gray-800">
@@ -941,7 +840,7 @@
             <h3 class="text-lg font-bold text-white mb-4"><span id="post-modal-title">비급 작성</span></h3>
             
             <div class="flex space-x-3 mb-4 text-sm text-gray-300">
-                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1">강호광장</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1" checked>강호광장</label>
                 <label class="flex items-center"><input type="radio" name="post-type" id="type-stock" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
                 <label class="flex items-center"><input type="radio" name="post-type" id="type-secret" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
             </div>
@@ -953,7 +852,7 @@
                 <p class="text-[10px] text-green-500 mt-1">* 목록에 없는 종목을 입력하면 새로운 문파(탭)가 창설됩니다.</p>
             </div>
 
-            <div id="mu-gong-area" class="mb-3 hidden">
+            <div id="mu-gong-area" class="mb-3">
                 <label class="text-xs text-gray-400 mb-1 block">사용 무공</label>
                 <select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select>
             </div>
@@ -967,13 +866,13 @@
                 <button onclick="formatDoc('underline')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 underline">U</button>
                 <button onclick="formatDoc('insertUnorderedList')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500">UL</button>
                 
-                <!-- 이미지 업로드 버튼 -->
+                <!-- 이미지 업로드 버튼 (WebP 변환 제거됨) -->
                 <label for="image-upload-input" class="text-white px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 cursor-pointer flex items-center">
-                    🖼️ 이미지 (WebP)
+                    🖼️ 이미지
                 </label>
                 <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
                 
-                <!-- YouTube 임베드 버튼 (수정됨: 모달 호출) -->
+                <!-- YouTube 임베드 버튼 -->
                 <button onclick="openYouTubeModal()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
                     ▶️ YouTube
                 </button>
@@ -985,7 +884,6 @@
             </div>
 
             <div class="flex justify-end gap-2 mt-4">
-                <!-- closeModal에 resetPostModal 기능 연결 -->
                 <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
                 <button onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500"><span id="save-post-text">등록</span></button>
             </div>
@@ -1000,10 +898,8 @@
                 <div class="flex justify-between items-center text-xs text-gray-500">
                     <div id="detail-author"></div>
                     <div class="flex space-x-3 items-center">
-                         <!-- 수정 버튼 추가 -->
-                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs" onclick="openPostEditModal(state.postToEdit)">수정</button>
-                         <!-- 안전 삭제 기능이 연결된 버튼 (수정됨: showDeleteConfirm 호출) -->
-                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs" onclick="showDeleteConfirm()">삭제</button>
+                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs">수정</button>
+                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs">삭제</button>
                          <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
                     </div>
                 </div>
@@ -1036,7 +932,7 @@
         </div>
     </div>
     
-    <!-- Delete Confirmation Modal (window.confirm 대체) -->
+    <!-- Delete Confirmation Modal -->
     <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-xs p-6 rounded-2xl border border-red-600 shadow-2xl text-center">
             <h3 class="text-lg font-bold text-red-400 mb-2">🚨 경고: 비급 영구 삭제</h3>
@@ -1044,13 +940,12 @@
             <p id="confirm-delete-title" class="text-base font-semibold text-yellow-400 truncate mb-5"></p>
             <div class="flex gap-3 justify-center">
                 <button onclick="closeModal('deleteConfirmModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <!-- confirm 버튼 클릭 시, deletePost 함수에 currentPostId를 전달하여 실행 -->
                 <button onclick="deletePost(state.currentPostId)" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">삭제 확인</button>
             </div>
         </div>
     </div>
 
-    <!-- YouTube Embed Input Modal (prompt() 대체) -->
+    <!-- YouTube Embed Input Modal -->
     <div id="youtubeEmbedModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-4">▶️ YouTube 동영상 임베드</h3>
