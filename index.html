@@ -25,6 +25,10 @@
         // ------------------------------------------------------------------
         // 2. 전역 상태 및 상수
         // ------------------------------------------------------------------
+        
+        // Supabase 인증 상태를 추적하기 위한 플래그
+        let isAuthenticating = false;
+
         const state = {
             user: null,
             profile: null,
@@ -55,6 +59,31 @@
             // 현재 로그인한 사용자가 관리자 이메일과 일치하는지 확인
             return state.user && state.user.email === ADMIN_EMAIL;
         }
+        
+        /**
+         * 사용자에게 메시지를 보여주는 토스트 알림 함수
+         * @param {string} message - 표시할 메시지
+         * @param {string} type - 'success' 또는 'error'
+         */
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast-notification');
+            const messageElement = document.getElementById('toast-message');
+            
+            toast.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
+            
+            if (type === 'error') {
+                toast.classList.add('bg-red-600');
+            } else {
+                toast.classList.add('bg-green-600');
+            }
+            
+            messageElement.innerText = message;
+
+            // 3초 후 사라지도록 설정
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
 
         function calculateLevel(postCount, commentCount) {
             const score = (postCount || 0) + (commentCount || 0);
@@ -63,28 +92,60 @@
         }
 
         async function handleAuth(isSignUp) {
+            if (isAuthenticating) return;
+            isAuthenticating = true;
+            
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
+            const confirmPassword = document.getElementById('auth-confirm-password').value;
             
             if (!email || !password) {
-                console.error('이메일과 비밀번호를 입력해주세요.'); 
+                showToast('이메일과 비밀번호를 입력해주세요.', 'error');
+                isAuthenticating = false;
                 return;
+            }
+            
+            // 회원가입 시 비밀번호 일치 및 약관 동의 확인
+            if (isSignUp) {
+                const termsChecked = document.getElementById('auth-terms').checked;
+                
+                if (password !== confirmPassword) {
+                    showToast('비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error');
+                    isAuthenticating = false;
+                    return;
+                }
+                
+                if (!termsChecked) {
+                    showToast('이용 약관 및 개인정보 처리 방침에 동의해야 합니다.', 'error');
+                    isAuthenticating = false;
+                    return;
+                }
             }
 
             let error;
-            if (isSignUp) {
-                ({ error } = await client.auth.signUp({ email, password }));
-            } else {
-                ({ error } = await client.auth.signInWithPassword({ email, password }));
+            try {
+                if (isSignUp) {
+                    ({ error } = await client.auth.signUp({ email, password }));
+                } else {
+                    ({ error } = await client.auth.signInWithPassword({ email, password }));
+                }
+            } catch (e) {
+                error = e;
             }
 
             if (error) {
                 console.error(`인증 실패: ${error.message}`);
+                showToast(`인증 실패: ${error.message}`, 'error');
             } else {
-                console.log('성공적으로 문파에 입문했습니다! (이메일 확인 필요할 수 있음)');
+                if (isSignUp) {
+                    showToast('성공적으로 문파에 입문했습니다! 이메일 확인이 필요할 수 있습니다.', 'success');
+                } else {
+                    showToast('성공적으로 로그인했습니다!', 'success');
+                }
                 closeModal('authModal');
                 checkSession();
             }
+            isAuthenticating = false;
         }
         
         async function logout() {
@@ -93,7 +154,7 @@
             state.user = null;
             updateHeaderUI();
             navigate('gangho-plaza');
-            console.log('하산했습니다.');
+            showToast('하산했습니다.', 'success');
         }
 
         async function checkSession() {
@@ -115,6 +176,27 @@
             updateHeaderUI();
         }
 
+        // 로그인/회원가입 뷰 전환 (비밀번호 확인 및 약관 동의 필드 표시/숨김)
+        window.toggleAuthView = function(isSignUp) {
+            const signUpFields = document.getElementById('signup-fields');
+            const loginBtn = document.getElementById('login-btn');
+            const signupBtn = document.getElementById('signup-btn');
+            
+            if (isSignUp) {
+                signUpFields.classList.remove('hidden');
+                loginBtn.classList.remove('bg-yellow-600', 'text-white', 'font-bold');
+                loginBtn.classList.add('bg-gray-700', 'text-gray-300');
+                signupBtn.classList.add('bg-green-600', 'text-white', 'font-bold');
+                signupBtn.classList.remove('bg-gray-700', 'text-gray-300');
+            } else {
+                signUpFields.classList.add('hidden');
+                loginBtn.classList.add('bg-yellow-600', 'text-white', 'font-bold');
+                loginBtn.classList.remove('bg-gray-700', 'text-gray-300');
+                signupBtn.classList.remove('bg-green-600', 'text-white', 'font-bold');
+                signupBtn.classList.add('bg-gray-700', 'text-gray-300');
+            }
+        }
+        
         function updateHeaderUI() {
             const authContainer = document.getElementById('auth-buttons');
             if (state.user && state.profile) {
@@ -128,7 +210,7 @@
                 `;
             } else {
                 authContainer.innerHTML = `
-                    <button onclick="openModal('authModal')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
+                    <button onclick="openModal('authModal'); toggleAuthView(false);" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
                         입문 (로그인)
                     </button>
                 `;
@@ -165,8 +247,7 @@
         
         window.handleImageUpload = async function() {
             if (!state.user) {
-                // 비로그인 사용자는 암천객잔에 글을 쓸 수 있지만, Storage 사용은 RLS 문제로 인해 로그인 필요
-                console.error('이미지 업로드는 로그인 사용자만 가능합니다.');
+                showToast('이미지 업로드는 로그인 사용자만 가능합니다.', 'error');
                 return;
             }
             
@@ -185,10 +266,10 @@
                 editor.focus();
                 document.execCommand('insertHTML', false, imgTag);
                 
-                console.log('이미지 삽입 완료.');
+                showToast('이미지 삽입 완료.', 'success');
             } catch (error) {
                 console.error('최종 이미지 업로드 실패:', error);
-                console.error(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`);
+                showToast(`이미지 업로드 실패: ${error.message || 'Supabase RLS나 연결 상태를 확인해주세요.'}`, 'error');
             } finally {
                 fileInput.value = '';
             }
@@ -212,7 +293,7 @@
             if (match && match[2].length === 11) {
                 videoId = match[2];
             } else {
-                console.error('유효한 YouTube URL이 아닙니다.');
+                showToast('유효한 YouTube URL이 아닙니다.', 'error');
                 return;
             }
 
@@ -229,7 +310,7 @@
             `;
             const editor = document.getElementById('new-post-content');
             document.execCommand('insertHTML', false, embedHtml);
-            console.log('YouTube 동영상 삽입 완료.');
+            showToast('YouTube 동영상 삽입 완료.', 'success');
         };
         
         // ------------------------------------------------------------------
@@ -237,89 +318,116 @@
         // ------------------------------------------------------------------
         
         async function savePost() {
-            const type = document.querySelector('input[name="post-type"]:checked').value;
-            const title = document.getElementById('new-post-title').value;
-            const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
+            // 버튼 비활성화 (이중 클릭 방지)
+            const saveBtn = document.getElementById('save-post-btn');
+            saveBtn.disabled = true;
+            saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
-            if (!title || !contentHTML) {
-                return console.error('제목과 내용을 입력해주세요.');
-            }
+            try {
+                const type = document.querySelector('input[name="post-type"]:checked').value;
+                const title = document.getElementById('new-post-title').value;
+                const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
 
-            const isGuest = !state.user;
-            const isGuestSecretPost = isGuest && type === 'secret';
-            
-            // 비로그인 상태이면서 비밀 글이 아니면 막기
-            if (isGuest && !isGuestSecretPost) {
-                return console.error('로그인 후 이용 가능합니다. (암천객잔의 새로운 글만 비로그인 허용)');
-            }
+                if (!title || !contentHTML) {
+                    showToast('제목과 내용을 모두 입력해야 합니다.', 'error');
+                    return; // 함수 종료
+                }
 
-            let stockName = null;
-            if (type === 'stock') {
-                if (isGuest) return console.error('종목비급은 로그인 사용자만 작성 가능합니다.');
+                const isGuest = !state.user;
+                const isGuestSecretPost = isGuest && type === 'secret';
                 
-                stockName = document.getElementById('stock-input').value.trim();
-                if (!stockName) return console.error('종목명을 입력해야 합니다.');
+                // 비로그인 상태이면서 비밀 글이 아니면 막기
+                if (isGuest && !isGuestSecretPost) {
+                    showToast('로그인 후 이용 가능합니다. (암천객잔의 새로운 글만 비로그인 허용)', 'error');
+                    return; // 함수 종료
+                }
 
-                // 태그 생성/업데이트 로직 (효율을 위해 단순 유지)
-                if (!state.isEditing) {
-                    const { data } = await client.from('stock_tags').select('name').eq('name', stockName);
-                    if (data.length === 0) {
-                        const { error } = await client.from('stock_tags').insert({ name: stockName });
-                        if (error) console.error('태그 생성 실패:', error);
-                        else await fetchStockTags();
+                let stockName = null;
+                if (type === 'stock') {
+                    if (isGuest) {
+                        showToast('종목비급은 로그인 사용자만 작성 가능합니다.', 'error');
+                        return; // 함수 종료
+                    }
+                    
+                    stockName = document.getElementById('stock-input').value.trim();
+                    if (!stockName) {
+                        showToast('종목명을 입력해야 합니다.', 'error');
+                        return; // 함수 종료
+                    }
+
+                    // 태그 생성/업데이트 로직 (효율을 위해 단순 유지)
+                    if (!state.isEditing) {
+                        const { data } = await client.from('stock_tags').select('name').eq('name', stockName);
+                        if (data.length === 0) {
+                            const { error } = await client.from('stock_tags').insert({ name: stockName });
+                            if (error) console.error('태그 생성 실패:', error);
+                            else await fetchStockTags();
+                        }
                     }
                 }
-            }
 
-            const payload = {
-                title, content: contentHTML, type, 
-                stock_id: stockName,
-                mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
-            };
+                const payload = {
+                    title, content: contentHTML, type, 
+                    stock_id: stockName,
+                    mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
+                };
 
-            let error;
-            let successMessage;
-            
-            if (state.isEditing) {
-                // 수정은 반드시 로그인한 원작자만 가능
-                if (isGuest) return console.error('비로그인 사용자는 글을 수정할 수 없습니다.');
-
-                const { error: updateError } = await client.from('posts')
-                    .update(payload)
-                    .eq('id', state.currentPostId)
-                    .eq('user_id', state.user.id);
-                error = updateError;
-                successMessage = '비급이 수정되었습니다.';
-            } else {
-                // 등록
-                if (isGuestSecretPost) {
-                    // 암천객잔에 비로그인으로 등록
-                    payload.user_id = null; // RLS가 허용하도록 user_id를 명시적으로 null로 설정
-                    payload.guest_nickname = state.guestName;
-                } else {
-                    // 로그인 사용자로 등록 (다른 타입 포함)
-                    payload.user_id = state.user.id;
-                }
+                let error;
+                let successMessage;
                 
-                const { error: insertError } = await client.from('posts').insert(payload);
-                error = insertError;
-                successMessage = '비급이 기록되었습니다.';
-            }
+                if (state.isEditing) {
+                    // 수정은 반드시 로그인한 원작자만 가능
+                    if (isGuest) {
+                        showToast('비로그인 사용자는 글을 수정할 수 없습니다.', 'error');
+                        return; // 함수 종료
+                    }
 
-            if (error) {
-                console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패:`, error);
-            } else {
-                console.log(successMessage);
-                closeModal('newPostModal');
-                
-                if (type === 'stock') {
-                    state.currentStockName = stockName; 
-                    navigate('stock-board');
-                } else if (type === 'secret') {
-                    navigate('secret-inn');
+                    const { error: updateError } = await client.from('posts')
+                        .update(payload)
+                        .eq('id', state.currentPostId)
+                        .eq('user_id', state.user.id);
+                    error = updateError;
+                    successMessage = '비급이 수정되었습니다.';
                 } else {
-                    navigate(document.querySelector('.app-view:not(.hidden)').id);
+                    // 등록
+                    if (isGuestSecretPost) {
+                        // 암천객잔에 비로그인으로 등록
+                        payload.user_id = null; // RLS가 허용하도록 user_id를 명시적으로 null로 설정
+                        payload.guest_nickname = state.guestName;
+                    } else {
+                        // 로그인 사용자로 등록 (다른 타입 포함)
+                        payload.user_id = state.user.id;
+                    }
+                    
+                    const { error: insertError } = await client.from('posts').insert(payload);
+                    error = insertError;
+                    successMessage = '비급이 기록되었습니다.';
                 }
+
+                if (error) {
+                    console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패:`, error);
+                    showToast(`비급 ${state.isEditing ? '수정' : '등록'} 실패: ${error.message}`, 'error');
+                } else {
+                    showToast(successMessage, 'success');
+                    closeModal('newPostModal');
+                    
+                    if (type === 'stock') {
+                        state.currentStockName = stockName; 
+                        navigate('stock-board');
+                    } else if (type === 'secret') {
+                        navigate('secret-inn');
+                    } else {
+                        // 현재 활성화된 뷰로 이동 (예: 강호광장에서 작성했으면 강호광장으로)
+                        navigate(document.querySelector('.app-view:not(.hidden)').id);
+                    }
+                }
+            } catch (e) {
+                console.error('글 저장 중 예기치 않은 오류 발생:', e);
+                showToast(`예상치 못한 오류 발생: ${e.message}`, 'error');
+            } finally {
+                // 버튼 재활성화
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
         }
         
@@ -333,24 +441,27 @@
             closeModal('deleteConfirmModal');
             
             if (!state.user || !state.postToEdit) {
-                return console.error('삭제 권한이 없습니다. (로그인 및 게시글 정보 필요)');
+                showToast('삭제 권한이 없습니다. (로그인 및 게시글 정보 필요)', 'error');
+                return;
             }
 
             const post = state.postToEdit;
-            const isAdministrator = isAdmin();
+            const isAdministrator = isAdmin(); // 관리자 여부 확인
             const isAuthor = state.user.id === post.user_id;
             const isSecretPost = post.type === 'secret';
 
             // --- 암천객잔 삭제 권한 로직 (관리자만 허용) ---
             if (isSecretPost) {
                 if (!isAdministrator) {
-                    return console.error('암천객잔의 글은 관리자만 삭제할 수 있습니다.');
+                    showToast('암천객잔의 글은 관리자만 삭제할 수 있습니다.', 'error');
+                    return;
                 }
             } 
             // --- 기타 게시판 삭제 권한 로직 (원작자 또는 관리자) ---
             else {
                  if (!isAdministrator && !isAuthor) {
-                    return console.error('해당 게시글의 원작자 또는 관리자만 삭제할 수 있습니다.');
+                    showToast('해당 게시글의 원작자 또는 관리자만 삭제할 수 있습니다.', 'error');
+                    return;
                 }
             }
 
@@ -370,6 +481,7 @@
                 const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
+                    showToast('연결된 파일 삭제 오류가 발생했습니다. (DB 삭제 시도)', 'error');
                 } else {
                     console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`);
                 }
@@ -380,8 +492,9 @@
 
             if (deleteError) {
                 console.error('게시글 DB 삭제 오류 (RLS 가능성 높음):', deleteError);
+                showToast(`게시글 삭제 실패: ${deleteError.message} (RLS 확인 필요)`, 'error');
             } else {
-                console.log('게시글 및 관련 자료가 삭제되었습니다.');
+                showToast('게시글 및 관련 자료가 삭제되었습니다.', 'success');
                 closeModal('postDetailModal');
                 navigate(document.querySelector('.app-view:not(.hidden)').id);
             }
@@ -557,7 +670,8 @@
         window.openPostEditModal = function(post) {
             // 비로그인 글은 수정 불가
             if (!state.user || state.user.id !== post.user_id) {
-                return console.error('수정 권한이 없습니다. 비로그인 글이거나 작성자가 아닙니다.');
+                showToast('수정 권한이 없습니다. 비로그인 글이거나 작성자가 아닙니다.', 'error');
+                return;
             }
             closeModal('postDetailModal');
             
@@ -628,7 +742,10 @@
             const postId = state.currentPostId;
             const input = document.getElementById('comment-input');
             const content = input.value.trim();
-            if (!content || !postId) return;
+            if (!content || !postId) {
+                showToast('댓글 내용을 입력해주세요.', 'error');
+                return;
+            }
 
             const payload = {
                 post_id: postId,
@@ -640,8 +757,10 @@
             const { error } = await client.from('comments').insert(payload);
             if (error) {
                 console.error('댓글 등록 실패:', error);
+                showToast(`댓글 등록 실패: ${error.message}`, 'error');
             } else {
                 input.value = '';
+                showToast('댓글이 등록되었습니다.', 'success');
             }
         }
 
@@ -700,6 +819,7 @@
             const { error } = await client.from('chat_messages').insert(payload);
             if (error) {
                 console.error('채팅 전송 실패:', error);
+                showToast(`채팅 전송 실패: ${error.message}`, 'error');
             } else {
                 input.value = '';
             }
@@ -780,8 +900,10 @@
             const isGuestPosting = type === 'secret' && !state.user;
 
             if (!state.user && !isGuestPosting) {
-                console.error('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)');
+                showToast('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)', 'error');
                 openModal('authModal');
+                // 로그인 뷰로 강제 전환
+                toggleAuthView(false);
                 return;
             }
             
@@ -798,7 +920,7 @@
                 document.getElementById('type-secret').checked = true;
                 document.getElementById('type-secret').disabled = false;
                 togglePostTypeFields('secret');
-                console.log(`암천객잔은 모두에게 열려있습니다. 나그네 닉네임: ${state.guestName}`);
+                showToast(`암천객잔은 모두에게 열려있습니다. 나그네 닉네임: ${state.guestName}`, 'success');
             } else {
                  document.getElementById('type-public').disabled = false;
                  document.getElementById('type-stock').disabled = false;
@@ -905,10 +1027,28 @@
 
         <!-- Floating Write Button -->
         <button onclick="tryOpenWriteModal(document.querySelector('.app-view:not(.hidden)').id === 'secret-inn' ? 'secret' : 'public')" 
-                class="fixed bottom-6 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
+                class="fixed bottom-20 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
             +
         </button>
     </main>
+    
+    <!-- Footer (Fixed to bottom, spanning full width) -->
+    <footer class="fixed bottom-0 z-30 w-full bg-[#111118]/90 backdrop-blur-md border-t border-gray-800">
+        <div class="max-w-md mx-auto px-4 py-2 flex justify-between items-center text-[10px] sm:text-xs text-gray-500">
+            <!-- Copyright -->
+            <p>&copy; 2024 千金門. All rights reserved.</p>
+            <!-- Links to Modals -->
+            <div class="space-x-3">
+                <span class="hover:text-white cursor-pointer" onclick="openModal('termsModal')">이용 약관</span>
+                <span class="hover:text-white cursor-pointer" onclick="openModal('privacyModal')">개인정보 방침</span>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Toast Notification (추가됨) -->
+    <div id="toast-notification" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 p-3 rounded-xl shadow-2xl z-[100] transition duration-300 bg-green-600 text-white font-medium text-sm">
+        <span id="toast-message"></span>
+    </div>
 
     <!-- ------------------------------------------------------------------ -->
     <!-- Modals -->
@@ -965,7 +1105,7 @@
 
             <div class="flex justify-end gap-2 mt-4">
                 <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <button onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500"><span id="save-post-text">등록</span></button>
+                <button id="save-post-btn" onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500 transition"><span id="save-post-text">등록</span></button>
             </div>
         </div>
     </div>
@@ -998,19 +1138,96 @@
         </div>
     </div>
     
-    <!-- Auth Modal -->
+    <!-- Auth Modal (인증 모달 - 비밀번호 확인 및 약관 동의 추가) -->
     <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
             <h3 class="text-xl font-bold text-white mb-5 text-center">문파 입문 (Authentication)</h3>
+            
             <input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm">
-            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
-            <div class="flex gap-3">
-                <button onclick="handleAuth(false)" class="flex-1 px-4 py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition">로그인</button>
-                <button onclick="handleAuth(true)" class="flex-1 px-4 py-3 text-sm bg-green-600 rounded-lg text-white font-bold hover:bg-green-500 transition">회원가입</button>
+            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm">
+            
+            <!-- 회원가입 전용 필드 -->
+            <div id="signup-fields" class="space-y-3 hidden">
+                <input id="auth-confirm-password" type="password" placeholder="비밀번호 확인" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg text-sm">
+                <div class="flex items-start text-xs text-gray-400">
+                    <input type="checkbox" id="auth-terms" class="mt-1 mr-2 accent-yellow-600">
+                    <label for="auth-terms">
+                        <span class="text-red-400 font-bold">*필수: </span> 
+                        <span class="cursor-pointer hover:text-white" onclick="openModal('termsModal')">이용 약관</span> 및 
+                        <span class="cursor-pointer hover:text-white" onclick="openModal('privacyModal')">개인정보 처리 방침</span>에 동의합니다.
+                    </label>
+                </div>
             </div>
+            
+            <div class="flex gap-3 mt-5">
+                <button id="login-btn" onclick="toggleAuthView(false); handleAuth(false);" class="flex-1 px-4 py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition">로그인</button>
+                <button id="signup-btn" onclick="toggleAuthView(true); handleAuth(true);" class="flex-1 px-4 py-3 text-sm bg-gray-700 rounded-lg text-gray-300 hover:bg-gray-600 transition">회원가입</button>
+            </div>
+            
+            <div class="flex justify-center gap-3 mt-3">
+                 <button onclick="toggleAuthView(false);" class="text-xs text-yellow-500 hover:text-yellow-400">로그인 전환</button>
+                 <button onclick="toggleAuthView(true);" class="text-xs text-green-500 hover:text-green-400">회원가입 전환</button>
+            </div>
+
             <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
         </div>
     </div>
+
+    <!-- Terms Modal (이용 약관 모달) -->
+    <div id="termsModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">이용 약관</h3>
+            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
+                <p class="font-bold text-yellow-400">제 1조 (목적)</p>
+                <p>본 약관은 천금문(千金門) 앱(이하 '서비스')의 이용 조건 및 절차에 관한 사항과 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
+                
+                <p class="font-bold text-yellow-400">제 2조 (정의)</p>
+                <p>① 이용자: 본 약관에 따라 서비스를 이용하는 회원 및 비회원.</p>
+                <p>② 회원: 서비스에 회원가입을 한 자로서, 지속적인 정보 제공 및 이용이 가능한 자.</p>
+                <p>③ 비급 (게시글): 이용자가 서비스에 게시한 모든 정보 (글, 사진, 동영상 등).</p>
+                
+                <p class="font-bold text-yellow-400">제 3조 (회원가입)</p>
+                <p>① 이용자는 본 약관에 동의함으로써 회원가입을 신청합니다.</p>
+                <p>② 회원은 서비스 이용 시 정확한 정보를 기재해야 하며, 허위 정보 기재로 인한 불이익은 본인에게 있습니다.</p>
+                
+                <p class="font-bold text-yellow-400">제 4조 (서비스 이용 및 제한)</p>
+                <p>① 서비스는 24시간 연중무휴를 원칙으로 합니다.</p>
+                <p>② 다음의 경우 서비스 이용이 제한될 수 있습니다: 불법 복제, 음란물, 허위 사실 유포, 타인 비방, 스팸성 게시물.</p>
+                
+                <p class="font-bold text-yellow-400">제 5조 (게시물의 저작권 및 관리)</p>
+                <p>① 회원이 게시한 비급의 저작권은 해당 작성자에게 귀속됩니다.</p>
+                <p>② 서비스는 회원의 비급을 홍보, 전시 등의 목적으로 활용할 수 있습니다.</p>
+                <p>③ 회원의 비급이 법령이나 약관에 위배되는 경우, 서비스는 사전 통보 없이 해당 비급을 삭제하거나 이동시킬 수 있습니다.</p>
+            </div>
+            <button onclick="closeModal('termsModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
+        </div>
+    </div>
+    
+    <!-- Privacy Modal (개인정보 처리 방침 모달) -->
+    <div id="privacyModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">개인정보 처리 방침</h3>
+            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
+                <p class="font-bold text-yellow-400">1. 개인정보 수집 및 이용 목적</p>
+                <p>서비스는 회원가입, 서비스 이용, 불만 처리 등을 위해 개인정보를 수집 및 이용합니다.</p>
+                
+                <p class="font-bold text-yellow-400">2. 수집하는 개인정보 항목</p>
+                <p>필수: 이메일 주소, 비밀번호(암호화 저장).</p>
+                <p>선택: 닉네임, 기타 서비스 내 활동 기록 (게시글 수, 댓글 수 등).</p>
+                
+                <p class="font-bold text-yellow-400">3. 개인정보의 보유 및 이용 기간</p>
+                <p>이용자의 개인정보는 원칙적으로 회원 탈퇴 시 지체 없이 파기합니다. 다만, 관계 법령에 따라 보존할 필요가 있는 경우 해당 법령이 정한 기간 동안 보존합니다.</p>
+                
+                <p class="font-bold text-yellow-400">4. 개인정보의 제3자 제공</p>
+                <p>이용자의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 다만, 이용자가 사전에 동의했거나, 법령에 의거한 경우에는 예외로 합니다.</p>
+                
+                <p class="font-bold text-yellow-400">5. 개인정보 보호 책임자</p>
+                <p>본 서비스는 개인 프로젝트이므로 별도의 책임자는 지정되어 있지 않으나, 개인정보 보호를 위해 Supabase RLS 및 보안 설정을 충실히 이행합니다. 문의사항은 [관리자 이메일]로 연락주시기 바랍니다.</p>
+            </div>
+            <button onclick="closeModal('privacyModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
+        </div>
+    </div>
+
     
     <!-- Delete Confirmation Modal -->
     <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
