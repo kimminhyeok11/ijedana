@@ -15,10 +15,10 @@
         // ------------------------------------------------------------------
         // 1. Supabase 설정 및 초기화
         // ------------------------------------------------------------------
-        // NOTE: 이 설정은 현재 파일에 하드코딩되어 있으며, 실제 앱에서는 환경 변수를 사용해야 합니다.
-        const SUPABASE_URL = 'https://jdwlcnkcyglfxqbhkseb.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impkd2xjbmtjeWdsZnhxYmhrc2ViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjQyMzksImV4cCI6MjA3OTk0MDIzOX0.EhigML9NvLJou2DRBm_iNXErmYByU__WZQ26NcdfTaI';
-        const STORAGE_BUCKET = 'images';
+        // NOTE: 새로운 주소 및 키로 업데이트되었습니다.
+        const SUPABASE_URL = 'https://cpssatqtodlplwgskfin.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwc3NhdHF0b2RscGx3Z3NrZmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Njg5MzUsImV4cCI6MjA4MTE0NDkzNX0.C5_6TRHvyEBbPcO3_FOh_WyMnAkhswOiBqxDUeKrV0I';
+        const STORAGE_BUCKET = 'images'; // 이미지 버킷명
 
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
@@ -36,6 +36,8 @@
             realtimeChannels: {},
             guestName: `나그네_${Math.floor(Math.random() * 1000)}`,
         };
+        
+        const ADMIN_EMAIL = 'salad20c@gmail.com'; // 관리자 이메일 (삭제 권한 부여)
 
         const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
         
@@ -48,6 +50,11 @@
         // ------------------------------------------------------------------
         // 3. 유틸리티 및 인증 함수
         // ------------------------------------------------------------------
+        
+        function isAdmin() {
+            // 현재 로그인한 사용자가 관리자 이메일과 일치하는지 확인
+            return state.user && state.user.email === ADMIN_EMAIL;
+        }
 
         function calculateLevel(postCount, commentCount) {
             const score = (postCount || 0) + (commentCount || 0);
@@ -158,6 +165,7 @@
         
         window.handleImageUpload = async function() {
             if (!state.user) {
+                // 비로그인 사용자는 암천객잔에 글을 쓸 수 있지만, Storage 사용은 RLS 문제로 인해 로그인 필요
                 console.error('이미지 업로드는 로그인 사용자만 가능합니다.');
                 return;
             }
@@ -225,14 +233,10 @@
         };
         
         // ------------------------------------------------------------------
-        // 5. 게시글 CRUD 로직 (안전 삭제 유지)
+        // 5. 게시글 CRUD 로직 (암천객잔 비로그인 쓰기 허용)
         // ------------------------------------------------------------------
         
         async function savePost() {
-            if (!state.user) {
-                return console.error('로그인 후 이용 가능합니다.');
-            }
-
             const type = document.querySelector('input[name="post-type"]:checked').value;
             const title = document.getElementById('new-post-title').value;
             const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
@@ -241,8 +245,18 @@
                 return console.error('제목과 내용을 입력해주세요.');
             }
 
+            const isGuest = !state.user;
+            const isGuestSecretPost = isGuest && type === 'secret';
+            
+            // 비로그인 상태이면서 비밀 글이 아니면 막기
+            if (isGuest && !isGuestSecretPost) {
+                return console.error('로그인 후 이용 가능합니다. (암천객잔의 새로운 글만 비로그인 허용)');
+            }
+
             let stockName = null;
             if (type === 'stock') {
+                if (isGuest) return console.error('종목비급은 로그인 사용자만 작성 가능합니다.');
+                
                 stockName = document.getElementById('stock-input').value.trim();
                 if (!stockName) return console.error('종목명을 입력해야 합니다.');
 
@@ -267,7 +281,9 @@
             let successMessage;
             
             if (state.isEditing) {
-                // 수정
+                // 수정은 반드시 로그인한 원작자만 가능
+                if (isGuest) return console.error('비로그인 사용자는 글을 수정할 수 없습니다.');
+
                 const { error: updateError } = await client.from('posts')
                     .update(payload)
                     .eq('id', state.currentPostId)
@@ -276,7 +292,15 @@
                 successMessage = '비급이 수정되었습니다.';
             } else {
                 // 등록
-                payload.user_id = state.user.id;
+                if (isGuestSecretPost) {
+                    // 암천객잔에 비로그인으로 등록
+                    payload.user_id = null; // RLS가 허용하도록 user_id를 명시적으로 null로 설정
+                    payload.guest_nickname = state.guestName;
+                } else {
+                    // 로그인 사용자로 등록 (다른 타입 포함)
+                    payload.user_id = state.user.id;
+                }
+                
                 const { error: insertError } = await client.from('posts').insert(payload);
                 error = insertError;
                 successMessage = '비급이 기록되었습니다.';
@@ -291,8 +315,9 @@
                 if (type === 'stock') {
                     state.currentStockName = stockName; 
                     navigate('stock-board');
+                } else if (type === 'secret') {
+                    navigate('secret-inn');
                 } else {
-                    // 현재 뷰를 유지
                     navigate(document.querySelector('.app-view:not(.hidden)').id);
                 }
             }
@@ -307,14 +332,26 @@
         window.deletePost = async function(postId) {
             closeModal('deleteConfirmModal');
             
-            if (!state.user) {
-                return console.error('로그인 사용자만 삭제할 수 있습니다.');
+            if (!state.user || !state.postToEdit) {
+                return console.error('삭제 권한이 없습니다. (로그인 및 게시글 정보 필요)');
             }
 
-            const { data: post, error: fetchError } = await client.from('posts').select('content, user_id').eq('id', postId).single();
-            if (fetchError || !post || post.user_id !== state.user.id) {
-                console.error("게시글 조회/권한 오류:", fetchError);
-                return console.error('게시글 정보를 찾거나 삭제 권한이 없습니다.');
+            const post = state.postToEdit;
+            const isAdministrator = isAdmin();
+            const isAuthor = state.user.id === post.user_id;
+            const isSecretPost = post.type === 'secret';
+
+            // --- 암천객잔 삭제 권한 로직 (관리자만 허용) ---
+            if (isSecretPost) {
+                if (!isAdministrator) {
+                    return console.error('암천객잔의 글은 관리자만 삭제할 수 있습니다.');
+                }
+            } 
+            // --- 기타 게시판 삭제 권한 로직 (원작자 또는 관리자) ---
+            else {
+                 if (!isAdministrator && !isAuthor) {
+                    return console.error('해당 게시글의 원작자 또는 관리자만 삭제할 수 있습니다.');
+                }
             }
 
             // 안전 삭제 로직: 내용에서 Storage 파일 URL 추출 및 삭제
@@ -329,6 +366,7 @@
                 .map(url => url.substring(baseUrl.length).split('?')[0]); // 쿼리 스트링 제거
 
             if (filesToDelete.length > 0) {
+                // NOTE: Storage RLS 설정에 따라 인증된 사용자만 삭제 가능합니다.
                 const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류 (DB 삭제는 계속 진행):', storageError);
@@ -434,6 +472,7 @@
 
         // 게시글 리스트 항목 생성 함수
         function createPostElement(post) {
+            // post.guest_nickname이 우선 순위가 되어야 합니다.
             const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
             const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
             const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
@@ -484,12 +523,28 @@
             // 보안을 위해 DOMPurify 사용을 권장하나, 여기서는 innerHTML을 사용합니다.
             document.getElementById('detail-content').innerHTML = post.content;
             
+            // post.guest_nickname이 우선 순위가 되어야 합니다.
             const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
             document.getElementById('detail-author').innerText = author;
             
-            const isAuthor = state.user?.id === post.user_id;
-            document.getElementById('delete-post-btn').classList.toggle('hidden', !isAuthor);
+            const isAdministrator = isAdmin(); // 관리자 여부 확인
+            const isAuthor = state.user?.id === post.user_id; 
+            const isSecretPost = post.type === 'secret';
+            
+            let canDelete;
+            if (isSecretPost) {
+                // 암천객잔: 관리자만 삭제 가능
+                canDelete = isAdministrator;
+            } else {
+                // 기타 게시판: 원작자 또는 관리자만 삭제 가능 (RLS에 따름)
+                canDelete = isAuthor || isAdministrator;
+            }
+
+            // Edit 버튼은 여전히 원작자에게만 노출 (비로그인 글은 수정 불가)
             document.getElementById('edit-post-btn').classList.toggle('hidden', !isAuthor);
+            
+            // Delete 버튼은 계산된 canDelete 조건에 따라 노출
+            document.getElementById('delete-post-btn').classList.toggle('hidden', !canDelete);
             
             // 버튼 이벤트 재연결
             document.getElementById('delete-post-btn').onclick = () => showDeleteConfirm(); 
@@ -500,8 +555,9 @@
         }
         
         window.openPostEditModal = function(post) {
+            // 비로그인 글은 수정 불가
             if (!state.user || state.user.id !== post.user_id) {
-                return console.error('수정 권한이 없습니다.');
+                return console.error('수정 권한이 없습니다. 비로그인 글이거나 작성자가 아닙니다.');
             }
             closeModal('postDetailModal');
             
@@ -719,18 +775,36 @@
             document.getElementById('new-post-content').focus();
         };
 
+        // 암천객잔(secret)은 비로그인 허용
         window.tryOpenWriteModal = function(type) {
-            if (!state.user) {
-                console.error('비급 기록은 로그인 사용자만 가능합니다.');
+            const isGuestPosting = type === 'secret' && !state.user;
+
+            if (!state.user && !isGuestPosting) {
+                console.error('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)');
                 openModal('authModal');
                 return;
             }
+            
             resetPostStateAndUI(); 
 
             document.getElementById(`type-${type}`).checked = true;
             togglePostTypeFields(type);
             openModal('newPostModal');
             
+            // 비로그인 상태에서는 '암천객잔'만 선택 가능하도록 강제
+            if (!state.user) {
+                document.getElementById('type-public').disabled = true;
+                document.getElementById('type-stock').disabled = true;
+                document.getElementById('type-secret').checked = true;
+                document.getElementById('type-secret').disabled = false;
+                togglePostTypeFields('secret');
+                console.log(`암천객잔은 모두에게 열려있습니다. 나그네 닉네임: ${state.guestName}`);
+            } else {
+                 document.getElementById('type-public').disabled = false;
+                 document.getElementById('type-stock').disabled = false;
+                 document.getElementById('type-secret').disabled = false;
+            }
+
             if (type === 'stock') {
                 document.getElementById('stock-input').value = state.currentStockName;
             }
@@ -740,10 +814,15 @@
         window.togglePostTypeFields = (type) => {
             document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
             document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
-            // 수정 모드에서는 타입 변경을 막기 위해 Radio 버튼을 비활성화
+
+            // 수정 모드에서는 타입 변경을 막기 위해 Radio 버튼을 비활성화 (로그인 상태에서만 작동)
             document.querySelectorAll('input[name="post-type"]').forEach(radio => {
-                radio.disabled = state.isEditing;
+                radio.disabled = state.isEditing || (!state.user && type !== 'secret');
             });
+            // 암천객잔은 비로그인 상태에서도 작성 가능해야 하므로 재활성화
+            if (!state.user) {
+                 document.getElementById('type-secret').disabled = false;
+            }
         };
 
         window.handleYouTubeEmbed = window.openYouTubeModal;
@@ -820,12 +899,13 @@
 
         <!-- 4. 암천객잔 (Secret Posts) -->
         <div id="secret-inn" class="app-view hidden">
-            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글)</h2>
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글 - 모두가 쓰고 모두가 봅니다)</h2>
             <div class="space-y-4" id="posts-list-secret"></div>
         </div>
 
         <!-- Floating Write Button -->
-        <button onclick="tryOpenWriteModal('public')" class="fixed bottom-6 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
+        <button onclick="tryOpenWriteModal(document.querySelector('.app-view:not(.hidden)').id === 'secret-inn' ? 'secret' : 'public')" 
+                class="fixed bottom-6 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
             +
         </button>
     </main>
