@@ -17,6 +17,8 @@
         // ------------------------------------------------------------------
         const SUPABASE_URL = 'https://cpssatqtodlplwgskfin.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwc3NhdHF0b2RscGx3Z3NrZmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Njg5MzUsImV4cCI6MjA4MTE0NDkzNX0.C5_6TRHvyEBbPcO3_FOh_WyMnAkhswOiBqxDUeKrV0I';
+        
+        // 중요: Supabase Storage 대시보드에서 버킷 이름이 'images'인지, Public으로 설정되었는지 확인하세요.
         const STORAGE_BUCKET = 'images';
 
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -25,7 +27,7 @@
         // 2. 전역 상태 및 상수
         // ------------------------------------------------------------------
         let isAuthenticating = false;
-        let isSignUpMode = false; // 현재 인증 모드 상태 (false: 로그인, true: 회원가입)
+        let isSignUpMode = false;
 
         const state = {
             user: null,
@@ -76,7 +78,6 @@
             return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
         }
 
-        // 통합 인증 처리 함수
         async function handleAuth() {
             if (isAuthenticating) return;
             isAuthenticating = true;
@@ -90,7 +91,6 @@
                 return;
             }
             
-            // 회원가입 모드일 때 추가 검증
             if (isSignUpMode) {
                 const confirmPassword = document.getElementById('auth-confirm-password').value;
                 const termsChecked = document.getElementById('auth-terms').checked;
@@ -161,41 +161,31 @@
             updateHeaderUI();
         }
 
-        // 로그인/회원가입 탭 전환 함수 (개선된 버전)
         window.setAuthMode = function(mode) {
             isSignUpMode = (mode === 'signup');
-            
             const loginTab = document.getElementById('tab-login');
             const signupTab = document.getElementById('tab-signup');
             const signUpFields = document.getElementById('signup-fields');
             const actionBtn = document.getElementById('auth-action-btn');
             
             if (isSignUpMode) {
-                // 회원가입 모드 UI
-                loginTab.classList.remove('border-yellow-500', 'text-white');
-                loginTab.classList.add('border-transparent', 'text-gray-500');
-                
-                signupTab.classList.add('border-green-500', 'text-white');
-                signupTab.classList.remove('border-transparent', 'text-gray-500');
-                
+                loginTab.classList.replace('border-yellow-500', 'border-transparent');
+                loginTab.classList.replace('text-white', 'text-gray-500');
+                signupTab.classList.replace('border-transparent', 'border-green-500');
+                signupTab.classList.replace('text-gray-500', 'text-white');
                 signUpFields.classList.remove('hidden');
-                
                 actionBtn.innerText = '문파 등록 (회원가입)';
-                actionBtn.classList.remove('bg-yellow-600', 'hover:bg-yellow-500');
-                actionBtn.classList.add('bg-green-700', 'hover:bg-green-600');
+                actionBtn.classList.replace('bg-yellow-600', 'bg-green-700');
+                actionBtn.classList.replace('hover:bg-yellow-500', 'hover:bg-green-600');
             } else {
-                // 로그인 모드 UI
-                signupTab.classList.remove('border-green-500', 'text-white');
-                signupTab.classList.add('border-transparent', 'text-gray-500');
-                
-                loginTab.classList.add('border-yellow-500', 'text-white');
-                loginTab.classList.remove('border-transparent', 'text-gray-500');
-                
+                signupTab.classList.replace('border-green-500', 'border-transparent');
+                signupTab.classList.replace('text-white', 'text-gray-500');
+                loginTab.classList.replace('border-transparent', 'border-yellow-500');
+                loginTab.classList.replace('text-gray-500', 'text-white');
                 signUpFields.classList.add('hidden');
-                
                 actionBtn.innerText = '입문 (로그인)';
-                actionBtn.classList.add('bg-yellow-600', 'hover:bg-yellow-500');
-                actionBtn.classList.remove('bg-green-700', 'hover:bg-green-600');
+                actionBtn.classList.replace('bg-green-700', 'bg-yellow-600');
+                actionBtn.classList.replace('hover:bg-green-600', 'hover:bg-yellow-500');
             }
         }
         
@@ -211,7 +201,6 @@
                     </div>
                 `;
             } else {
-                // 기본값은 로그인 모드로 열기
                 authContainer.innerHTML = `
                     <button onclick="openModal('authModal'); setAuthMode('login');" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
                         입문 (로그인)
@@ -221,14 +210,18 @@
         }
         
         // ------------------------------------------------------------------
-        // 4. 이미지/미디어 처리
+        // 4. 이미지/미디어 처리 (디버깅 강화)
         // ------------------------------------------------------------------
 
         async function uploadImage(file, folderPath) {
+            // 1. 파일 이름 정제 (특수문자 제거)
             const fileExtension = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-            const filePath = `${folderPath}/${fileName}`;
+            const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+            const filePath = `${folderPath}/${safeFileName}`;
             
+            console.log(`업로드 시도: Bucket=${STORAGE_BUCKET}, Path=${filePath}`);
+
+            // 2. 업로드 수행
             const { data, error } = await client.storage
                 .from(STORAGE_BUCKET)
                 .upload(filePath, file, { 
@@ -237,12 +230,20 @@
                 });
 
             if (error) {
-                console.error('Supabase Storage Upload Error:', error);
-                throw error;
-            } else {
-                const publicUrl = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path).data.publicUrl;
-                return publicUrl;
+                console.error('Supabase Storage Upload Error (상세):', error);
+                throw new Error(error.message); // 상위 핸들러로 에러 전파
+            } 
+            
+            // 3. Public URL 가져오기
+            // 중요: getPublicUrl은 비동기가 아니며, 단순히 URL 문자열을 생성합니다.
+            const { data: publicUrlData } = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
+            
+            if (!publicUrlData || !publicUrlData.publicUrl) {
+                throw new Error("Public URL 생성 실패");
             }
+
+            console.log('업로드 성공, URL:', publicUrlData.publicUrl);
+            return publicUrlData.publicUrl;
         }
         
         window.handleImageUpload = async function() {
@@ -254,20 +255,52 @@
             const fileInput = document.getElementById('image-upload-input');
             const file = fileInput.files[0];
             if (!file) return;
+
+            // 파일 크기 체크 (예: 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('이미지 크기는 5MB 이하여야 합니다.', 'error');
+                fileInput.value = '';
+                return;
+            }
+
+            const editor = document.getElementById('new-post-content');
+            
+            // UX: 업로드 중임을 에디터에 표시 (임시 ID 사용)
+            const loadingId = 'img-loading-' + Date.now();
+            const loadingHtml = `<div id="${loadingId}" class="text-yellow-400 text-xs animate-pulse p-2 border border-yellow-600 rounded inline-block">📸 이미지 업로드 중...</div><br>`;
+            
+            editor.focus(); // 포커스 확보
+            // 커서 위치에 로딩 표시 삽입
+            document.execCommand('insertHTML', false, loadingHtml);
             
             try {
+                // 실제 업로드
                 const publicUrl = await uploadImage(file, 'posts');
                 
-                const editor = document.getElementById('new-post-content');
-                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200/333/fff?text=이미지+로드+실패'">`;
+                // 로딩 표시 제거
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
+
+                // 실제 이미지 태그 삽입
+                // onerror 핸들러를 추가하여 RLS 문제로 403이 뜰 때 대체 이미지 표시
+                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x200/333/F00?text=이미지+권한+없음'; alert('이미지 권한 오류: Supabase Bucket을 Public으로 설정하세요.');"><br>`;
                 
-                editor.focus();
                 document.execCommand('insertHTML', false, imgTag);
+                showToast('이미지 업로드 완료.', 'success');
                 
-                showToast('이미지 삽입 완료.', 'success');
             } catch (error) {
-                console.error('이미지 업로드 실패:', error);
-                showToast(`이미지 업로드 실패: ${error.message}`, 'error');
+                // 에러 발생 시 로딩 표시 제거 및 알림
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
+                
+                console.error('이미지 처리 실패:', error);
+                
+                let errorMsg = error.message;
+                // 자주 발생하는 에러 친절하게 변환
+                if (errorMsg.includes('new row violates row-level security policy') || errorMsg.includes('403')) {
+                    errorMsg = "권한 거부됨 (Supabase Storage RLS 정책을 확인하세요).";
+                }
+                showToast(`업로드 실패: ${errorMsg}`, 'error');
             } finally {
                 fileInput.value = '';
             }
@@ -322,7 +355,8 @@
             try {
                 const type = document.querySelector('input[name="post-type"]:checked').value;
                 const title = document.getElementById('new-post-title').value;
-                const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
+                // Loading 표시용 잔여 태그가 있다면 제거 후 저장
+                const contentHTML = document.getElementById('new-post-content').innerHTML.replace(/<div id="img-loading-.*?<\/div>/g, '').trim();
 
                 if (!title || !contentHTML) {
                     showToast('제목과 내용을 모두 입력해야 합니다.', 'error');
@@ -396,7 +430,7 @@
 
                 if (error) {
                     console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패:`, error);
-                    showToast(`비급 ${state.isEditing ? '수정' : '등록'} 실패: ${error.message}`, 'error');
+                    showToast(`비급 등록 실패: ${error.message}`, 'error');
                 } else {
                     showToast(successMessage, 'success');
                     closeModal('newPostModal');
@@ -861,7 +895,7 @@
             if (!state.user && !isGuestPosting) {
                 showToast('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)', 'error');
                 openModal('authModal');
-                setAuthMode('login'); // 기본 로그인 탭으로 열기
+                setAuthMode('login'); 
                 return;
             }
             
@@ -1075,7 +1109,7 @@
         </div>
     </div>
     
-    <!-- Auth Modal (UX 개선: 탭 방식) -->
+    <!-- Auth Modal -->
     <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
             <!-- 탭 네비게이션 -->
@@ -1173,4 +1207,5 @@
     </div>
 </body>
 </html>
+
 
