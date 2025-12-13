@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>천금문 (千金門) - 단순화 및 고속화 버전</title>
+    <title>천금문 (千金門)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
@@ -210,18 +210,16 @@
         }
         
         // ------------------------------------------------------------------
-        // 4. 이미지/미디어 처리 (디버깅 강화)
+        // 4. 이미지/미디어 처리 (업로드 및 삭제 개선)
         // ------------------------------------------------------------------
 
         async function uploadImage(file, folderPath) {
-            // 1. 파일 이름 정제 (특수문자 제거)
             const fileExtension = file.name.split('.').pop();
             const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
             const filePath = `${folderPath}/${safeFileName}`;
             
             console.log(`업로드 시도: Bucket=${STORAGE_BUCKET}, Path=${filePath}`);
 
-            // 2. 업로드 수행
             const { data, error } = await client.storage
                 .from(STORAGE_BUCKET)
                 .upload(filePath, file, { 
@@ -231,11 +229,9 @@
 
             if (error) {
                 console.error('Supabase Storage Upload Error (상세):', error);
-                throw new Error(error.message); // 상위 핸들러로 에러 전파
+                throw new Error(error.message);
             } 
             
-            // 3. Public URL 가져오기
-            // 중요: getPublicUrl은 비동기가 아니며, 단순히 URL 문자열을 생성합니다.
             const { data: publicUrlData } = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
             
             if (!publicUrlData || !publicUrlData.publicUrl) {
@@ -256,7 +252,6 @@
             const file = fileInput.files[0];
             if (!file) return;
 
-            // 파일 크기 체크 (예: 5MB)
             if (file.size > 5 * 1024 * 1024) {
                 showToast('이미지 크기는 5MB 이하여야 합니다.', 'error');
                 fileInput.value = '';
@@ -265,38 +260,30 @@
 
             const editor = document.getElementById('new-post-content');
             
-            // UX: 업로드 중임을 에디터에 표시 (임시 ID 사용)
             const loadingId = 'img-loading-' + Date.now();
             const loadingHtml = `<div id="${loadingId}" class="text-yellow-400 text-xs animate-pulse p-2 border border-yellow-600 rounded inline-block">📸 이미지 업로드 중...</div><br>`;
             
-            editor.focus(); // 포커스 확보
-            // 커서 위치에 로딩 표시 삽입
+            editor.focus();
             document.execCommand('insertHTML', false, loadingHtml);
             
             try {
-                // 실제 업로드
                 const publicUrl = await uploadImage(file, 'posts');
                 
-                // 로딩 표시 제거
                 const loadingEl = document.getElementById(loadingId);
                 if (loadingEl) loadingEl.remove();
 
-                // 실제 이미지 태그 삽입
-                // onerror 핸들러를 추가하여 RLS 문제로 403이 뜰 때 대체 이미지 표시
                 const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x200/333/F00?text=이미지+권한+없음'; alert('이미지 권한 오류: Supabase Bucket을 Public으로 설정하세요.');"><br>`;
                 
                 document.execCommand('insertHTML', false, imgTag);
                 showToast('이미지 업로드 완료.', 'success');
                 
             } catch (error) {
-                // 에러 발생 시 로딩 표시 제거 및 알림
                 const loadingEl = document.getElementById(loadingId);
                 if (loadingEl) loadingEl.remove();
                 
                 console.error('이미지 처리 실패:', error);
                 
                 let errorMsg = error.message;
-                // 자주 발생하는 에러 친절하게 변환
                 if (errorMsg.includes('new row violates row-level security policy') || errorMsg.includes('403')) {
                     errorMsg = "권한 거부됨 (Supabase Storage RLS 정책을 확인하세요).";
                 }
@@ -355,7 +342,6 @@
             try {
                 const type = document.querySelector('input[name="post-type"]:checked').value;
                 const title = document.getElementById('new-post-title').value;
-                // Loading 표시용 잔여 태그가 있다면 제거 후 저장
                 const contentHTML = document.getElementById('new-post-content').innerHTML.replace(/<div id="img-loading-.*?<\/div>/g, '').trim();
 
                 if (!title || !contentHTML) {
@@ -459,6 +445,9 @@
             openModal('deleteConfirmModal');
         }
 
+        // ------------------------------------------------------------------
+        // [중요 수정] 파일 삭제 로직 개선
+        // ------------------------------------------------------------------
         window.deletePost = async function(postId) {
             closeModal('deleteConfirmModal');
             
@@ -485,23 +474,43 @@
             }
 
             const content = post.content;
+            
+            // 1. 올바른 경로 추출 로직
+            // 기존에는 .../posts/ 까지 자르고 파일명만 가져와서 문제였습니다. (예: "img.jpg")
+            // Supabase remove 함수는 "posts/img.jpg" 형태의 전체 상대 경로를 원합니다.
+            // 따라서 baseUrl을 버킷 루트까지만 잡습니다.
+            const storageBaseUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
             const urlRegex = /src="([^"]*?(\.(jpg|jpeg|png|gif|webp|tiff|bmp)))"/gi;
-            const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/posts/`;
 
             const filesToDelete = [...content.matchAll(urlRegex)]
                 .map(match => match[1])
-                .filter(url => url.startsWith(baseUrl))
-                .map(url => url.substring(baseUrl.length).split('?')[0]);
+                .filter(url => url.startsWith(storageBaseUrl))
+                .map(url => {
+                    // 전체 URL에서 버킷 URL을 제외한 나머지 부분 (예: posts/파일명.jpg) 추출
+                    const relativePath = url.substring(storageBaseUrl.length);
+                    // URL 디코딩 (한글 파일명 등 처리) 및 쿼리 스트링 제거
+                    return decodeURIComponent(relativePath.split('?')[0]);
+                });
 
+            // 2. 파일 삭제 시도 (DB 삭제 전에 수행)
             if (filesToDelete.length > 0) {
-                const { error: storageError } = await client.storage.from(STORAGE_BUCKET).remove(filesToDelete);
+                console.log('삭제할 파일 목록:', filesToDelete);
+                
+                const { data, error: storageError } = await client.storage
+                    .from(STORAGE_BUCKET)
+                    .remove(filesToDelete);
+
                 if (storageError) {
                     console.error('Storage 파일 삭제 오류:', storageError);
+                    showToast('첨부 파일 삭제 중 오류가 발생했습니다. (DB 삭제는 진행)', 'error');
                 } else {
-                    console.log(`Storage 파일 ${filesToDelete.length}개 삭제 완료.`);
+                    console.log('Storage 파일 삭제 성공:', data);
                 }
+            } else {
+                console.log('삭제할 첨부 파일이 없습니다.');
             }
 
+            // 3. DB 게시글 삭제
             const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
 
             if (deleteError) {
