@@ -1,98 +1,1250 @@
-import { supabaseClient, generateCharacterImage, generateCharacterData } from './api.js';
-import { MASTER_SKILL_LIST, MASTER_ABILITY_LIST, PAGE_SIZE } from './config.js';
-import { DOM, navigateTo, setGenButtonLoadingState, showModal, updateUIBasedOnAuthState, renderPokedexView } from './ui.js';
-import { renderBattleArenaView } from './battle.js';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>천금문 (千金門) - 단순화 및 고속화 버전</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <script>
+        // Marked 설정 (안전한 HTML 허용 + GFM 지원)
+        marked.setOptions({
+            sanitize: false,
+            gfm: true,
+            breaks: true
+        });
 
-// --- Global App State ---
-export let state = {
-    currentUser: null,
-    currentProfile: null,
-    allCharacters: [],
-    totalCharacterCount: 0,
-    currentPage: 0,
-    isLoadingMore: false,
-    allProfiles: [],
-    characterSubscription: null,
-    activeFilter: 'all',
-    battleAnimationId: null,
-};
-
-/**
- * Updates the global state and triggers a re-render if necessary.
- * @param {object} newState - The new state properties to merge.
- */
-export function updateState(newState) {
-    state = { ...state, ...newState };
-}
-
-// --- Character Generation ---
-async function generateCharacter() {
-    // ... (Logic from original file) ...
-    // This function will now use imported functions like `generateCharacterImage`
-}
-
-// --- Data Fetching & Realtime ---
-async function initialDataLoad() {
-    // ... (Logic from original file) ...
-}
-
-async function loadMoreCharacters() {
-    // ... (Logic from original file) ...
-}
-window.loadMoreCharacters = loadMoreCharacters;
-
-function handleRealtimeChanges(payload) {
-    // ... (Logic from original file) ...
-}
-
-function subscribeToChanges() {
-    if (state.characterSubscription) state.characterSubscription.unsubscribe();
-    const subscription = supabaseClient.channel('hipoketmon-db-changes')
-        .on('postgres_changes', { event: '*', schema: 'public' }, handleRealtimeChanges)
-        .subscribe();
-    updateState({ characterSubscription: subscription });
-}
-
-// --- Authentication ---
-async function handleSignup(e) { e.preventDefault(); /* ... */ }
-async function handleLogin(e) { e.preventDefault(); /* ... */ }
-async function handleLogout() { /* ... */ }
-window.handleLogout = handleLogout;
-
-async function listenToAuthStateChanges() {
-    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
-        const currentUser = session?.user || null;
-        const currentProfile = currentUser ? state.allProfiles.find(p => p.id === currentUser.id) : null;
-        updateState({ currentUser, currentProfile });
+        // ------------------------------------------------------------------
+        // 1. Supabase 설정 및 초기화
+        // ------------------------------------------------------------------
+        const SUPABASE_URL = 'https://cpssatqtodlplwgskfin.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwc3NhdHF0b2RscGx3Z3NrZmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Njg5MzUsImV4cCI6MjA4MTE0NDkzNX0.C5_6TRHvyEBbPcO3_FOh_WyMnAkhswOiBqxDUeKrV0I';
         
-        if (_event === 'SIGNED_IN' && !currentProfile) {
-            // Refetch profiles if a new user signs in
-            const { data } = await supabaseClient.from('battle_profiles').select('*');
-            if(data) updateState({ allProfiles: data, currentProfile: data.find(p => p.id === currentUser.id) });
+        const STORAGE_BUCKET = 'images';
+
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // ------------------------------------------------------------------
+        // 2. 전역 상태 및 상수
+        // ------------------------------------------------------------------
+        let isAuthenticating = false;
+        let isSignUpMode = false;
+
+        const state = {
+            user: null,
+            profile: null,
+            currentPostId: null,
+            postToEdit: null,
+            isEditing: false,
+            currentStockName: '삼성전자', 
+            stockTags: [], 
+            realtimeChannels: {},
+            guestName: `나그네_${Math.floor(Math.random() * 1000)}`,
+        };
+
+        // 현재 작성 중 업로드된 이미지 URL 추적 (취소 시 삭제용)
+        let uploadedImageUrlsInCurrentPost = [];
+
+        const ADMIN_EMAIL = 'salad20c@gmail.com'; 
+        const LEVEL_NAMES = ['입문자', '초학자', '시세견습', '기문초해', '자본내공가', '강호시세객', '전략비급사', '시장현경', '초절정투객', '절세투자고수', '금룡장문'];
+        const MU_GONG_TYPES = [
+            { id: 'sword', name: '질풍검법 (단기)', tag: '단기', color: 'text-red-500' },
+            { id: 'dao', name: '태극도법 (장기)', tag: '장기', color: 'text-blue-500' },
+            { id: 'auto', name: '오토진법 (자동)', tag: '자동', color: 'text-yellow-500' },
+        ];
+        
+        // ------------------------------------------------------------------
+        // 3. 유틸리티 및 인증 함수
+        // ------------------------------------------------------------------
+        
+        function isAdmin() {
+            return state.user && state.user.email === ADMIN_EMAIL;
         }
         
-        updateUIBasedOnAuthState();
-        if (!currentUser) navigateTo('pokedex-view');
-    });
-}
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast-notification');
+            const messageElement = document.getElementById('toast-message');
+            
+            toast.classList.remove('hidden', 'bg-red-600', 'bg-green-600');
+            toast.classList.add(type === 'error' ? 'bg-red-600' : 'bg-green-600');
+            
+            messageElement.innerText = message;
+            toast.classList.remove('hidden');
 
-// --- App Initialization ---
-function initialize() {
-    // Setup Event Listeners
-    document.getElementById('home-btn').addEventListener('click', () => navigateTo('pokedex-view'));
-    document.getElementById('generate-btn').addEventListener('click', generateCharacter);
-    // ... (Add all other event listeners from the original file) ...
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
 
-    // Initial Load
-    document.addEventListener('DOMContentLoaded', async () => {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        updateState({ currentUser: session?.user || null });
-        await initialDataLoad();
-        listenToAuthStateChanges();
-        subscribeToChanges();
-    });
-}
+        function calculateLevel(postCount, commentCount) {
+            const score = (postCount || 0) + (commentCount || 0);
+            const idx = Math.min(Math.floor(score / 10), LEVEL_NAMES.length - 1);
+            return { name: LEVEL_NAMES[idx], color: idx > 5 ? 'text-yellow-400' : 'text-cyan-400' };
+        }
 
-// Start the application
-initialize();
+        async function handleAuth() {
+            if (isAuthenticating) return;
+            isAuthenticating = true;
+            
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            if (!email || !password) {
+                showToast('이메일과 비밀번호를 입력해주세요.', 'error');
+                isAuthenticating = false;
+                return;
+            }
+            
+            if (isSignUpMode) {
+                const confirmPassword = document.getElementById('auth-confirm-password').value;
+                const termsChecked = document.getElementById('auth-terms').checked;
+                
+                if (password !== confirmPassword) {
+                    showToast('비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error');
+                    isAuthenticating = false;
+                    return;
+                }
+                
+                if (!termsChecked) {
+                    showToast('이용 약관 및 개인정보 처리 방침에 동의해야 합니다.', 'error');
+                    isAuthenticating = false;
+                    return;
+                }
+            }
 
+            let error;
+            try {
+                if (isSignUpMode) {
+                    ({ error } = await client.auth.signUp({ email, password }));
+                } else {
+                    ({ error } = await client.auth.signInWithPassword({ email, password }));
+                }
+            } catch (e) {
+                error = e;
+            }
+
+            if (error) {
+                console.error(`인증 실패: ${error.message}`);
+                showToast(`인증 실패: ${error.message}`, 'error');
+            } else {
+                if (isSignUpMode) {
+                    showToast('성공적으로 문파에 등록되었습니다! 이메일을 확인해주세요.', 'success');
+                } else {
+                    showToast('성공적으로 로그인했습니다!', 'success');
+                }
+                closeModal('authModal');
+                checkSession();
+            }
+            isAuthenticating = false;
+        }
+        
+        async function logout() {
+            await client.auth.signOut();
+            state.profile = null;
+            state.user = null;
+            updateHeaderUI();
+            navigate('gangho-plaza');
+            showToast('하산했습니다.', 'success');
+        }
+
+        async function checkSession() {
+            const { data: { session } } = await client.auth.getSession();
+            updateAuthState(session);
+            client.auth.onAuthStateChange((_event, session) => updateAuthState(session));
+        }
+
+        async function updateAuthState(session) {
+            state.user = session ? session.user : null;
+            if (state.user) {
+                const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
+                if (data) state.profile = data;
+                else state.profile = { nickname: '새로운 문도', post_count: 0, comment_count: 0 };
+            } else {
+                state.profile = null;
+            }
+            updateHeaderUI();
+        }
+
+        window.setAuthMode = function(mode) {
+            isSignUpMode = (mode === 'signup');
+            const loginTab = document.getElementById('tab-login');
+            const signupTab = document.getElementById('tab-signup');
+            const signUpFields = document.getElementById('signup-fields');
+            const actionBtn = document.getElementById('auth-action-btn');
+            
+            if (isSignUpMode) {
+                loginTab.classList.replace('border-yellow-500', 'border-transparent');
+                loginTab.classList.replace('text-white', 'text-gray-500');
+                signupTab.classList.replace('border-transparent', 'border-green-500');
+                signupTab.classList.replace('text-gray-500', 'text-white');
+                signUpFields.classList.remove('hidden');
+                actionBtn.innerText = '문파 등록 (회원가입)';
+                actionBtn.classList.replace('bg-yellow-600', 'bg-green-700');
+                actionBtn.classList.replace('hover:bg-yellow-500', 'hover:bg-green-600');
+            } else {
+                signupTab.classList.replace('border-green-500', 'border-transparent');
+                signupTab.classList.replace('text-white', 'text-gray-500');
+                loginTab.classList.replace('border-transparent', 'border-yellow-500');
+                loginTab.classList.replace('text-gray-500', 'text-white');
+                signUpFields.classList.add('hidden');
+                actionBtn.innerText = '입문 (로그인)';
+                actionBtn.classList.replace('bg-green-700', 'bg-yellow-600');
+                actionBtn.classList.replace('hover:bg-green-600', 'hover:bg-yellow-500');
+            }
+        }
+        
+        function updateHeaderUI() {
+            const authContainer = document.getElementById('auth-buttons');
+            if (state.user && state.profile) {
+                const level = calculateLevel(state.profile.post_count, state.profile.comment_count);
+                authContainer.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs text-gray-400 hidden sm:inline">레벨: <span class="\( {level.color} font-bold"> \){level.name}</span></span>
+                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile.nickname || '문도'}</span>님</span>
+                        <button onclick="logout()" class="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded hover:bg-red-900 transition">하산</button>
+                    </div>
+                `;
+            } else {
+                authContainer.innerHTML = `
+                    <button onclick="openModal('authModal'); setAuthMode('login');" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded font-bold hover:bg-yellow-500 transition shadow-lg animate-pulse">
+                        입문 (로그인)
+                    </button>
+                `;
+            }
+        }
+        
+        // ------------------------------------------------------------------
+        // 4. 이미지/미디어 처리 (webp 변환 + orphaned 이미지 삭제)
+        // ------------------------------------------------------------------
+
+        async function convertToWebp(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const webpFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), { type: 'image/webp' });
+                            resolve(webpFile);
+                        } else {
+                            reject(new Error('webp 변환 실패'));
+                        }
+                    }, 'image/webp', 0.85);
+                };
+                img.onerror = reject;
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        async function uploadImage(file, folderPath) {
+            let uploadFile = file;
+            
+            if (!file.type.includes('webp')) {
+                try {
+                    uploadFile = await convertToWebp(file);
+                } catch (e) {
+                    console.warn('webp 변환 실패, 원본 업로드', e);
+                }
+            }
+
+            const fileExtension = uploadFile.name.split('.').pop();
+            const safeFileName = `\( {Date.now()}_ \){Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
+            const filePath = `\( {folderPath}/ \){safeFileName}`;
+            
+            const { data, error } = await client.storage
+                .from(STORAGE_BUCKET)
+                .upload(filePath, uploadFile, { 
+                    cacheControl: '3600',
+                    upsert: false,
+                });
+
+            if (error) {
+                console.error('Supabase Storage Upload Error:', error);
+                throw new Error(error.message);
+            } 
+            
+            const { data: publicUrlData } = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
+            
+            if (!publicUrlData || !publicUrlData.publicUrl) {
+                throw new Error("Public URL 생성 실패");
+            }
+
+            uploadedImageUrlsInCurrentPost.push(publicUrlData.publicUrl);
+
+            return publicUrlData.publicUrl;
+        }
+        
+        window.handleImageUpload = async function() {
+            if (!state.user) {
+                showToast('이미지 업로드는 로그인 사용자만 가능합니다.', 'error');
+                return;
+            }
+            
+            const fileInput = document.getElementById('image-upload-input');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('이미지 크기는 5MB 이하여야 합니다.', 'error');
+                fileInput.value = '';
+                return;
+            }
+
+            const editor = document.getElementById('new-post-content');
+            
+            const loadingId = 'img-loading-' + Date.now();
+            const loadingHtml = `<div id="${loadingId}" class="text-yellow-400 text-xs animate-pulse p-2 border border-yellow-600 rounded inline-block">📸 이미지 업로드 중...</div><br>`;
+            
+            editor.focus();
+            document.execCommand('insertHTML', false, loadingHtml);
+            
+            try {
+                const publicUrl = await uploadImage(file, 'posts');
+                
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
+
+                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.src='https://placehold.co/400x200?text=이미지+오류'"><br>`;
+                
+                document.execCommand('insertHTML', false, imgTag);
+                showToast('이미지 업로드 완료 (webp 변환 적용).', 'success');
+                
+            } catch (error) {
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
+                
+                let errorMsg = error.message || '알 수 없는 오류';
+                showToast(`업로드 실패: ${errorMsg}`, 'error');
+            } finally {
+                fileInput.value = '';
+            }
+        };
+
+        async function deleteOrphanedImages(urls) {
+            if (urls.length === 0) return;
+            
+            const storageBaseUrl = `\( {SUPABASE_URL}/storage/v1/object/public/ \){STORAGE_BUCKET}/`;
+            const paths = urls.map(url => {
+                const relative = url.substring(storageBaseUrl.length);
+                return decodeURIComponent(relative.split('?')[0]);
+            });
+
+            const { error } = await client.storage.from(STORAGE_BUCKET).remove(paths);
+            if (error) {
+                console.error('고아 이미지 삭제 실패:', error);
+            } else {
+                console.log('고아 이미지 삭제 완료:', paths);
+            }
+        }
+
+        window.openYouTubeModal = function() {
+            document.getElementById('youtube-url-input').value = '';
+            openModal('youtubeEmbedModal');
+        }
+
+        window.handleYouTubeEmbedFromModal = function() {
+            const url = document.getElementById('youtube-url-input').value.trim();
+            closeModal('youtubeEmbedModal');
+
+            if (!url) return;
+
+            let videoId;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            if (match && match[2].length === 11) {
+                videoId = match[2];
+            } else {
+                showToast('유효한 YouTube URL이 아닙니다.', 'error');
+                return;
+            }
+
+            const embedHtml = `
+                <div class="my-4 w-full" style="aspect-ratio: 16 / 9;">
+                    <iframe 
+                        src="https://www.youtube.com/embed/${videoId}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen 
+                        class="rounded-lg shadow-xl w-full h-full"
+                    ></iframe>
+                </div>
+            `;
+            const editor = document.getElementById('new-post-content');
+            document.execCommand('insertHTML', false, embedHtml);
+            showToast('YouTube 동영상 삽입 완료.', 'success');
+        };
+        
+        // ------------------------------------------------------------------
+        // 5. 게시글 CRUD 로직
+        // ------------------------------------------------------------------
+        
+        async function savePost() {
+            const saveBtn = document.getElementById('save-post-btn');
+            saveBtn.disabled = true;
+            saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            try {
+                const type = document.querySelector('input[name="post-type"]:checked').value;
+                const title = document.getElementById('new-post-title').value.trim();
+                const contentHTML = document.getElementById('new-post-content').innerHTML.trim();
+
+                if (!title || !contentHTML || contentHTML === '<br>' || contentHTML === '') {
+                    showToast('제목과 내용을 모두 입력해야 합니다.', 'error');
+                    return;
+                }
+
+                const isGuest = !state.user;
+                const isGuestSecretPost = isGuest && type === 'secret';
+                
+                if (isGuest && !isGuestSecretPost) {
+                    showToast('로그인 후 이용 가능합니다. (암천객잔의 새로운 글만 비로그인 허용)', 'error');
+                    return;
+                }
+
+                let stockName = null;
+                if (type === 'stock') {
+                    if (isGuest) {
+                        showToast('종목비급은 로그인 사용자만 작성 가능합니다.', 'error');
+                        return;
+                    }
+                    
+                    stockName = document.getElementById('stock-input').value.trim();
+                    if (!stockName) {
+                        showToast('종목명을 입력해야 합니다.', 'error');
+                        return;
+                    }
+
+                    if (!state.isEditing) {
+                        const { data } = await client.from('stock_tags').select('name').eq('name', stockName);
+                        if (data && data.length === 0) {
+                            await client.from('stock_tags').insert({ name: stockName });
+                            await fetchStockTags();
+                        }
+                    }
+                }
+
+                const payload = {
+                    title, 
+                    content: contentHTML, 
+                    type, 
+                    stock_id: stockName,
+                    mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
+                };
+
+                let error;
+                let successMessage;
+                
+                if (state.isEditing) {
+                    if (isGuest) {
+                        showToast('비로그인 사용자는 글을 수정할 수 없습니다.', 'error');
+                        return;
+                    }
+
+                    const { error: updateError } = await client.from('posts')
+                        .update(payload)
+                        .eq('id', state.currentPostId)
+                        .eq('user_id', state.user.id);
+                    error = updateError;
+                    successMessage = '비급이 수정되었습니다.';
+                } else {
+                    if (isGuestSecretPost) {
+                        payload.user_id = null;
+                        payload.guest_nickname = state.guestName;
+                    } else {
+                        payload.user_id = state.user?.id || null;
+                    }
+                    
+                    const { error: insertError } = await client.from('posts').insert(payload);
+                    error = insertError;
+                    successMessage = '비급이 기록되었습니다.';
+                }
+
+                if (error) {
+                    showToast(`비급 등록 실패: ${error.message}`, 'error');
+                } else {
+                    showToast(successMessage, 'success');
+                    uploadedImageUrlsInCurrentPost = [];
+                    closeModal('newPostModal');
+                    
+                    if (type === 'stock') {
+                        state.currentStockName = stockName; 
+                        navigate('stock-board');
+                    } else if (type === 'secret') {
+                        navigate('secret-inn');
+                    } else {
+                        navigate(document.querySelector('.app-view:not(.hidden)').id);
+                    }
+                }
+            } catch (e) {
+                showToast(`예상치 못한 오류: ${e.message}`, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        window.showDeleteConfirm = function() {
+            if (!state.currentPostId || !state.postToEdit) return;
+            document.getElementById('confirm-delete-title').innerText = state.postToEdit.title;
+            openModal('deleteConfirmModal');
+        }
+
+        window.deletePost = async function(postId) {
+            closeModal('deleteConfirmModal');
+            
+            if (!state.user || !state.postToEdit) {
+                showToast('삭제 권한이 없습니다.', 'error');
+                return;
+            }
+
+            const post = state.postToEdit;
+            const isAdministrator = isAdmin();
+            const isAuthor = state.user.id === post.user_id;
+            const isSecretPost = post.type === 'secret';
+
+            if (isSecretPost && !isAdministrator) {
+                showToast('암천객잔의 글은 관리자만 삭제할 수 있습니다.', 'error');
+                return;
+            }
+            if (!isSecretPost && !isAuthor && !isAdministrator) {
+                showToast('원작자 또는 관리자만 삭제할 수 있습니다.', 'error');
+                return;
+            }
+
+            const content = post.content;
+            const storageBaseUrl = `\( {SUPABASE_URL}/storage/v1/object/public/ \){STORAGE_BUCKET}/`;
+            const urlRegex = /src="([^"]*?)"/gi;
+
+            const filesToDelete = [...content.matchAll(urlRegex)]
+                .map(match => match[1])
+                .filter(url => url.startsWith(storageBaseUrl))
+                .map(url => decodeURIComponent(url.substring(storageBaseUrl.length).split('?')[0]));
+
+            if (filesToDelete.length > 0) {
+                const { error: storageError } = await client.storage
+                    .from(STORAGE_BUCKET)
+                    .remove(filesToDelete);
+
+                if (storageError) {
+                    showToast('첨부 파일 삭제 중 오류 발생 (DB 삭제는 진행됨)', 'error');
+                }
+            }
+
+            const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
+
+            if (deleteError) {
+                showToast(`게시글 삭제 실패: ${deleteError.message}`, 'error');
+            } else {
+                showToast('게시글 및 첨부 자료가 삭제되었습니다.', 'success');
+                closeModal('postDetailModal');
+                navigate(document.querySelector('.app-view:not(.hidden)').id);
+            }
+        };
+        
+        // ------------------------------------------------------------------
+        // 6. 뷰 및 네비게이션
+        // ------------------------------------------------------------------
+
+        function navigate(viewId) {
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-yellow-400', 'border-yellow-400');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+            const activeBtn = document.querySelector(`button[onclick="navigate('${viewId}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.replace('text-gray-500', 'text-yellow-400');
+                activeBtn.classList.replace('border-transparent', 'border-yellow-400');
+            }
+
+            if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
+            if (viewId === 'stock-board') {
+                if(state.stockTags.length === 0) fetchStockTags();
+                renderPosts('posts-list-stock', 'stock', state.currentStockName);
+                document.getElementById('current-stock-name').innerText = state.currentStockName;
+            }
+            if (viewId === 'secret-inn') renderPosts('posts-list-secret', 'secret');
+            if (viewId === 'chat-hall') loadChat();
+        }
+
+        async function fetchStockTags() {
+            const { data } = await client.from('stock_tags').select('name').order('created_at', { ascending: true });
+            if (data) {
+                state.stockTags = data.map(t => t.name);
+                renderStockTabs();
+                renderStockOptions();
+            }
+        }
+
+        function renderStockTabs() {
+            const stockTabs = document.getElementById('stock-tabs');
+            stockTabs.innerHTML = '';
+            
+            let tagsToRender = [...state.stockTags];
+            if (state.currentStockName && !state.stockTags.includes(state.currentStockName)) {
+                tagsToRender = [state.currentStockName, ...state.stockTags];
+            }
+
+            tagsToRender.forEach(tag => {
+                const btn = document.createElement('button');
+                const isActive = state.currentStockName === tag;
+                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
+                    isActive 
+                    ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
+                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
+                }`;
+                btn.innerText = tag;
+                btn.onclick = () => {
+                    state.currentStockName = tag;
+                    renderStockTabs();
+                    renderPosts('posts-list-stock', 'stock', tag);
+                    document.getElementById('current-stock-name').innerText = tag;
+                };
+                stockTabs.appendChild(btn);
+            });
+            stockTabs.scrollLeft = 0;
+        }
+
+        function renderStockOptions() { 
+            const dataList = document.getElementById('stock-options');
+            dataList.innerHTML = state.stockTags.map(tag => `<option value="${tag}">`).join('');
+        }
+        
+        async function fetchPosts(type, stockName = null) {
+            let query = client.from('posts')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`) 
+                .eq('type', type)
+                .order('created_at', { ascending: false });
+
+            if (stockName) query = query.eq('stock_id', stockName);
+
+            const { data } = await query;
+            return data || [];
+        }
+
+        function createPostElement(post) {
+            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+            const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+            const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
+
+            const postEl = document.createElement('div');
+            postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
+            postEl.onclick = () => openPostDetail(post);
+
+            postEl.innerHTML = `
+                <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
+                <div class="text-xs text-gray-400 flex justify-between items-center">
+                    <div class="flex items-center space-x-2">
+                        <span class="\( {level.color} font-medium"> \){level.name}</span>
+                        <span class="text-yellow-400">${author}</span>
+                        \( {mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 \){mugong.color}">${mugong.tag}</span>` : ''}
+                    </div>
+                    <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
+                </div>
+            `;
+            return postEl;
+        }
+
+        async function renderPosts(containerId, type, stockName = null) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="text-center text-gray-500 py-10">... 비급을 로딩 중 ...</div>';
+            
+            const posts = await fetchPosts(type, stockName);
+            container.innerHTML = ''; 
+
+            if (posts.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 py-10">아직 등록된 비급이 없습니다. 첫 기록을 남겨보세요.</div>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+            posts.forEach(post => fragment.appendChild(createPostElement(post)));
+            container.appendChild(fragment);
+        }
+
+        window.openPostDetail = async function(post) {
+            state.currentPostId = post.id;
+            state.postToEdit = post;
+            const modal = document.getElementById('postDetailModal');
+            document.getElementById('detail-title').innerText = post.title;
+            
+            // 마크다운 렌더링
+            document.getElementById('detail-content').innerHTML = marked.parse(post.content);
+            
+            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
+            document.getElementById('detail-author').innerText = author;
+            
+            const isAdministrator = isAdmin();
+            const isAuthor = state.user?.id === post.user_id; 
+            const isSecretPost = post.type === 'secret';
+            
+            let canDelete = isSecretPost ? isAdministrator : (isAuthor || isAdministrator);
+
+            document.getElementById('edit-post-btn').classList.toggle('hidden', !isAuthor);
+            document.getElementById('delete-post-btn').classList.toggle('hidden', !canDelete);
+            
+            document.getElementById('delete-post-btn').onclick = showDeleteConfirm; 
+            document.getElementById('edit-post-btn').onclick = () => openPostEditModal(post);
+            
+            loadComments(post.id);
+            modal.classList.remove('hidden');
+        }
+        
+        window.openPostEditModal = function(post) {
+            if (!state.user || state.user.id !== post.user_id) {
+                showToast('수정 권한이 없습니다.', 'error');
+                return;
+            }
+            closeModal('postDetailModal');
+            
+            state.isEditing = true;
+            state.currentPostId = post.id;
+            state.postToEdit = post;
+            
+            document.getElementById('post-modal-title').innerText = '비급 수정';
+            document.getElementById('save-post-text').innerText = '수정 완료';
+
+            document.getElementById(`type-${post.type}`).checked = true;
+            togglePostTypeFields(post.type);
+            document.getElementById('new-post-title').value = post.title;
+            document.getElementById('new-post-content').innerHTML = post.content;
+            
+            if (post.type === 'stock') {
+                document.getElementById('stock-input').value = post.stock_id || '';
+            }
+            if (post.type === 'public') {
+                document.getElementById('mu-gong-select').value = post.mugong_id || 'sword';
+            }
+
+            openModal('newPostModal');
+            document.getElementById('new-post-content').focus();
+        }
+
+        // ------------------------------------------------------------------
+        // 7. 댓글 로직
+        // ------------------------------------------------------------------
+
+        async function loadComments(postId) {
+            const { data } = await client.from('comments')
+                .select(`*, profiles:user_id (nickname, post_count, comment_count)`)
+                .eq('post_id', postId)
+                .order('created_at', { ascending: true });
+            renderComments(data || []);
+            setupRealtimeComments(postId);
+        }
+
+        function renderComments(comments) {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
+            comments.forEach(comment => {
+                const author = comment.profiles?.nickname || comment.guest_nickname || '익명';
+                const level = comment.profiles ? calculateLevel(comment.profiles.post_count, comment.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
+
+                const commentEl = document.createElement('div');
+                commentEl.className = 'p-2 rounded-lg bg-gray-700/50';
+                commentEl.innerHTML = `
+                    <p class="text-[10px] text-gray-400 mb-1">
+                        <span class="\( {level.color}"> \){level.name}</span>
+                        <span class="text-yellow-300 font-medium">${author}</span>
+                        <span class="float-right">${new Date(comment.created_at).toLocaleTimeString()}</span>
+                    </p>
+                    <p class="text-xs text-gray-200">${comment.content}</p>
+                `;
+                fragment.appendChild(commentEl);
+            });
+            list.appendChild(fragment);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function addComment() {
+            const postId = state.currentPostId;
+            const input = document.getElementById('comment-input');
+            const content = input.value.trim();
+            if (!content || !postId) {
+                showToast('댓글 내용을 입력해주세요.', 'error');
+                return;
+            }
+
+            const payload = {
+                post_id: postId,
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('comments').insert(payload);
+            if (error) {
+                console.error('댓글 등록 실패:', error);
+                showToast(`댓글 등록 실패: ${error.message}`, 'error');
+            } else {
+                input.value = '';
+                showToast('댓글이 등록되었습니다.', 'success');
+            }
+        }
+
+        function setupRealtimeComments(postId) {
+            const channelKey = `comments_${postId}`;
+            if (state.realtimeChannels[channelKey]) {
+                client.removeChannel(state.realtimeChannels[channelKey]);
+            }
+            const channel = client.channel(channelKey)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
+                    () => loadComments(postId)
+                ).subscribe();
+            state.realtimeChannels[channelKey] = channel;
+        }
+
+        // ------------------------------------------------------------------
+        // 8. 채팅 로직
+        // ------------------------------------------------------------------
+
+        async function loadChat() {
+            const { data } = await client.from('chat_messages')
+                .select(`*, profiles:user_id (nickname)`)
+                .order('created_at', { ascending: false })
+                .limit(50);
+            renderChat(data?.reverse() || []);
+            setupRealtimeChat();
+        }
+
+        function renderChat(messages) {
+            const chatList = document.getElementById('chat-list');
+            chatList.innerHTML = '';
+            
+            const fragment = document.createDocumentFragment();
+            messages.forEach(msg => {
+                const author = msg.profiles?.nickname || msg.guest_nickname || '익명 문도';
+                const msgEl = document.createElement('div');
+                msgEl.className = 'text-xs mb-1';
+                msgEl.innerHTML = `<span class="text-yellow-400 font-medium">\( {author}:</span> <span class="text-gray-300"> \){msg.content}</span>`;
+                fragment.appendChild(msgEl);
+            });
+            chatList.appendChild(fragment);
+            chatList.scrollTop = chatList.scrollHeight;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const content = input.value.trim();
+            if (!content) return;
+
+            const payload = {
+                content: content,
+                user_id: state.user?.id || null,
+                guest_nickname: state.user ? null : state.guestName,
+            };
+
+            const { error } = await client.from('chat_messages').insert(payload);
+            if (error) {
+                console.error('채팅 전송 실패:', error);
+                showToast(`채팅 전송 실패: ${error.message}`, 'error');
+            } else {
+                input.value = '';
+            }
+        }
+        
+        function setupRealtimeChat() {
+             if (state.realtimeChannels['chat']) {
+                client.removeChannel(state.realtimeChannels['chat']);
+            }
+            const channel = client.channel('chat')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, 
+                    () => loadChat()
+                ).subscribe();
+            state.realtimeChannels['chat'] = channel;
+        }
+
+        // ------------------------------------------------------------------
+        // 9. 초기화 및 전역 함수
+        // ------------------------------------------------------------------
+        
+        function resetPostStateAndUI() {
+            state.isEditing = false;
+            state.postToEdit = null;
+            state.currentPostId = null; 
+            uploadedImageUrlsInCurrentPost = [];
+
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('save-post-text').innerText = '등록';
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-content').innerHTML = '';
+            
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.checked = false; 
+            });
+            document.getElementById('type-public').checked = true;
+            togglePostTypeFields('public');
+        }
+
+        function init() {
+            const mugongSel = document.getElementById('mu-gong-select');
+            MU_GONG_TYPES.forEach(m => mugongSel.innerHTML += `<option value="\( {m.id}"> \){m.name}</option>`);
+
+            fetchStockTags();
+            checkSession();
+            navigate('gangho-plaza');
+        }
+
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = function(id) {
+            document.getElementById(id).classList.add('hidden');
+            if (id === 'newPostModal') {
+                resetPostStateAndUI();
+                deleteOrphanedImages(uploadedImageUrlsInCurrentPost);
+            }
+        };
+
+        window.navigate = navigate;
+        window.handleAuth = handleAuth;
+        window.logout = logout;
+        window.sendChat = sendChat;
+        window.addComment = addComment;
+        window.deletePost = deletePost;
+        window.savePost = savePost;
+        window.showDeleteConfirm = showDeleteConfirm; 
+        
+        window.formatDoc = function(cmd, value = null) {
+            document.execCommand(cmd, false, value);
+            document.getElementById('new-post-content').focus();
+        };
+
+        window.tryOpenWriteModal = function(type) {
+            const isGuestPosting = type === 'secret' && !state.user;
+
+            if (!state.user && !isGuestPosting) {
+                showToast('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)', 'error');
+                openModal('authModal');
+                setAuthMode('login'); 
+                return;
+            }
+            
+            resetPostStateAndUI(); 
+
+            document.getElementById(`type-${type}`).checked = true;
+            togglePostTypeFields(type);
+            openModal('newPostModal');
+            
+            if (!state.user) {
+                document.getElementById('type-public').disabled = true;
+                document.getElementById('type-stock').disabled = true;
+                document.getElementById('type-secret').checked = true;
+                document.getElementById('type-secret').disabled = false;
+                togglePostTypeFields('secret');
+                showToast(`암천객잔은 모두에게 열려있습니다. 나그네 닉네임: ${state.guestName}`, 'success');
+            } else {
+                 document.getElementById('type-public').disabled = false;
+                 document.getElementById('type-stock').disabled = false;
+                 document.getElementById('type-secret').disabled = false;
+            }
+
+            if (type === 'stock') {
+                document.getElementById('stock-input').value = state.currentStockName || '';
+            }
+            document.getElementById('new-post-content').focus();
+        };
+
+        window.togglePostTypeFields = (type) => {
+            document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
+            document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+
+            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
+                radio.disabled = state.isEditing || (!state.user && type !== 'secret');
+            });
+        };
+
+        window.handleYouTubeEmbed = window.openYouTubeModal;
+        
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+    <style>
+        body { background-color: #111118; color: #e2e8f0; font-family: 'Inter', sans-serif; }
+        .scroll-hidden::-webkit-scrollbar { display: none; }
+        #new-post-content { 
+            min-height: 150px; 
+            max-height: 40vh; 
+            overflow-y: auto; 
+            padding: 12px; 
+            border: 1px solid #374151; 
+            background-color: #1f2937; 
+            border-radius: 8px; 
+        }
+        #new-post-content:focus { outline: none; }
+        #new-post-content[contenteditable]:empty:before {
+            content: attr(placeholder);
+            color: #6b7280;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .editor-toolbar { background-color: #374151; }
+        #detail-content img { max-width: 100%; height: auto; margin: 0.75rem 0; }
+        #detail-content iframe { max-width: 100%; aspect-ratio: 16/9; }
+        #stock-tabs { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 모달 스크롤 및 버튼 고정 */
+        #newPostModal .bg-[#1a1a2e] {
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #newPostModal .flex.justify-end.gap-2.mt-4 {
+            flex-shrink: 0;
+            margin-top: auto;
+            padding-top: 1rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col relative">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-[#111118]/90 backdrop-blur-md border-b border-gray-800">
+        <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
+            <h1 class="text-xl font-bold italic text-yellow-500 tracking-tighter cursor-pointer" onclick="navigate('gangho-plaza')">千金門</h1>
+            <div id="auth-buttons"></div>
+        </div>
+        <nav class="flex justify-around border-b border-gray-800 bg-[#151520]">
+            <button onclick="navigate('gangho-plaza')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 text-yellow-400 border-yellow-400 transition-colors">강호광장</button>
+            <button onclick="navigate('stock-board')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">종목비급</button>
+            <button onclick="navigate('chat-hall')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">무림채팅</button>
+            <button onclick="navigate('secret-inn')" class="nav-btn flex-1 py-3 text-xs font-medium border-b-2 border-transparent text-gray-500 transition-colors">암천객잔</button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-md mx-auto w-full pb-20 p-4">
+
+        <!-- 1. 강호광장 -->
+        <div id="gangho-plaza" class="app-view">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">강호 광장 (무공 토론)</h2>
+            <div class="space-y-4" id="posts-list-public"></div>
+        </div>
+
+        <!-- 2. 종목비급 -->
+        <div id="stock-board" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">종목 비급 (<span id="current-stock-name">삼성전자</span>)</h2>
+            <div id="stock-tabs" class="flex overflow-x-auto space-x-2 pb-3 scroll-hidden"></div>
+            <div class="space-y-4 mt-4" id="posts-list-stock"></div>
+        </div>
+
+        <!-- 3. 무림 채팅 -->
+        <div id="chat-hall" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">무림 채팅 (실시간 잡담)</h2>
+            <div id="chat-list" class="bg-[#1f2937] p-3 rounded-lg h-[60vh] overflow-y-auto scroll-hidden mb-4 border border-gray-700"></div>
+            <div class="flex gap-2">
+                <input id="chat-input" type="text" placeholder="채팅 입력..." onkeydown="if(event.key==='Enter') sendChat()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
+                <button onclick="sendChat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-500">전송</button>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">* 비로그인 시 임시 닉네임으로 참여합니다.</p>
+        </div>
+
+        <!-- 4. 암천객잔 -->
+        <div id="secret-inn" class="app-view hidden">
+            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글 - 모두가 쓰고 모두가 봅니다)</h2>
+            <div class="space-y-4" id="posts-list-secret"></div>
+        </div>
+
+        <!-- Floating Write Button -->
+        <button onclick="tryOpenWriteModal(document.querySelector('.app-view:not(.hidden)').id === 'secret-inn' ? 'secret' : (document.querySelector('.app-view:not(.hidden)').id === 'stock-board' ? 'stock' : 'public'))" 
+                class="fixed bottom-20 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
+            +
+        </button>
+    </main>
+    
+    <!-- Footer -->
+    <footer class="fixed bottom-0 z-30 w-full bg-[#111118]/90 backdrop-blur-md border-t border-gray-800">
+        <div class="max-w-md mx-auto px-4 py-2 flex justify-between items-center text-[10px] sm:text-xs text-gray-500">
+            <p>&copy; 2024 千金門. All rights reserved.</p>
+            <div class="space-x-3">
+                <span class="hover:text-white cursor-pointer" onclick="openModal('termsModal')">이용 약관</span>
+                <span class="hover:text-white cursor-pointer" onclick="openModal('privacyModal')">개인정보 방침</span>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 p-3 rounded-xl shadow-2xl z-[100] transition duration-300 bg-green-600 text-white font-medium text-sm">
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- Write/Edit Modal -->
+    <div id="newPostModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md p-5 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4"><span id="post-modal-title">비급 작성</span></h3>
+            
+            <div class="flex space-x-3 mb-4 text-sm text-gray-300">
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1" checked>강호광장</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-stock" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
+                <label class="flex items-center"><input type="radio" name="post-type" id="type-secret" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
+            </div>
+
+            <div id="stock-area" class="mb-3 hidden">
+                <label class="text-xs text-gray-400 mb-1 block">종목명</label>
+                <input type="text" id="stock-input" list="stock-options" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm placeholder-gray-500" placeholder="예: 엔비디아, 비트코인...">
+                <datalist id="stock-options"></datalist>
+                <p class="text-[10px] text-green-500 mt-1">* 목록에 없는 종목을 입력하면 새로운 문파(탭)가 창설됩니다.</p>
+            </div>
+
+            <div id="mu-gong-area" class="mb-3">
+                <label class="text-xs text-gray-400 mb-1 block">사용 무공</label>
+                <select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select>
+            </div>
+
+            <input id="new-post-title" type="text" placeholder="제목" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-t-lg mb-0 text-sm">
+            
+            <div class="editor-toolbar flex flex-wrap gap-2 p-2 rounded-b-none border-b border-gray-700">
+                <button onclick="formatDoc('bold')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 font-bold">B</button>
+                <button onclick="formatDoc('italic')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 italic">I</button>
+                <button onclick="formatDoc('underline')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 underline">U</button>
+                <button onclick="formatDoc('insertUnorderedList')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500">UL</button>
+                <button type="button" onclick="document.getElementById('image-upload-input').click()" class="text-white px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 flex items-center">
+                    🖼️ 이미지
+                </button>
+                <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
+                <button onclick="openYouTubeModal()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
+                    ▶️ YouTube
+                </button>
+            </div>
+
+            <div id="new-post-content" contenteditable="true" placeholder="내용을 입력하세요... (마크다운 지원)" 
+                class="w-full text-sm text-gray-200 overflow-y-auto">
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button id="save-post-btn" onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500 transition"><span id="save-post-text">등록</span></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 나머지 모달들 (Post Detail, Auth, Terms, Privacy, Delete Confirm, YouTube) -->
+    <!-- (원본과 동일하게 그대로 포함) -->
+
+    <div id="postDetailModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[80vh] flex flex-col p-0 rounded-2xl border border-gray-600 shadow-2xl overflow-hidden">
+            <div class="p-5 border-b border-gray-800 flex-shrink-0">
+                <h3 id="detail-title" class="text-lg font-bold text-white mb-2"></h3>
+                <div class="flex justify-between items-center text-xs text-gray-500">
+                    <div id="detail-author"></div>
+                    <div class="flex space-x-3 items-center">
+                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs">수정</button>
+                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs">삭제</button>
+                         <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-grow overflow-y-auto p-5 scroll-hidden">
+                <div id="detail-content" class="text-sm text-gray-300"></div>
+            </div>
+            <div class="p-3 bg-[#151520] border-t border-gray-800 flex-shrink-0">
+                <div id="comments-list" class="max-h-32 overflow-y-auto mb-3 space-y-2 scroll-hidden"></div>
+                <div class="flex gap-2">
+                    <input id="comment-input" type="text" placeholder="댓글 입력..." onkeydown="if(event.key==='Enter') addComment()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white">
+                    <button onclick="addComment()" class="bg-gray-700 text-white px-3 py-2 text-xs rounded-lg font-bold hover:bg-gray-600">전송</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <div class="flex border-b border-gray-600 mb-5">
+                <button id="tab-login" class="flex-1 pb-2 border-b-2 border-yellow-500 text-white font-bold transition" onclick="setAuthMode('login')">로그인</button>
+                <button id="tab-signup" class="flex-1 pb-2 border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition" onclick="setAuthMode('signup')">회원가입</button>
+            </div>
+            
+            <input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm focus:border-yellow-500 outline-none transition">
+            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm focus:border-yellow-500 outline-none transition">
+            
+            <div id="signup-fields" class="space-y-3 hidden">
+                <input id="auth-confirm-password" type="password" placeholder="비밀번호 확인" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg text-sm focus:border-yellow-500 outline-none transition">
+                <div class="flex items-start text-xs text-gray-400">
+                    <input type="checkbox" id="auth-terms" class="mt-1 mr-2 accent-yellow-600 w-4 h-4">
+                    <label for="auth-terms" class="leading-relaxed">
+                        <span class="text-red-400 font-bold">*필수: </span> 
+                        <span class="cursor-pointer hover:text-white underline decoration-dashed" onclick="openModal('termsModal')">이용 약관</span> 및 
+                        <span class="cursor-pointer hover:text-white underline decoration-dashed" onclick="openModal('privacyModal')">개인정보 처리 방침</span>에 동의합니다.
+                    </label>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <button id="auth-action-btn" onclick="handleAuth()" class="w-full py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition shadow-lg transform active:scale-95">
+                    입문 (로그인)
+                </button>
+            </div>
+
+            <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
+        </div>
+    </div>
+
+    <div id="termsModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">이용 약관</h3>
+            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
+                <p class="font-bold text-yellow-400">제 1조 (목적)</p>
+                <p>본 약관은 천금문(千金門) 앱(이하 '서비스')의 이용 조건 및 절차에 관한 사항과 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
+                <p class="font-bold text-yellow-400">제 2조 (정의)</p>
+                <p>① 이용자: 본 약관에 따라 서비스를 이용하는 회원 및 비회원.</p>
+                <p>② 회원: 서비스에 회원가입을 한 자로서, 지속적인 정보 제공 및 이용이 가능한 자.</p>
+                <p class="font-bold text-yellow-400">제 3조 (회원가입)</p>
+                <p>① 이용자는 본 약관에 동의함으로써 회원가입을 신청합니다.</p>
+                <p>② 회원은 서비스 이용 시 정확한 정보를 기재해야 하며, 허위 정보 기재로 인한 불이익은 본인에게 있습니다.</p>
+                <p class="font-bold text-yellow-400">제 4조 (서비스 이용 및 제한)</p>
+                <p>서비스는 24시간 연중무휴를 원칙으로 하나, 불법 행위 시 제한될 수 있습니다.</p>
+            </div>
+            <button onclick="closeModal('termsModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
+        </div>
+    </div>
+    
+    <div id="privacyModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">개인정보 처리 방침</h3>
+            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
+                <p class="font-bold text-yellow-400">1. 수집 항목</p>
+                <p>필수: 이메일, 비밀번호. 선택: 닉네임, 활동 기록.</p>
+                <p class="font-bold text-yellow-400">2. 보유 기간</p>
+                <p>회원 탈퇴 시 지체 없이 파기합니다.</p>
+                <p class="font-bold text-yellow-400">3. 제3자 제공</p>
+                <p>법령에 의거하지 않는 한 외부에 제공하지 않습니다.</p>
+            </div>
+            <button onclick="closeModal('privacyModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
+        </div>
+    </div>
+    
+    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-xs p-6 rounded-2xl border border-red-600 shadow-2xl text-center">
+            <h3 class="text-lg font-bold text-red-400 mb-2">🚨 경고: 비급 영구 삭제</h3>
+            <p class="text-sm text-gray-300 mb-3">정말로 아래 비급을 삭제하시겠습니까?</p>
+            <p id="confirm-delete-title" class="text-base font-semibold text-yellow-400 truncate mb-5"></p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="closeModal('deleteConfirmModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="deletePost(state.currentPostId)" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">삭제 확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="youtubeEmbedModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-4">▶️ YouTube 동영상 임베드</h3>
+            <input id="youtube-url-input" type="url" placeholder="YouTube URL (예: https://youtu.be/xxx)" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
+            <div class="flex gap-3 justify-end">
+                <button onclick="closeModal('youtubeEmbedModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
+                <button onclick="handleYouTubeEmbedFromModal()" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">임베드</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
