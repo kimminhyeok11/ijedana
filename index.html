@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>천금문 (千金門) - 단순화 및 고속화 버전</title>
+    <title>천금문 (千金門) - 즉시 갱신 패치</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
@@ -13,18 +13,23 @@
     
     <script>
         // ------------------------------------------------------------------
-        // 1. Supabase 설정 및 초기화
+        // 1. Supabase 설정 (본인의 URL과 키로 교체 필요)
         // ------------------------------------------------------------------
         const SUPABASE_URL = 'https://cpssatqtodlplwgskfin.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNwc3NhdHF0b2RscGx3Z3NrZmluIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Njg5MzUsImV4cCI6MjA4MTE0NDkzNX0.C5_6TRHvyEBbPcO3_FOh_WyMnAkhswOiBqxDUeKrV0I';
         
-        // 중요: Supabase Storage 대시보드에서 버킷 이름이 'images'인지, Public으로 설정되었는지 확인하세요.
+        // Supabase Client 생성
+        let client;
+        try {
+            client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {
+            alert("Supabase 클라이언트 초기화 실패. URL과 키를 확인하세요.");
+        }
+
         const STORAGE_BUCKET = 'images';
 
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
         // ------------------------------------------------------------------
-        // 2. 전역 상태 및 상수
+        // 2. 전역 상태
         // ------------------------------------------------------------------
         let isAuthenticating = false;
         let isSignUpMode = false;
@@ -50,7 +55,7 @@
         ];
         
         // ------------------------------------------------------------------
-        // 3. 유틸리티 및 인증 함수
+        // 3. 유틸리티 및 인증
         // ------------------------------------------------------------------
         
         function isAdmin() {
@@ -86,31 +91,27 @@
             const password = document.getElementById('auth-password').value;
             
             if (!email || !password) {
-                showToast('이메일과 비밀번호를 입력해주세요.', 'error');
+                alert('이메일과 비밀번호를 입력해주세요.');
                 isAuthenticating = false;
                 return;
             }
             
-            if (isSignUpMode) {
-                const confirmPassword = document.getElementById('auth-confirm-password').value;
-                const termsChecked = document.getElementById('auth-terms').checked;
-                
-                if (password !== confirmPassword) {
-                    showToast('비밀번호와 확인 비밀번호가 일치하지 않습니다.', 'error');
-                    isAuthenticating = false;
-                    return;
-                }
-                
-                if (!termsChecked) {
-                    showToast('이용 약관 및 개인정보 처리 방침에 동의해야 합니다.', 'error');
-                    isAuthenticating = false;
-                    return;
-                }
-            }
-
             let error;
             try {
                 if (isSignUpMode) {
+                    const confirmPassword = document.getElementById('auth-confirm-password').value;
+                    const termsChecked = document.getElementById('auth-terms').checked;
+                    
+                    if (password !== confirmPassword) {
+                        alert('비밀번호가 일치하지 않습니다.');
+                        isAuthenticating = false;
+                        return;
+                    }
+                    if (!termsChecked) {
+                        alert('약관에 동의해야 합니다.');
+                        isAuthenticating = false;
+                        return;
+                    }
                     ({ error } = await client.auth.signUp({ email, password }));
                 } else {
                     ({ error } = await client.auth.signInWithPassword({ email, password }));
@@ -120,14 +121,9 @@
             }
 
             if (error) {
-                console.error(`인증 실패: ${error.message}`);
-                showToast(`인증 실패: ${error.message}`, 'error');
+                alert(`인증 실패: ${error.message}`);
             } else {
-                if (isSignUpMode) {
-                    showToast('성공적으로 문파에 등록되었습니다! 이메일을 확인해주세요.', 'success');
-                } else {
-                    showToast('성공적으로 로그인했습니다!', 'success');
-                }
+                showToast(isSignUpMode ? '가입 성공! 이메일을 확인하세요.' : '로그인 성공!', 'success');
                 closeModal('authModal');
                 checkSession();
             }
@@ -152,9 +148,12 @@
         async function updateAuthState(session) {
             state.user = session ? session.user : null;
             if (state.user) {
-                const { data } = await client.from('profiles').select('*').eq('id', state.user.id).single();
-                if (data) state.profile = data;
-                else state.profile = { nickname: '새로운 문도', post_count: 0, comment_count: 0 };
+                let { data, error } = await client.from('profiles').select('*').eq('id', state.user.id).single();
+                if (!data && !error) { 
+                   const { data: newProfile, error: createError } = await client.from('profiles').insert([{ id: state.user.id, nickname: '신입 문도' }]).select().single();
+                   if(newProfile) data = newProfile;
+                }
+                state.profile = data || { nickname: '알 수 없음', post_count: 0, comment_count: 0 };
             } else {
                 state.profile = null;
             }
@@ -191,12 +190,13 @@
         
         function updateHeaderUI() {
             const authContainer = document.getElementById('auth-buttons');
-            if (state.user && state.profile) {
-                const level = calculateLevel(state.profile.post_count, state.profile.comment_count);
+            if (state.user) {
+                const nickname = state.profile?.nickname || '문도';
+                const level = state.profile ? calculateLevel(state.profile.post_count, state.profile.comment_count) : { name: '입문자', color: 'text-gray-400' };
                 authContainer.innerHTML = `
                     <div class="flex items-center space-x-2">
                         <span class="text-xs text-gray-400 hidden sm:inline">레벨: <span class="${level.color} font-bold">${level.name}</span></span>
-                        <span class="text-xs text-gray-400 hidden sm:inline">환영합니다, <span class="text-yellow-400 font-bold">${state.profile.nickname || '문도'}</span>님</span>
+                        <span class="text-xs text-gray-400 hidden sm:inline"><span class="text-yellow-400 font-bold">${nickname}</span>님</span>
                         <button onclick="logout()" class="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded hover:bg-red-900 transition">하산</button>
                     </div>
                 `;
@@ -210,142 +210,23 @@
         }
         
         // ------------------------------------------------------------------
-        // 4. 이미지/미디어 처리 (업로드 및 삭제 개선)
-        // ------------------------------------------------------------------
-
-        async function uploadImage(file, folderPath) {
-            const fileExtension = file.name.split('.').pop();
-            const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExtension}`;
-            const filePath = `${folderPath}/${safeFileName}`;
-            
-            console.log(`업로드 시도: Bucket=${STORAGE_BUCKET}, Path=${filePath}`);
-
-            const { data, error } = await client.storage
-                .from(STORAGE_BUCKET)
-                .upload(filePath, file, { 
-                    cacheControl: '3600',
-                    upsert: false,
-                });
-
-            if (error) {
-                console.error('Supabase Storage Upload Error (상세):', error);
-                throw new Error(error.message);
-            } 
-            
-            const { data: publicUrlData } = client.storage.from(STORAGE_BUCKET).getPublicUrl(data.path);
-            
-            if (!publicUrlData || !publicUrlData.publicUrl) {
-                throw new Error("Public URL 생성 실패");
-            }
-
-            console.log('업로드 성공, URL:', publicUrlData.publicUrl);
-            return publicUrlData.publicUrl;
-        }
-        
-        window.handleImageUpload = async function() {
-            if (!state.user) {
-                showToast('이미지 업로드는 로그인 사용자만 가능합니다.', 'error');
-                return;
-            }
-            
-            const fileInput = document.getElementById('image-upload-input');
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            if (file.size > 5 * 1024 * 1024) {
-                showToast('이미지 크기는 5MB 이하여야 합니다.', 'error');
-                fileInput.value = '';
-                return;
-            }
-
-            const editor = document.getElementById('new-post-content');
-            
-            const loadingId = 'img-loading-' + Date.now();
-            const loadingHtml = `<div id="${loadingId}" class="text-yellow-400 text-xs animate-pulse p-2 border border-yellow-600 rounded inline-block">📸 이미지 업로드 중...</div><br>`;
-            
-            editor.focus();
-            document.execCommand('insertHTML', false, loadingHtml);
-            
-            try {
-                const publicUrl = await uploadImage(file, 'posts');
-                
-                const loadingEl = document.getElementById(loadingId);
-                if (loadingEl) loadingEl.remove();
-
-                const imgTag = `<img src="${publicUrl}" class="max-w-full h-auto rounded-lg shadow-md my-3" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x200/333/F00?text=이미지+권한+없음'; alert('이미지 권한 오류: Supabase Bucket을 Public으로 설정하세요.');"><br>`;
-                
-                document.execCommand('insertHTML', false, imgTag);
-                showToast('이미지 업로드 완료.', 'success');
-                
-            } catch (error) {
-                const loadingEl = document.getElementById(loadingId);
-                if (loadingEl) loadingEl.remove();
-                
-                console.error('이미지 처리 실패:', error);
-                
-                let errorMsg = error.message;
-                if (errorMsg.includes('new row violates row-level security policy') || errorMsg.includes('403')) {
-                    errorMsg = "권한 거부됨 (Supabase Storage RLS 정책을 확인하세요).";
-                }
-                showToast(`업로드 실패: ${errorMsg}`, 'error');
-            } finally {
-                fileInput.value = '';
-            }
-        };
-
-        window.openYouTubeModal = function() {
-            document.getElementById('youtube-url-input').value = '';
-            openModal('youtubeEmbedModal');
-        }
-
-        window.handleYouTubeEmbedFromModal = function() {
-            const url = document.getElementById('youtube-url-input').value.trim();
-            closeModal('youtubeEmbedModal');
-
-            if (!url) return;
-
-            let videoId;
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            if (match && match[2].length === 11) {
-                videoId = match[2];
-            } else {
-                showToast('유효한 YouTube URL이 아닙니다.', 'error');
-                return;
-            }
-
-            const embedHtml = `
-                <div class="my-4 w-full" style="aspect-ratio: 16 / 9;">
-                    <iframe 
-                        src="https://www.youtube.com/embed/${videoId}" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen 
-                        class="rounded-lg shadow-xl w-full h-full"
-                    ></iframe>
-                </div>
-            `;
-            const editor = document.getElementById('new-post-content');
-            document.execCommand('insertHTML', false, embedHtml);
-            showToast('YouTube 동영상 삽입 완료.', 'success');
-        };
-        
-        // ------------------------------------------------------------------
-        // 5. 게시글 CRUD 로직
+        // 4. 게시글 저장 로직
         // ------------------------------------------------------------------
         
         async function savePost() {
             const saveBtn = document.getElementById('save-post-btn');
             saveBtn.disabled = true;
-            saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            saveBtn.innerText = '저장 중...';
 
             try {
-                const type = document.querySelector('input[name="post-type"]:checked').value;
+                const checkedRadio = document.querySelector('input[name="post-type"]:checked');
+                if (!checkedRadio) throw new Error("게시판 종류가 선택되지 않았습니다.");
+                const type = checkedRadio.value;
                 const title = document.getElementById('new-post-title').value;
                 const contentHTML = document.getElementById('new-post-content').innerHTML.replace(/<div id="img-loading-.*?<\/div>/g, '').trim();
 
                 if (!title || !contentHTML) {
-                    showToast('제목과 내용을 모두 입력해야 합니다.', 'error');
+                    alert('제목과 내용을 모두 입력해야 합니다.');
                     return;
                 }
 
@@ -353,36 +234,27 @@
                 const isGuestSecretPost = isGuest && type === 'secret';
                 
                 if (isGuest && !isGuestSecretPost) {
-                    showToast('로그인 후 이용 가능합니다. (암천객잔의 새로운 글만 비로그인 허용)', 'error');
+                    alert('비로그인 사용자는 [암천객잔]에만 글을 쓸 수 있습니다.');
                     return;
                 }
 
                 let stockName = null;
                 if (type === 'stock') {
-                    if (isGuest) {
-                        showToast('종목비급은 로그인 사용자만 작성 가능합니다.', 'error');
-                        return;
-                    }
-                    
                     stockName = document.getElementById('stock-input').value.trim();
                     if (!stockName) {
-                        showToast('종목명을 입력해야 합니다.', 'error');
+                        alert('종목명을 입력해야 합니다.');
                         return;
                     }
-
-                    if (!state.isEditing) {
-                        const { data } = await client.from('stock_tags').select('name').eq('name', stockName);
-                        if (data.length === 0) {
-                            const { error } = await client.from('stock_tags').insert({ name: stockName });
-                            if (error) console.error('태그 생성 실패:', error);
-                            else await fetchStockTags();
-                        }
+                    const { data: existingTags } = await client.from('stock_tags').select('name').eq('name', stockName);
+                    if (!existingTags || existingTags.length === 0) {
+                        const { error: tagError } = await client.from('stock_tags').insert({ name: stockName });
+                        if (tagError) console.warn('태그 생성 실패:', tagError.message);
+                        else await fetchStockTags();
                     }
                 }
 
                 const payload = {
-                    title, content: contentHTML, type, 
-                    stock_id: stockName,
+                    title, content: contentHTML, type, stock_id: stockName,
                     mugong_id: type === 'public' ? document.getElementById('mu-gong-select').value : null,
                 };
 
@@ -390,15 +262,8 @@
                 let successMessage;
                 
                 if (state.isEditing) {
-                    if (isGuest) {
-                        showToast('비로그인 사용자는 글을 수정할 수 없습니다.', 'error');
-                        return;
-                    }
-
-                    const { error: updateError } = await client.from('posts')
-                        .update(payload)
-                        .eq('id', state.currentPostId)
-                        .eq('user_id', state.user.id);
+                    if (!state.user) throw new Error("수정 권한이 없습니다.");
+                    const { error: updateError } = await client.from('posts').update(payload).eq('id', state.currentPostId).eq('user_id', state.user.id);
                     error = updateError;
                     successMessage = '비급이 수정되었습니다.';
                 } else {
@@ -408,19 +273,19 @@
                     } else {
                         payload.user_id = state.user.id;
                     }
-                    
                     const { error: insertError } = await client.from('posts').insert(payload);
                     error = insertError;
                     successMessage = '비급이 기록되었습니다.';
                 }
 
                 if (error) {
-                    console.error(`비급 ${state.isEditing ? '수정' : '등록'} 실패:`, error);
-                    showToast(`비급 등록 실패: ${error.message}`, 'error');
+                    console.error('Save Error:', error);
+                    let msg = error.message;
+                    if (msg.includes('row-level security')) msg = "권한이 없습니다. (RLS 정책 위반)";
+                    alert(`글 저장 실패:\n${msg}`);
                 } else {
                     showToast(successMessage, 'success');
                     closeModal('newPostModal');
-                    
                     if (type === 'stock') {
                         state.currentStockName = stockName; 
                         navigate('stock-board');
@@ -431,125 +296,65 @@
                     }
                 }
             } catch (e) {
-                console.error('글 저장 중 예기치 않은 오류 발생:', e);
-                showToast(`예상치 못한 오류 발생: ${e.message}`, 'error');
+                console.error('Exception:', e);
+                alert(`오류 발생: ${e.message}`);
             } finally {
                 saveBtn.disabled = false;
-                saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                saveBtn.innerText = state.isEditing ? '수정 완료' : '등록';
             }
         }
-        
-        window.showDeleteConfirm = function() {
-            if (!state.currentPostId || !state.postToEdit) return;
-            document.getElementById('confirm-delete-title').innerText = state.postToEdit.title;
-            openModal('deleteConfirmModal');
-        }
 
-        // ------------------------------------------------------------------
-        // [중요 수정] 파일 삭제 로직 개선
-        // ------------------------------------------------------------------
-        window.deletePost = async function(postId) {
-            closeModal('deleteConfirmModal');
-            
-            if (!state.user || !state.postToEdit) {
-                showToast('삭제 권한이 없습니다.', 'error');
+        async function handleImageUpload() {
+            if (!state.user) {
+                alert('이미지 업로드는 로그인 사용자만 가능합니다.');
                 return;
             }
-
-            const post = state.postToEdit;
-            const isAdministrator = isAdmin();
-            const isAuthor = state.user.id === post.user_id;
-            const isSecretPost = post.type === 'secret';
-
-            if (isSecretPost) {
-                if (!isAdministrator) {
-                    showToast('암천객잔의 글은 관리자만 삭제할 수 있습니다.', 'error');
-                    return;
-                }
-            } else {
-                 if (!isAdministrator && !isAuthor) {
-                    showToast('해당 게시글의 원작자 또는 관리자만 삭제할 수 있습니다.', 'error');
-                    return;
-                }
-            }
-
-            const content = post.content;
             
-            // 1. 올바른 경로 추출 로직
-            // 기존에는 .../posts/ 까지 자르고 파일명만 가져와서 문제였습니다. (예: "img.jpg")
-            // Supabase remove 함수는 "posts/img.jpg" 형태의 전체 상대 경로를 원합니다.
-            // 따라서 baseUrl을 버킷 루트까지만 잡습니다.
-            const storageBaseUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/`;
-            const urlRegex = /src="([^"]*?(\.(jpg|jpeg|png|gif|webp|tiff|bmp)))"/gi;
+            const fileInput = document.getElementById('image-upload-input');
+            const file = fileInput.files[0];
+            if (!file) return;
 
-            const filesToDelete = [...content.matchAll(urlRegex)]
-                .map(match => match[1])
-                .filter(url => url.startsWith(storageBaseUrl))
-                .map(url => {
-                    // 전체 URL에서 버킷 URL을 제외한 나머지 부분 (예: posts/파일명.jpg) 추출
-                    const relativePath = url.substring(storageBaseUrl.length);
-                    // URL 디코딩 (한글 파일명 등 처리) 및 쿼리 스트링 제거
-                    return decodeURIComponent(relativePath.split('?')[0]);
-                });
+            const editor = document.getElementById('new-post-content');
+            const loadingId = 'img-loading-' + Date.now();
+            editor.focus();
+            document.execCommand('insertHTML', false, `<div id="${loadingId}" class="text-yellow-400">이미지 업로드 중...</div>`);
+            
+            try {
+                const fileExtension = file.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExtension}`;
+                const filePath = `posts/${fileName}`;
 
-            // 2. 파일 삭제 시도 (DB 삭제 전에 수행)
-            if (filesToDelete.length > 0) {
-                console.log('삭제할 파일 목록:', filesToDelete);
-                
-                const { data, error: storageError } = await client.storage
-                    .from(STORAGE_BUCKET)
-                    .remove(filesToDelete);
+                const { error: uploadError } = await client.storage.from(STORAGE_BUCKET).upload(filePath, file);
+                if (uploadError) throw uploadError;
 
-                if (storageError) {
-                    console.error('Storage 파일 삭제 오류:', storageError);
-                    showToast('첨부 파일 삭제 중 오류가 발생했습니다. (DB 삭제는 진행)', 'error');
-                } else {
-                    console.log('Storage 파일 삭제 성공:', data);
-                }
-            } else {
-                console.log('삭제할 첨부 파일이 없습니다.');
-            }
+                const { data: { publicUrl } } = client.storage.from(STORAGE_BUCKET).getPublicUrl(filePath);
 
-            // 3. DB 게시글 삭제
-            const { error: deleteError } = await client.from('posts').delete().eq('id', postId);
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
 
-            if (deleteError) {
-                console.error('게시글 DB 삭제 오류:', deleteError);
-                showToast(`게시글 삭제 실패: ${deleteError.message}`, 'error');
-            } else {
-                showToast('게시글 및 관련 자료가 삭제되었습니다.', 'success');
-                closeModal('postDetailModal');
-                navigate(document.querySelector('.app-view:not(.hidden)').id);
+                const imgHtml = `<img src="${publicUrl}" class="max-w-full rounded-lg my-2" /><br>`;
+                document.execCommand('insertHTML', false, imgHtml);
+
+            } catch (error) {
+                const loadingEl = document.getElementById(loadingId);
+                if (loadingEl) loadingEl.remove();
+                alert(`이미지 업로드 실패: ${error.message}`);
+            } finally {
+                fileInput.value = '';
             }
         };
         
         // ------------------------------------------------------------------
-        // 6. 뷰 및 네비게이션
+        // 6. 데이터 조회 및 실시간 처리 (핵심 수정)
         // ------------------------------------------------------------------
 
-        function navigate(viewId) {
-            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
-            document.getElementById(viewId).classList.remove('hidden');
-
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('text-yellow-400', 'border-yellow-400');
-                btn.classList.add('text-gray-500', 'border-transparent');
-            });
-            const activeBtn = document.querySelector(`button[onclick="navigate('${viewId}')"]`);
-            if (activeBtn) {
-                activeBtn.classList.replace('text-gray-500', 'text-yellow-400');
-                activeBtn.classList.replace('border-transparent', 'border-yellow-400');
-            }
-
-            if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
-            if (viewId === 'stock-board') {
-                if(state.stockTags.length === 0) fetchStockTags();
-                else renderPosts('posts-list-stock', 'stock', state.currentStockName);
-            }
-            if (viewId === 'secret-inn') renderPosts('posts-list-secret', 'secret');
-            if (viewId === 'chat-hall') loadChat();
+        async function fetchPosts(type, stockName = null) {
+            let query = client.from('posts').select(`*, profiles:user_id (nickname, post_count, comment_count)`).eq('type', type).order('created_at', { ascending: false });
+            if (stockName) query = query.eq('stock_id', stockName);
+            const { data, error } = await query;
+            return data || [];
         }
-
+        
         async function fetchStockTags() {
             const { data } = await client.from('stock_tags').select('name').order('created_at', { ascending: true });
             if (data) {
@@ -559,23 +364,20 @@
             }
         }
 
+        // ------------------------------------------------------------------
+        // UI 렌더링
+        // ------------------------------------------------------------------
         function renderStockTabs() {
             const stockTabs = document.getElementById('stock-tabs');
             stockTabs.innerHTML = '';
-            
             let tagsToRender = [...state.stockTags];
             if (state.currentStockName && !state.stockTags.includes(state.currentStockName)) {
                 tagsToRender = [state.currentStockName, ...state.stockTags];
             }
-
             tagsToRender.forEach(tag => {
                 const btn = document.createElement('button');
                 const isActive = state.currentStockName === tag;
-                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${
-                    isActive 
-                    ? 'bg-green-800 text-white border-green-600 font-bold shadow-md shadow-green-900/50' 
-                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-200'
-                }`;
+                btn.className = `px-3 py-1 rounded-full text-xs whitespace-nowrap transition border ${isActive ? 'bg-green-800 text-white border-green-600 font-bold' : 'bg-gray-800 text-gray-400 border-gray-700'}`;
                 btn.innerText = tag;
                 btn.onclick = () => {
                     state.currentStockName = tag;
@@ -585,35 +387,17 @@
                 };
                 stockTabs.appendChild(btn);
             });
-            stockTabs.scrollLeft = 0;
         }
-
         function renderStockOptions() { 
-            const dataList = document.getElementById('stock-options');
-            dataList.innerHTML = state.stockTags.map(tag => `<option value="${tag}">`).join('');
+            document.getElementById('stock-options').innerHTML = state.stockTags.map(tag => `<option value="${tag}">`).join('');
         }
-        
-        async function fetchPosts(type, stockName = null) {
-            let query = client.from('posts')
-                .select(`*, profiles:user_id (nickname, post_count, comment_count)`) 
-                .eq('type', type)
-                .order('created_at', { ascending: false });
-
-            if (stockName) query = query.eq('stock_id', stockName);
-
-            const { data } = await query;
-            return data || [];
-        }
-
         function createPostElement(post) {
             const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
             const level = post.profiles ? calculateLevel(post.profiles.post_count, post.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
             const mugong = MU_GONG_TYPES.find(m => m.id === post.mugong_id);
-
             const postEl = document.createElement('div');
             postEl.className = 'bg-[#1f2937] p-4 rounded-xl shadow-lg border border-gray-700 hover:border-yellow-600 transition cursor-pointer';
             postEl.onclick = () => openPostDetail(post);
-
             postEl.innerHTML = `
                 <h4 class="text-white font-semibold truncate text-base mb-2">${post.title}</h4>
                 <div class="text-xs text-gray-400 flex justify-between items-center">
@@ -623,347 +407,226 @@
                         ${mugong ? `<span class="px-2 py-0.5 rounded-full text-[10px] bg-gray-700 ${mugong.color}">${mugong.tag}</span>` : ''}
                     </div>
                     <span class="text-gray-500">${new Date(post.created_at).toLocaleDateString()}</span>
-                </div>
-            `;
+                </div>`;
             return postEl;
         }
-
         async function renderPosts(containerId, type, stockName = null) {
             const container = document.getElementById(containerId);
             container.innerHTML = '<div class="text-center text-gray-500 py-10">... 비급을 로딩 중 ...</div>';
-            
             const posts = await fetchPosts(type, stockName);
             container.innerHTML = ''; 
-
             if (posts.length === 0) {
                 container.innerHTML = '<div class="text-center text-gray-500 py-10">아직 등록된 비급이 없습니다. 첫 기록을 남겨보세요.</div>';
                 return;
             }
-
-            const fragment = document.createDocumentFragment();
-            posts.forEach(post => {
-                fragment.appendChild(createPostElement(post));
-            });
-            container.appendChild(fragment);
+            posts.forEach(post => container.appendChild(createPostElement(post)));
         }
 
+        // ------------------------------------------------------------------
+        // 상세, 댓글, 채팅 로직 (수정됨)
+        // ------------------------------------------------------------------
+        
         window.openPostDetail = async function(post) {
             state.currentPostId = post.id;
             state.postToEdit = post;
             const modal = document.getElementById('postDetailModal');
             document.getElementById('detail-title').innerText = post.title;
             document.getElementById('detail-content').innerHTML = post.content;
+            document.getElementById('detail-author').innerText = post.profiles?.nickname || post.guest_nickname || '익명';
             
-            const author = post.profiles?.nickname || post.guest_nickname || '익명 문도';
-            document.getElementById('detail-author').innerText = author;
-            
-            const isAdministrator = isAdmin();
             const isAuthor = state.user?.id === post.user_id; 
             const isSecretPost = post.type === 'secret';
-            
-            let canDelete;
-            if (isSecretPost) {
-                canDelete = isAdministrator;
-            } else {
-                canDelete = isAuthor || isAdministrator;
-            }
+            const canDelete = isAuthor || isAdmin();
 
             document.getElementById('edit-post-btn').classList.toggle('hidden', !isAuthor);
             document.getElementById('delete-post-btn').classList.toggle('hidden', !canDelete);
             
-            document.getElementById('delete-post-btn').onclick = () => showDeleteConfirm(); 
-            document.getElementById('edit-post-btn').onclick = () => openPostEditModal(post);
+            const delBtn = document.getElementById('delete-post-btn');
+            const editBtn = document.getElementById('edit-post-btn');
+            delBtn.onclick = () => { if(confirm("정말 삭제하시겠습니까?")) deletePost(post.id); };
+            editBtn.onclick = () => openPostEditModal(post);
             
-            loadComments(post.id);
             modal.classList.remove('hidden');
+
+            // 댓글 로드 및 실시간 구독 시작
+            loadComments(post.id);
+            setupRealtime('comments', `post_id=eq.${post.id}`, () => loadComments(post.id));
+        }
+
+        window.deletePost = async function(postId) {
+            const { error } = await client.from('posts').delete().eq('id', postId);
+            if (error) alert("삭제 실패: " + error.message);
+            else {
+                showToast("삭제되었습니다.");
+                closeModal('postDetailModal');
+                navigate(document.querySelector('.app-view:not(.hidden)').id);
+            }
         }
         
-        window.openPostEditModal = function(post) {
-            if (!state.user || state.user.id !== post.user_id) {
-                showToast('수정 권한이 없습니다. 비로그인 글이거나 작성자가 아닙니다.', 'error');
-                return;
-            }
-            closeModal('postDetailModal');
-            
-            state.isEditing = true;
-            state.currentPostId = post.id;
-            state.postToEdit = post;
-            
-            document.getElementById('post-modal-title').innerText = '비급 수정';
-            document.getElementById('save-post-text').innerText = '수정 완료';
-
-            document.getElementById(`type-${post.type}`).checked = true;
-            togglePostTypeFields(post.type);
-            document.getElementById('new-post-title').value = post.title;
-            document.getElementById('new-post-content').innerHTML = post.content;
-            
-            if (post.type === 'stock') {
-                document.getElementById('stock-input').value = post.stock_id;
-            }
-            if (post.type === 'public') {
-                document.getElementById('mu-gong-select').value = post.mugong_id;
-            }
-
-            openModal('newPostModal');
-            document.getElementById('new-post-content').focus();
-        }
-
-
-        // ------------------------------------------------------------------
-        // 7. 댓글 로직 (실시간 유지)
-        // ------------------------------------------------------------------
-
         async function loadComments(postId) {
-            const { data } = await client.from('comments')
-                .select(`*, profiles:user_id (nickname, post_count, comment_count)`)
-                .eq('post_id', postId)
-                .order('created_at', { ascending: true });
-            renderComments(data || []);
-            setupRealtimeComments(postId);
-        }
-
-        function renderComments(comments) {
+            const { data } = await client.from('comments').select(`*, profiles:user_id (nickname)`).eq('post_id', postId).order('created_at');
             const list = document.getElementById('comments-list');
             list.innerHTML = '';
-            
-            const fragment = document.createDocumentFragment();
-            comments.forEach(comment => {
-                const author = comment.profiles?.nickname || comment.guest_nickname || '익명';
-                const level = comment.profiles ? calculateLevel(comment.profiles.post_count, comment.profiles.comment_count) : { name: '입문자', color: 'text-gray-500' };
-
-                const commentEl = document.createElement('div');
-                commentEl.className = 'p-2 rounded-lg bg-gray-700/50';
-                commentEl.innerHTML = `
-                    <p class="text-[10px] text-gray-400 mb-1">
-                        <span class="${level.color}">${level.name}</span>
-                        <span class="text-yellow-300 font-medium">${author}</span>
-                        <span class="float-right">${new Date(comment.created_at).toLocaleTimeString()}</span>
-                    </p>
-                    <p class="text-xs text-gray-200">${comment.content}</p>
-                `;
-                fragment.appendChild(commentEl);
+            (data||[]).forEach(c => {
+                const author = c.profiles?.nickname || c.guest_nickname || '익명';
+                list.innerHTML += `<div class="bg-gray-700/50 p-2 rounded mb-1"><span class="text-yellow-300 text-xs">${author}</span> <span class="text-gray-200 text-xs">${c.content}</span></div>`;
             });
-            list.appendChild(fragment);
             list.scrollTop = list.scrollHeight;
         }
 
         async function addComment() {
-            const postId = state.currentPostId;
-            const input = document.getElementById('comment-input');
-            const content = input.value.trim();
-            if (!content || !postId) {
-                showToast('댓글 내용을 입력해주세요.', 'error');
-                return;
-            }
-
-            const payload = {
-                post_id: postId,
-                content: content,
+            const content = document.getElementById('comment-input').value;
+            if(!content) return;
+            const { error } = await client.from('comments').insert({
+                post_id: state.currentPostId,
+                content,
                 user_id: state.user?.id || null,
-                guest_nickname: state.user ? null : state.guestName,
-            };
-
-            const { error } = await client.from('comments').insert(payload);
-            if (error) {
-                console.error('댓글 등록 실패:', error);
-                showToast(`댓글 등록 실패: ${error.message}`, 'error');
-            } else {
-                input.value = '';
-                showToast('댓글이 등록되었습니다.', 'success');
+                guest_nickname: state.user ? null : state.guestName
+            });
+            if(error) alert("댓글 실패: " + error.message);
+            else {
+                document.getElementById('comment-input').value = '';
+                // [중요] 즉시 갱신
+                loadComments(state.currentPostId);
             }
         }
-
-        function setupRealtimeComments(postId) {
-            const channelKey = `comments_${postId}`;
-            if (state.realtimeChannels[channelKey]) {
-                client.removeChannel(state.realtimeChannels[channelKey]);
-            }
-            const channel = client.channel(channelKey)
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'comments', filter: `post_id=eq.${postId}` }, 
-                    () => loadComments(postId)
-                ).subscribe();
-            state.realtimeChannels[channelKey] = channel;
-        }
-
-        // ------------------------------------------------------------------
-        // 8. 채팅 로직 (실시간 유지)
-        // ------------------------------------------------------------------
 
         async function loadChat() {
-            const { data } = await client.from('chat_messages')
-                .select(`*, profiles:user_id (nickname)`)
-                .order('created_at', { ascending: false })
-                .limit(50);
-            renderChat(data.reverse() || []);
-            setupRealtimeChat();
-        }
-
-        function renderChat(messages) {
-            const chatList = document.getElementById('chat-list');
-            chatList.innerHTML = '';
-            
-            const fragment = document.createDocumentFragment();
-            messages.forEach(msg => {
-                const author = msg.profiles?.nickname || msg.guest_nickname || '익명 문도';
-                const msgEl = document.createElement('div');
-                msgEl.className = 'text-xs mb-1';
-                msgEl.innerHTML = `<span class="text-yellow-400 font-medium">${author}:</span> <span class="text-gray-300">${msg.content}</span>`;
-                fragment.appendChild(msgEl);
+            const { data } = await client.from('chat_messages').select(`*, profiles:user_id (nickname)`).order('created_at', {ascending:false}).limit(50);
+            const list = document.getElementById('chat-list');
+            list.innerHTML = '';
+            (data||[]).reverse().forEach(m => {
+                const author = m.profiles?.nickname || m.guest_nickname || '익명';
+                list.innerHTML += `<div class="mb-1"><span class="text-yellow-400 font-bold text-xs">${author}:</span> <span class="text-gray-300 text-xs">${m.content}</span></div>`;
             });
-            chatList.appendChild(fragment);
-            chatList.scrollTop = chatList.scrollHeight;
+            list.scrollTop = list.scrollHeight;
         }
 
         async function sendChat() {
-            const input = document.getElementById('chat-input');
-            const content = input.value.trim();
-            if (!content) return;
-
-            const payload = {
-                content: content,
-                user_id: state.user?.id || null,
-                guest_nickname: state.user ? null : state.guestName,
-            };
-
-            const { error } = await client.from('chat_messages').insert(payload);
-            if (error) {
-                console.error('채팅 전송 실패:', error);
-                showToast(`채팅 전송 실패: ${error.message}`, 'error');
-            } else {
-                input.value = '';
-            }
-        }
-        
-        function setupRealtimeChat() {
-             if (state.realtimeChannels['chat']) {
-                client.removeChannel(state.realtimeChannels['chat']);
-            }
-            const channel = client.channel('chat')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, 
-                    () => loadChat()
-                ).subscribe();
-            state.realtimeChannels['chat'] = channel;
-        }
-
-
-        // ------------------------------------------------------------------
-        // 9. 초기화 및 전역 함수 등록
-        // ------------------------------------------------------------------
-        
-        function resetPostStateAndUI() {
-            state.isEditing = false;
-            state.postToEdit = null;
-            state.currentPostId = null; 
-
-            document.getElementById('post-modal-title').innerText = '비급 작성';
-            document.getElementById('save-post-text').innerText = '등록';
-            document.getElementById('new-post-title').value = '';
-            document.getElementById('new-post-content').innerHTML = '';
-            
-            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
-                radio.disabled = false;
-                radio.checked = false; 
+            const content = document.getElementById('chat-input').value;
+            if(!content) return;
+            await client.from('chat_messages').insert({
+                content, user_id: state.user?.id || null, guest_nickname: state.user ? null : state.guestName
             });
-            document.getElementById('type-public').checked = true;
-            togglePostTypeFields('public');
+            document.getElementById('chat-input').value = '';
+            // [중요] 즉시 갱신
+            loadChat();
         }
 
-        function init() {
-            const mugongSel = document.getElementById('mu-gong-select');
-            MU_GONG_TYPES.forEach(m => mugongSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+        function setupRealtime(table, filter, callback) {
+            const key = table + (filter || '');
+            // 이미 구독중이면 중복 구독 방지 (끊지 않음)
+            if(state.realtimeChannels[key]) return; 
 
+            state.realtimeChannels[key] = client.channel(key)
+                .on('postgres_changes', { event: '*', schema: 'public', table, filter }, callback)
+                .subscribe();
+        }
+
+        // 초기화 및 네비게이션
+        function init() {
+            MU_GONG_TYPES.forEach(m => document.getElementById('mu-gong-select').innerHTML += `<option value="${m.id}">${m.name}</option>`);
             fetchStockTags();
             checkSession();
             navigate('gangho-plaza');
         }
 
-        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
-        window.closeModal = (id) => {
-            document.getElementById(id).classList.add('hidden');
-            if (id === 'newPostModal') {
-                resetPostStateAndUI();
+        window.navigate = function(viewId) {
+            document.querySelectorAll('.app-view').forEach(el => el.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.replace('text-yellow-400','text-gray-500'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.replace('border-yellow-400','border-transparent'));
+            
+            const activeBtn = document.querySelector(`button[onclick="navigate('${viewId}')"]`);
+            if(activeBtn) {
+                activeBtn.classList.replace('text-gray-500','text-yellow-400');
+                activeBtn.classList.replace('border-transparent','border-yellow-400');
+            }
+
+            if (viewId === 'gangho-plaza') renderPosts('posts-list-public', 'public');
+            if (viewId === 'stock-board') {
+                 if(state.stockTags.length === 0) fetchStockTags();
+                 else renderPosts('posts-list-stock', 'stock', state.currentStockName);
+            }
+            if (viewId === 'secret-inn') renderPosts('posts-list-secret', 'secret');
+            if (viewId === 'chat-hall') {
+                loadChat();
+                // 채팅 페이지 진입 시 실시간 연결
+                setupRealtime('chat_messages', null, loadChat);
             }
         };
-        window.navigate = navigate;
+
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
         window.handleAuth = handleAuth;
         window.logout = logout;
-        window.sendChat = sendChat;
-        window.addComment = addComment;
-        window.deletePost = deletePost;
         window.savePost = savePost;
-        window.showDeleteConfirm = showDeleteConfirm; 
+        window.handleImageUpload = handleImageUpload;
+        window.formatDoc = (cmd) => document.execCommand(cmd, false, null);
         
-        window.formatDoc = function(cmd, value = null) {
-            document.execCommand(cmd, false, value);
-            document.getElementById('new-post-content').focus();
-        };
-
         window.tryOpenWriteModal = function(type) {
-            const isGuestPosting = type === 'secret' && !state.user;
+            document.getElementById('post-modal-title').innerText = '비급 작성';
+            document.getElementById('new-post-title').value = '';
+            document.getElementById('new-post-content').innerHTML = '';
+            state.isEditing = false;
+            state.postToEdit = null;
+            state.currentPostId = null;
 
-            if (!state.user && !isGuestPosting) {
-                showToast('비급 기록은 로그인 사용자만 가능합니다. (암천객잔의 새로운 글 제외)', 'error');
+            if (!state.user && type !== 'secret') {
+                alert('로그인이 필요한 공간입니다.');
                 openModal('authModal');
-                setAuthMode('login'); 
                 return;
             }
-            
-            resetPostStateAndUI(); 
 
-            document.getElementById(`type-${type}`).checked = true;
-            togglePostTypeFields(type);
+            const radios = document.getElementsByName('post-type');
+            for(let r of radios) { 
+                r.checked = (r.value === type); 
+                r.disabled = (!state.user && r.value !== 'secret'); 
+            }
+            
+            document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
+            document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+            
+            if (type === 'stock') document.getElementById('stock-input').value = state.currentStockName;
+            
             openModal('newPostModal');
-            
-            if (!state.user) {
-                document.getElementById('type-public').disabled = true;
-                document.getElementById('type-stock').disabled = true;
-                document.getElementById('type-secret').checked = true;
-                document.getElementById('type-secret').disabled = false;
-                togglePostTypeFields('secret');
-                showToast(`암천객잔은 모두에게 열려있습니다. 나그네 닉네임: ${state.guestName}`, 'success');
-            } else {
-                 document.getElementById('type-public').disabled = false;
-                 document.getElementById('type-stock').disabled = false;
-                 document.getElementById('type-secret').disabled = false;
-            }
-
-            if (type === 'stock') {
-                document.getElementById('stock-input').value = state.currentStockName;
-            }
-             document.getElementById('new-post-content').focus();
-        };
-
+        }
+        
         window.togglePostTypeFields = (type) => {
             document.getElementById('mu-gong-area').classList.toggle('hidden', type !== 'public');
             document.getElementById('stock-area').classList.toggle('hidden', type !== 'stock');
+        }
 
-            document.querySelectorAll('input[name="post-type"]').forEach(radio => {
-                radio.disabled = state.isEditing || (!state.user && type !== 'secret');
-            });
-            if (!state.user) {
-                 document.getElementById('type-secret').disabled = false;
-            }
-        };
+        window.openPostEditModal = function(post) {
+            state.isEditing = true;
+            state.currentPostId = post.id;
+            state.postToEdit = post;
+            
+            document.getElementById('post-modal-title').innerText = '비급 수정';
+            document.getElementById('new-post-title').value = post.title;
+            document.getElementById('new-post-content').innerHTML = post.content;
+            
+            const radios = document.getElementsByName('post-type');
+            for(let r of radios) r.checked = (r.value === post.type);
+            togglePostTypeFields(post.type);
+            
+            if(post.type === 'stock') document.getElementById('stock-input').value = post.stock_id;
+            
+            closeModal('postDetailModal');
+            openModal('newPostModal');
+        }
 
-        window.handleYouTubeEmbed = window.openYouTubeModal;
-        
         document.addEventListener('DOMContentLoaded', init);
     </script>
     <style>
         body { background-color: #111118; color: #e2e8f0; font-family: 'Inter', sans-serif; }
         .scroll-hidden::-webkit-scrollbar { display: none; }
         #new-post-content { min-height: 150px; padding: 12px; border: 1px solid #374151; background-color: #1f2937; border-radius: 0 0 8px 8px; }
-        #new-post-content:focus { outline: none; }
-        #new-post-content[contenteditable]:empty:before {
-            content: attr(placeholder);
-            color: #6b7280;
-            opacity: 0.6;
-            pointer-events: none;
-        }
+        #new-post-content:focus { outline: none; border-color: #ca8a04; }
+        #new-post-content[contenteditable]:empty:before { content: attr(placeholder); color: #6b7280; }
         .editor-toolbar { background-color: #374151; }
-        #detail-content img { max-width: 100%; height: auto; margin: 0.75rem 0; }
-        #detail-content iframe { max-width: 100%; height: auto; }
-        #stock-tabs { -ms-overflow-style: none; scrollbar-width: none; }
+        #detail-content img { max-width: 100%; height: auto; border-radius: 8px; }
+        #detail-content iframe { max-width: 100%; aspect-ratio: 16/9; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col relative">
@@ -983,237 +646,52 @@
     </header>
 
     <main class="flex-grow max-w-md mx-auto w-full pb-20 p-4">
-
-        <!-- 1. 강호광장 (Public Posts) -->
-        <div id="gangho-plaza" class="app-view">
-            <h2 class="text-xl font-bold text-white mb-4 mt-2">강호 광장 (무공 토론)</h2>
-            <div class="space-y-4" id="posts-list-public"></div>
-        </div>
-
-        <!-- 2. 종목비급 (Stock Posts) -->
+        <!-- 뷰 영역 -->
+        <div id="gangho-plaza" class="app-view"><h2 class="text-xl font-bold text-white mb-4">강호 광장</h2><div class="space-y-4" id="posts-list-public"></div></div>
         <div id="stock-board" class="app-view hidden">
-            <h2 class="text-xl font-bold text-white mb-4 mt-2">종목 비급 (<span id="current-stock-name">삼성전자</span>)</h2>
+            <h2 class="text-xl font-bold text-white mb-2">종목 비급 (<span id="current-stock-name">삼성전자</span>)</h2>
             <div id="stock-tabs" class="flex overflow-x-auto space-x-2 pb-3 scroll-hidden"></div>
             <div class="space-y-4 mt-4" id="posts-list-stock"></div>
         </div>
-
-        <!-- 3. 무림 채팅 (Chat) -->
         <div id="chat-hall" class="app-view hidden">
-            <h2 class="text-xl font-bold text-white mb-4 mt-2">무림 채팅 (실시간 잡담)</h2>
+            <h2 class="text-xl font-bold text-white mb-4">무림 채팅</h2>
             <div id="chat-list" class="bg-[#1f2937] p-3 rounded-lg h-[60vh] overflow-y-auto scroll-hidden mb-4 border border-gray-700"></div>
-            <div class="flex gap-2">
-                <input id="chat-input" type="text" placeholder="채팅 입력..." onkeydown="if(event.key==='Enter') sendChat()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white">
-                <button onclick="sendChat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-500">전송</button>
-            </div>
-            <p class="text-xs text-gray-500 mt-2">* 비로그인 시 임시 닉네임으로 참여합니다.</p>
+            <div class="flex gap-2"><input id="chat-input" type="text" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white" onkeydown="if(event.key==='Enter') sendChat()"><button onclick="sendChat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold">전송</button></div>
         </div>
-
-        <!-- 4. 암천객잔 (Secret Posts) -->
-        <div id="secret-inn" class="app-view hidden">
-            <h2 class="text-xl font-bold text-white mb-4 mt-2">암천 객잔 (비밀 글 - 모두가 쓰고 모두가 봅니다)</h2>
-            <div class="space-y-4" id="posts-list-secret"></div>
-        </div>
+        <div id="secret-inn" class="app-view hidden"><h2 class="text-xl font-bold text-white mb-4">암천 객잔 (익명)</h2><div class="space-y-4" id="posts-list-secret"></div></div>
 
         <!-- Floating Write Button -->
-        <button onclick="tryOpenWriteModal(document.querySelector('.app-view:not(.hidden)').id === 'secret-inn' ? 'secret' : 'public')" 
-                class="fixed bottom-20 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">
-            +
-        </button>
+        <button onclick="tryOpenWriteModal(document.querySelector('.app-view:not(.hidden)').id === 'secret-inn' ? 'secret' : 'public')" class="fixed bottom-20 right-6 w-12 h-12 bg-yellow-600 text-white rounded-full shadow-2xl flex items-center justify-center text-2xl font-bold hover:bg-yellow-500 transition z-50">+</button>
     </main>
-    
-    <!-- Footer -->
-    <footer class="fixed bottom-0 z-30 w-full bg-[#111118]/90 backdrop-blur-md border-t border-gray-800">
-        <div class="max-w-md mx-auto px-4 py-2 flex justify-between items-center text-[10px] sm:text-xs text-gray-500">
-            <p>&copy; 2024 千金門. All rights reserved.</p>
-            <div class="space-x-3">
-                <span class="hover:text-white cursor-pointer" onclick="openModal('termsModal')">이용 약관</span>
-                <span class="hover:text-white cursor-pointer" onclick="openModal('privacyModal')">개인정보 방침</span>
-            </div>
-        </div>
-    </footer>
-    
-    <!-- Toast Notification -->
-    <div id="toast-notification" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 p-3 rounded-xl shadow-2xl z-[100] transition duration-300 bg-green-600 text-white font-medium text-sm">
-        <span id="toast-message"></span>
-    </div>
 
-    <!-- ------------------------------------------------------------------ -->
     <!-- Modals -->
-    <!-- ------------------------------------------------------------------ -->
-
-    <!-- Write/Edit Modal -->
+    <!-- Write Modal -->
     <div id="newPostModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#1a1a2e] w-full max-w-md p-5 rounded-2xl border border-gray-600 shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-4"><span id="post-modal-title">비급 작성</span></h3>
-            
             <div class="flex space-x-3 mb-4 text-sm text-gray-300">
-                <label class="flex items-center"><input type="radio" name="post-type" id="type-public" value="public" onchange="togglePostTypeFields('public')" class="mr-1" checked>강호광장</label>
-                <label class="flex items-center"><input type="radio" name="post-type" id="type-stock" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
-                <label class="flex items-center"><input type="radio" name="post-type" id="type-secret" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
+                <label><input type="radio" name="post-type" value="public" onchange="togglePostTypeFields('public')" class="mr-1">강호광장</label>
+                <label><input type="radio" name="post-type" value="stock" onchange="togglePostTypeFields('stock')" class="mr-1">종목비급</label>
+                <label><input type="radio" name="post-type" value="secret" onchange="togglePostTypeFields('secret')" class="mr-1">암천객잔</label>
             </div>
-
-            <div id="stock-area" class="mb-3 hidden">
-                <label class="text-xs text-gray-400 mb-1 block">종목명</label>
-                <input type="text" id="stock-input" list="stock-options" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm placeholder-gray-500" placeholder="예: 엔비디아, 비트코인...">
-                <datalist id="stock-options"></datalist>
-                <p class="text-[10px] text-green-500 mt-1">* 목록에 없는 종목을 입력하면 새로운 문파(탭)가 창설됩니다.</p>
-            </div>
-
-            <div id="mu-gong-area" class="mb-3">
-                <label class="text-xs text-gray-400 mb-1 block">사용 무공</label>
-                <select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select>
-            </div>
-
+            <div id="stock-area" class="mb-3 hidden"><input type="text" id="stock-input" list="stock-options" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm" placeholder="종목명"><datalist id="stock-options"></datalist></div>
+            <div id="mu-gong-area" class="mb-3"><select id="mu-gong-select" class="w-full bg-gray-800 border border-gray-700 text-white p-2 rounded text-sm"></select></div>
             <input id="new-post-title" type="text" placeholder="제목" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-t-lg mb-0 text-sm">
-            
-            <div class="editor-toolbar flex flex-wrap gap-2 p-2 rounded-b-none border-b border-gray-700">
-                <button onclick="formatDoc('bold')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 font-bold">B</button>
-                <button onclick="formatDoc('italic')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 italic">I</button>
-                <button onclick="formatDoc('underline')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500 underline">U</button>
-                <button onclick="formatDoc('insertUnorderedList')" class="text-white px-2 py-1 text-xs rounded bg-gray-600 hover:bg-gray-500">UL</button>
-                <label for="image-upload-input" class="text-white px-2 py-1 text-xs rounded bg-green-700 hover:bg-green-600 cursor-pointer flex items-center">
-                    🖼️ 이미지
-                </label>
-                <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload()">
-                <button onclick="openYouTubeModal()" class="text-white px-2 py-1 text-xs rounded bg-red-700 hover:bg-red-600 flex items-center">
-                    ▶️ YouTube
-                </button>
+            <div class="editor-toolbar flex gap-2 p-2 bg-gray-700 border-b border-gray-600">
+                <button onclick="formatDoc('bold')" class="text-white text-xs px-2 bg-gray-600 rounded">B</button>
+                <label class="text-white text-xs px-2 bg-green-700 rounded cursor-pointer">IMG<input type="file" id="image-upload-input" class="hidden" onchange="handleImageUpload()"></label>
             </div>
-
-            <div id="new-post-content" contenteditable="true" placeholder="내용을 입력하세요..." 
-                class="w-full text-sm text-gray-200 overflow-y-auto">
-            </div>
-
-            <div class="flex justify-end gap-2 mt-4">
-                <button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <button id="save-post-btn" onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded-lg text-white font-bold hover:bg-blue-500 transition"><span id="save-post-text">등록</span></button>
-            </div>
+            <div id="new-post-content" contenteditable="true" placeholder="내용..." class="w-full text-sm text-gray-200 h-40 overflow-y-auto"></div>
+            <div class="flex justify-end gap-2 mt-4"><button onclick="closeModal('newPostModal')" class="px-4 py-2 text-sm bg-gray-700 rounded text-gray-300">취소</button><button id="save-post-btn" onclick="savePost()" class="px-4 py-2 text-sm bg-blue-600 rounded text-white font-bold">등록</button></div>
         </div>
     </div>
     
-    <!-- Post Detail Modal -->
-    <div id="postDetailModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-md h-[80vh] flex flex-col p-0 rounded-2xl border border-gray-600 shadow-2xl overflow-hidden">
-            <div class="p-5 border-b border-gray-800 flex-shrink-0">
-                <h3 id="detail-title" class="text-lg font-bold text-white mb-2"></h3>
-                <div class="flex justify-between items-center text-xs text-gray-500">
-                    <div id="detail-author"></div>
-                    <div class="flex space-x-3 items-center">
-                         <button id="edit-post-btn" class="hidden text-cyan-400 hover:text-cyan-300 font-bold text-xs">수정</button>
-                         <button id="delete-post-btn" class="hidden text-red-500 hover:text-red-400 font-bold text-xs">삭제</button>
-                         <button onclick="closeModal('postDetailModal')" class="text-gray-400 hover:text-white">✕</button>
-                    </div>
-                </div>
-            </div>
-            <div class="flex-grow overflow-y-auto p-5 scroll-hidden">
-                <div id="detail-content" class="text-sm text-gray-300 post-content-style"></div>
-            </div>
-            <div class="p-3 bg-[#151520] border-t border-gray-800 flex-shrink-0">
-                <div id="comments-list" class="max-h-32 overflow-y-auto mb-3 space-y-2 scroll-hidden"></div>
-                <div class="flex gap-2">
-                    <input id="comment-input" type="text" placeholder="댓글 입력..." onkeydown="if(event.key==='Enter') addComment()" class="flex-grow bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white">
-                    <button onclick="addComment()" class="bg-gray-700 text-white px-3 py-2 text-xs rounded-lg font-bold hover:bg-gray-600">전송</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Auth Modal -->
-    <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
-            <!-- 탭 네비게이션 -->
-            <div class="flex border-b border-gray-600 mb-5">
-                <button id="tab-login" class="flex-1 pb-2 border-b-2 border-yellow-500 text-white font-bold transition" onclick="setAuthMode('login')">로그인</button>
-                <button id="tab-signup" class="flex-1 pb-2 border-b-2 border-transparent text-gray-500 hover:text-gray-300 transition" onclick="setAuthMode('signup')">회원가입</button>
-            </div>
-            
-            <input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm focus:border-yellow-500 outline-none transition">
-            <input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-3 text-sm focus:border-yellow-500 outline-none transition">
-            
-            <!-- 회원가입 전용 필드 -->
-            <div id="signup-fields" class="space-y-3 hidden">
-                <input id="auth-confirm-password" type="password" placeholder="비밀번호 확인" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg text-sm focus:border-yellow-500 outline-none transition">
-                <div class="flex items-start text-xs text-gray-400">
-                    <input type="checkbox" id="auth-terms" class="mt-1 mr-2 accent-yellow-600 w-4 h-4">
-                    <label for="auth-terms" class="leading-relaxed">
-                        <span class="text-red-400 font-bold">*필수: </span> 
-                        <span class="cursor-pointer hover:text-white underline decoration-dashed" onclick="openModal('termsModal')">이용 약관</span> 및 
-                        <span class="cursor-pointer hover:text-white underline decoration-dashed" onclick="openModal('privacyModal')">개인정보 처리 방침</span>에 동의합니다.
-                    </label>
-                </div>
-            </div>
-            
-            <!-- 통합 실행 버튼 -->
-            <div class="mt-6">
-                <button id="auth-action-btn" onclick="handleAuth()" class="w-full py-3 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 transition shadow-lg transform active:scale-95">
-                    입문 (로그인)
-                </button>
-            </div>
+    <!-- Auth/Detail Modals -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"><div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600"><div class="flex border-b border-gray-600 mb-5"><button id="tab-login" class="flex-1 pb-2 border-b-2 border-yellow-500 text-white" onclick="setAuthMode('login')">로그인</button><button id="tab-signup" class="flex-1 pb-2 text-gray-500" onclick="setAuthMode('signup')">회원가입</button></div><input id="auth-email" type="email" placeholder="이메일" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded mb-3"><input id="auth-password" type="password" placeholder="비밀번호" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded mb-3"><div id="signup-fields" class="hidden"><input id="auth-confirm-password" type="password" placeholder="비밀번호 확인" class="w-full bg-gray-800 text-white p-3 rounded mb-3"><label class="text-xs text-gray-400"><input type="checkbox" id="auth-terms"> 약관 동의</label></div><button id="auth-action-btn" onclick="handleAuth()" class="w-full mt-4 py-3 bg-yellow-600 text-white rounded font-bold">로그인</button><p onclick="closeModal('authModal')" class="text-center text-gray-500 text-xs mt-3 cursor-pointer">닫기</p></div></div>
 
-            <p onclick="closeModal('authModal')" class="text-xs text-gray-500 mt-5 text-center cursor-pointer hover:text-gray-300">잠시 둘러보기 (창 닫기)</p>
-        </div>
-    </div>
+    <div id="postDetailModal" class="hidden fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"><div class="bg-[#1a1a2e] w-full max-w-md h-[80vh] flex flex-col rounded-2xl border border-gray-600"><div class="p-4 border-b border-gray-700"><h3 id="detail-title" class="text-lg font-bold text-white"></h3><div class="flex justify-between text-xs text-gray-400"><span id="detail-author"></span><div><button id="edit-post-btn" class="hidden mr-2 text-cyan-400">수정</button><button id="delete-post-btn" class="hidden mr-2 text-red-400">삭제</button><button onclick="closeModal('postDetailModal')">닫기</button></div></div></div><div class="flex-grow overflow-y-auto p-4 text-sm text-gray-300" id="detail-content"></div><div class="p-3 bg-gray-800"><div id="comments-list" class="max-h-32 overflow-y-auto mb-2"></div><div class="flex gap-2"><input id="comment-input" type="text" class="flex-grow bg-gray-700 text-white text-xs p-2 rounded" onkeydown="if(event.key==='Enter') addComment()"><button onclick="addComment()" class="bg-gray-600 text-white px-3 text-xs rounded">등록</button></div></div></div></div>
 
-    <!-- Terms Modal -->
-    <div id="termsModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
-            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">이용 약관</h3>
-            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
-                <p class="font-bold text-yellow-400">제 1조 (목적)</p>
-                <p>본 약관은 천금문(千金門) 앱(이하 '서비스')의 이용 조건 및 절차에 관한 사항과 기타 필요한 사항을 규정함을 목적으로 합니다.</p>
-                <p class="font-bold text-yellow-400">제 2조 (정의)</p>
-                <p>① 이용자: 본 약관에 따라 서비스를 이용하는 회원 및 비회원.</p>
-                <p>② 회원: 서비스에 회원가입을 한 자로서, 지속적인 정보 제공 및 이용이 가능한 자.</p>
-                <p class="font-bold text-yellow-400">제 3조 (회원가입)</p>
-                <p>① 이용자는 본 약관에 동의함으로써 회원가입을 신청합니다.</p>
-                <p>② 회원은 서비스 이용 시 정확한 정보를 기재해야 하며, 허위 정보 기재로 인한 불이익은 본인에게 있습니다.</p>
-                <p class="font-bold text-yellow-400">제 4조 (서비스 이용 및 제한)</p>
-                <p>서비스는 24시간 연중무휴를 원칙으로 하나, 불법 행위 시 제한될 수 있습니다.</p>
-            </div>
-            <button onclick="closeModal('termsModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
-        </div>
-    </div>
-    
-    <!-- Privacy Modal -->
-    <div id="privacyModal" class="hidden fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-md h-[90vh] flex flex-col p-6 rounded-2xl border border-gray-600 shadow-2xl">
-            <h3 class="text-xl font-bold text-white mb-4 flex-shrink-0">개인정보 처리 방침</h3>
-            <div class="flex-grow overflow-y-auto p-3 bg-gray-800 rounded-lg text-sm text-gray-300 space-y-3">
-                <p class="font-bold text-yellow-400">1. 수집 항목</p>
-                <p>필수: 이메일, 비밀번호. 선택: 닉네임, 활동 기록.</p>
-                <p class="font-bold text-yellow-400">2. 보유 기간</p>
-                <p>회원 탈퇴 시 지체 없이 파기합니다.</p>
-                <p class="font-bold text-yellow-400">3. 제3자 제공</p>
-                <p>법령에 의거하지 않는 한 외부에 제공하지 않습니다.</p>
-            </div>
-            <button onclick="closeModal('privacyModal')" class="mt-4 px-4 py-2 text-sm bg-yellow-600 rounded-lg text-white font-bold hover:bg-yellow-500 flex-shrink-0">닫기</button>
-        </div>
-    </div>
-    
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteConfirmModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-xs p-6 rounded-2xl border border-red-600 shadow-2xl text-center">
-            <h3 class="text-lg font-bold text-red-400 mb-2">🚨 경고: 비급 영구 삭제</h3>
-            <p class="text-sm text-gray-300 mb-3">정말로 아래 비급을 삭제하시겠습니까?</p>
-            <p id="confirm-delete-title" class="text-base font-semibold text-yellow-400 truncate mb-5"></p>
-            <div class="flex gap-3 justify-center">
-                <button onclick="closeModal('deleteConfirmModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <button onclick="deletePost(state.currentPostId)" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">삭제 확인</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- YouTube Embed Input Modal -->
-    <div id="youtubeEmbedModal" class="hidden fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-[#1a1a2e] w-full max-w-sm p-6 rounded-2xl border border-gray-600 shadow-2xl">
-            <h3 class="text-lg font-bold text-white mb-4">▶️ YouTube 동영상 임베드</h3>
-            <input id="youtube-url-input" type="url" placeholder="YouTube URL (예: https://youtu.be/xxx)" class="w-full bg-gray-800 border border-gray-700 text-white p-3 rounded-lg mb-5 text-sm">
-            <div class="flex gap-3 justify-end">
-                <button onclick="closeModal('youtubeEmbedModal')" class="px-4 py-2 text-sm bg-gray-700 rounded-lg text-gray-300">취소</button>
-                <button onclick="handleYouTubeEmbedFromModal()" class="px-4 py-2 text-sm bg-red-600 rounded-lg text-white font-bold hover:bg-red-500">임베드</button>
-            </div>
-        </div>
-    </div>
+    <div id="toast-notification" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 p-3 rounded bg-green-600 text-white text-sm"><span id="toast-message"></span></div>
 </body>
 </html>
 
